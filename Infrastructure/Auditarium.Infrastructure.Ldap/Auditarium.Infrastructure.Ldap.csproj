@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../../Core/Auditarium.Bll/Auditarium.Bll.csproj" /></ItemGroup>
+  <PropertyGroup><Description>Future LDAP adapter; intentionally empty in work package 1.</Description></PropertyGroup>
+</Project>

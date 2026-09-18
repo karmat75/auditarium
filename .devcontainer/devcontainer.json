@@ -1,0 +1,16 @@
+{
+  "name": "Auditarium (.NET 10)",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "postCreateCommand": "dotnet restore Auditarium.sln --locked-mode"
+}

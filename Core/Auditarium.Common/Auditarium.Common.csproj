@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><Description>Shared, technically neutral Auditarium building blocks.</Description></PropertyGroup>
+</Project>

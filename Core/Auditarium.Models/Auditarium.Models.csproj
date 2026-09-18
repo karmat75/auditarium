@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><Description>Persistence-neutral Auditarium entities and domain enums.</Description></PropertyGroup>
+</Project>

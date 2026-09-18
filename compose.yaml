@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+services:
+  workspace:
+    build:
+      context: .
+      target: development
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:cached
+      - nuget-packages:/root/.nuget/packages
+
+  api:
+    build:
+      context: .
+      target: api
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "8081:8080"
+
+volumes:
+  nuget-packages:
