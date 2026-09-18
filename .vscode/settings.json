@@ -1,3 +1,19 @@
 {
-    "dotnet.defaultSolution": "Auditarium.sln"
+  "csharp.experimental.debug.hotReload": true,
+  "csharp.debug.hotReloadOnSave": true,
+  "dotnet.defaultSolution": "Auditarium.sln",
+  "dev.containers.defaultExtensions": [
+    "ms-dotnettools.csdevkit",
+    "ms-azuretools.vscode-docker",
+    "openai.chatgpt",
+    "vscode-icons-team.vscode-icons",
+    "editorconfig.editorconfig",
+    "mhutchie.git-graph",
+    "oderwat.indent-rainbow",
+    "yzhang.markdown-all-in-one",
+    "esbenp.prettier-vscod",
+    "mechatroner.rainbow-csv",
+    "rangav.vscode-thunder-client",
+    "gruntfuggly.todo-tree"
+  ]
 }
