@@ -99,7 +99,7 @@ automatisch geöffnet.
 Für den referenzierten lokalen Containerbetrieb:
 
 ```sh
-docker compose up --build api web
+docker compose up --build auditarium web
 ```
 
 Danach sind die Hosts erreichbar unter:
@@ -109,6 +109,12 @@ Danach sind die Hosts erreichbar unter:
 | Web | <http://localhost:8081> |
 | API | <http://localhost:8080> |
 | API-Status | <http://localhost:8080/api/v1/system/status> |
+
+Das bei einer frischen Installation erzeugte temporäre Initial-Credential ist ausschließlich im API-Container-Log sichtbar:
+
+```sh
+docker compose logs auditarium
+```
 
 Beide Hosts stellen diese Betriebsendpunkte bereit:
 
@@ -157,3 +163,41 @@ enthält [CONTRIBUTING.md](CONTRIBUTING.md).
 Auditarium steht unter der [MIT-Lizenz](LICENSE). Hinweise zu verwendeten
 Drittanbieterkomponenten und ihren Lizenzen befinden sich in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Datenbank-Bootstrap und Recovery
+
+Der Datenbankprovider wird ausschließlich extern konfiguriert. Erlaubte Werte
+sind `PostgreSQL` und `SqlServer`:
+
+```text
+AUDITARIUM__Database__Provider=PostgreSQL
+AUDITARIUM__Database__ConnectionString=...
+AUDITARIUM__Database__BootstrapTimeoutSeconds=180
+AUDITARIUM__DataProtection__KeyRingPath=/persisted/auditarium-keys
+AUDITARIUM__DataProtection__ApplicationName=Auditarium
+```
+
+Der Keyring muss persistent sein und bei mehreren Instanzen gemeinsam erreichbar
+bleiben. Niemals den Keyring in `application_settings` oder zusammen mit seinem
+Schutz-Secret speichern.
+
+Jeder Start wendet zunächst die Migrationen an und erwirbt anschließend einen
+installationsweiten Datenbank-Lock für Bootstrap und Reconcile. Weitere
+Instanzen warten höchstens bis `BootstrapTimeoutSeconds`; bei Timeout, Fehler
+oder Prozessabbruch wird kein Normalbetrieb freigegeben. PostgreSQL verwendet
+einen sessiongebundenen Advisory Lock, SQL Server `sp_getapplock`; das Schließen
+der Datenbankverbindung gibt beide Sperren zuverlässig frei.
+
+### Default-Administrator wiederherstellen
+
+1. Alle Auditarium-Instanzen anhalten.
+2. Für genau eine Instanz `AUDITARIUM__Recovery__Enabled=true` und
+   `AUDITARIUM__Recovery__DefaultAdminPassword=<temporäres Passwort>` setzen.
+3. Ausschließlich diese Instanz starten. Sie stellt nur `/recovery` sowie die
+   technischen Health-Endpunkte bereit; UI, API und Jobs bleiben gesperrt.
+4. Die Recovery-Instanz beenden, beide Recovery-Variablen entfernen und erst
+   dann die gewünschte Anzahl normaler Instanzen starten.
+
+Das Recovery-Passwort ist ein temporäres LOCAL-Credential. Beim nächsten
+normalen Login muss es geändert werden. Es darf nicht in Dateien, Datenbank,
+Logs oder Telemetrie abgelegt werden.

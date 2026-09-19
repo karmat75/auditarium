@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll;
+using Auditarium.Dal;
+using Auditarium.Infrastructure.Security;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -7,6 +9,8 @@ using OpenTelemetry.Trace;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuditariumBll();
+builder.Services.AddAuditariumPersistence(builder.Configuration);
+builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumAnonymousActor();
 builder.Services.AddRazorPages();
 builder.Services.AddHealthChecks()
@@ -29,6 +33,8 @@ builder.Services.AddOpenTelemetry()
     });
 
 var app = builder.Build();
+await app.Services.InitializeAuditariumDatabaseAsync();
+var recoveryMode = builder.Configuration.GetValue<bool>("Auditarium:Recovery:Enabled");
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -43,5 +49,10 @@ app.UseRouting();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = registration => registration.Tags.Contains("ready") });
 app.MapPrometheusScrapingEndpoint("/metrics");
+if (recoveryMode)
+{
+    app.MapGet("/recovery", () => Results.Content("<main><h1>Auditarium Recovery-Modus</h1><p>Der Normalbetrieb ist gesperrt. Beenden Sie diese einzelne Recovery-Instanz nach Abschluss und entfernen Sie die Recovery-Konfiguration.</p></main>", "text/html; charset=utf-8"));
+    app.Run();
+}
 app.MapRazorPages();
 app.Run();

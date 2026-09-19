@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MsSql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Persistence/Auditarium.Dal/Auditarium.Dal.csproj" />
+    <ProjectReference Include="../../Persistence/Auditarium.Dal.PostgreSql.Migrations/Auditarium.Dal.PostgreSql.Migrations.csproj" />
+    <ProjectReference Include="../../Persistence/Auditarium.Dal.SqlServer.Migrations/Auditarium.Dal.SqlServer.Migrations.csproj" />
+  </ItemGroup>
+</Project>

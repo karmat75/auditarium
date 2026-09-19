@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
     <ProjectReference Include="../../Core/Auditarium.Bll/Auditarium.Bll.csproj" />
+    <ProjectReference Include="../../Persistence/Auditarium.Dal/Auditarium.Dal.csproj" />
+    <ProjectReference Include="../../Persistence/Auditarium.Dal.PostgreSql.Migrations/Auditarium.Dal.PostgreSql.Migrations.csproj" />
+    <ProjectReference Include="../../Persistence/Auditarium.Dal.SqlServer.Migrations/Auditarium.Dal.SqlServer.Migrations.csproj" />
+    <ProjectReference Include="../../Infrastructure/Auditarium.Infrastructure.Security/Auditarium.Infrastructure.Security.csproj" />
     <ProjectReference Include="../../Core/Auditarium.Common/Auditarium.Common.csproj" />
   </ItemGroup>
   <ItemGroup>

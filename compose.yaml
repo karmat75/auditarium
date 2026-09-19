@@ -6,16 +6,39 @@ services:
       target: development
     command: sleep infinity
     working_dir: /workspace
+    # Keep files produced through the bind mount owned by the host developer.
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      HOME: /tmp
+      NUGET_PACKAGES: /tmp/.nuget/packages
     volumes:
       - .:/workspace:cached
-      - nuget-packages:/root/.nuget/packages
 
-  api:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: auditarium
+      POSTGRES_USER: auditarium
+      POSTGRES_PASSWORD: auditarium-development-only
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  auditarium:
     build:
       context: .
       target: api
     ports:
       - "8080:8080"
+    environment:
+      AUDITARIUM__Database__Provider: PostgreSQL
+      AUDITARIUM__Database__ConnectionString: Host=postgres;Database=auditarium;Username=auditarium;Password=auditarium-development-only
+      AUDITARIUM__Database__BootstrapTimeoutSeconds: "180"
+      AUDITARIUM__DataProtection__KeyRingPath: /var/lib/auditarium/keys
+      AUDITARIUM__DataProtection__ApplicationName: Auditarium
+    volumes:
+      - data-protection-keys:/var/lib/auditarium/keys
+    depends_on:
+      - postgres
 
   web:
     build:
@@ -23,6 +46,17 @@ services:
       target: web
     ports:
       - "8081:8080"
+    environment:
+      AUDITARIUM__Database__Provider: PostgreSQL
+      AUDITARIUM__Database__ConnectionString: Host=postgres;Database=auditarium;Username=auditarium;Password=auditarium-development-only
+      AUDITARIUM__Database__BootstrapTimeoutSeconds: "180"
+      AUDITARIUM__DataProtection__KeyRingPath: /var/lib/auditarium/keys
+      AUDITARIUM__DataProtection__ApplicationName: Auditarium
+    volumes:
+      - data-protection-keys:/var/lib/auditarium/keys
+    depends_on:
+      - postgres
 
 volumes:
-  nuget-packages:
+  postgres-data:
+  data-protection-keys:

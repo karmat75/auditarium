@@ -11,6 +11,7 @@
     </PackageReference>
     <PackageReference Include="Mediator.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="OpenTelemetry.Api" />
   </ItemGroup>
 </Project>

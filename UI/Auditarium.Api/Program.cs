@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 using System.Diagnostics;
 using Auditarium.Bll;
+using Auditarium.Dal;
+using Auditarium.Infrastructure.Security;
 using Auditarium.Bll.Features.System.GetHostStatus;
 using Auditarium.Common.Results;
 using Microsoft.AspNetCore.Diagnostics;
@@ -12,6 +14,8 @@ using OpenTelemetry.Trace;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuditariumBll();
+builder.Services.AddAuditariumPersistence(builder.Configuration);
+builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumAnonymousActor();
 builder.Services.AddHealthChecks()
     .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"]);
@@ -35,6 +39,8 @@ builder.Services.AddOpenTelemetry()
     });
 
 var app = builder.Build();
+await app.Services.InitializeAuditariumDatabaseAsync();
+var recoveryMode = builder.Configuration.GetValue<bool>("Auditarium:Recovery:Enabled");
 
 if (app.Environment.IsDevelopment())
 {
@@ -45,6 +51,11 @@ app.UseExceptionHandler();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = registration => registration.Tags.Contains("ready") });
 app.MapPrometheusScrapingEndpoint("/metrics");
+if (recoveryMode)
+{
+    app.MapGet("/recovery", () => Results.Ok(new { status = "recovery", message = "Auditarium befindet sich im Recovery-Modus. Normalbetrieb ist gesperrt." }));
+    app.Run();
+}
 app.MapGet("/api/v1/system/status", async (Mediator.IMediator mediator, CancellationToken cancellationToken) =>
 {
     var result = await mediator.Send(new GetHostStatusQuery(), cancellationToken);

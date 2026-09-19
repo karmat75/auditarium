@@ -1,6 +1,6 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.110  
+**Version:** 0.111  
 **Stand:** 18.09.2026  
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
@@ -2390,7 +2390,7 @@ Die Wartezeit ist begrenzt. Bei Zeitüberschreitung, fehlgeschlagenem Erwerb des
 
 Nach einem Prozessabbruch darf keine dauerhaft verwaiste Sperre zurückbleiben. Ein nachfolgender Versuch prüft den tatsächlich vorhandenen Datenbankzustand erneut; nicht abgeschlossene Bootstrap-Änderungen unterliegen dem transaktionalen Rollback.
 
-Die konkrete technische Umsetzung und die Wartezeit werden im Persistenz-Arbeitspaket festgelegt. Eine Einbindung in geschützte EF-Core-Initialisierung oder eine separate Datenbanksperre ist zulässig, sofern die gesamte Bootstrap-/Reconcile-Phase einschließlich ihrer Transaktion geschützt ist. Zusätzliche Infrastruktur-Dienste oder ein allgemeines Cluster-Subsystem werden dafür nicht eingeführt.
+Die konkrete technische Umsetzung verwendet den EF-Core-Initialisierungsschutz. Die begrenzte Wartezeit ist ein nicht UI-editierbarer Betreiberwert aus Config oder Environment; ihr initialer Default beträgt 180 Sekunden. Eine Einbindung in geschützte EF-Core-Initialisierung oder eine separate Datenbanksperre ist zulässig, sofern die gesamte Bootstrap-/Reconcile-Phase einschließlich ihrer Transaktion geschützt ist. Zusätzliche Infrastruktur-Dienste oder ein allgemeines Cluster-Subsystem werden dafür nicht eingeführt.
 
 ## Reconcile-Verhalten
 
@@ -3614,7 +3614,7 @@ Die Ausgabe enthält mindestens:
 ```text
 Auditarium – Initial Administrator Credential
 
-Username:         <initial username>
+Username:         Administrator
 Initial password: <generated temporary password>
 
 This is a temporary credential.
@@ -11856,6 +11856,14 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.111
+
+Die Entscheidungen für Work Package 2 wurden verbindlich festgelegt:
+
+- Der installationsweite Bootstrap-/Reconcile-Schutz verwendet den EF-Core-Initialisierungsschutz. Der nicht UI-editierbare Betreiberwert `Auditarium:Database:BootstrapTimeoutSeconds` hat initial 180 Sekunden und kann über Config oder Environment angepasst werden.
+- Der Default-Administrator erhält den initialen Benutzernamen `Administrator`; technisch wird er kanonisch als `administrator` gespeichert.
+
 
 ## Änderungen in Version 0.110
 
