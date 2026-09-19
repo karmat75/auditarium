@@ -442,7 +442,7 @@
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
           "Microsoft.EntityFrameworkCore": "[10.0.12, )",
-          "OpenTelemetry.Api": "[1.18.0, )"
+          "OpenTelemetry.Api": "[1.19.0, )"
         }
       },
       "auditarium.common": {
@@ -535,9 +535,9 @@
       },
       "OpenTelemetry.Api": {
         "type": "CentralTransitive",
-        "requested": "[1.18.0, )",
-        "resolved": "1.18.0",
-        "contentHash": "Dhzm5oughIY9EWckt2J1yXcEbXpki5WCL2q7prJoYxzH6C7jdkfGtPMTkUVZZ4AhjJKzQnlC+kLSIlmIVwC4Vw=="
+        "requested": "[1.19.0, )",
+        "resolved": "1.19.0",
+        "contentHash": "ZupI0cvo9Jyk2IwLLMrXQm3PvX67tCBIiFws5fslm2Xw7gYctq5wZiGPS+mKmMususAAE9+jyv5Jp7ADxdZDJw=="
       }
     }
   }
