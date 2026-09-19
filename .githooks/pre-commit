@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# SPDX-License-Identifier: MIT
+
+set -eu
+
+repository_dir=$(git rev-parse --show-toplevel)
+cd "$repository_dir"
+
+exec sh scripts/verify-format.sh

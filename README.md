@@ -174,6 +174,20 @@ dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 dotnet format Auditarium.sln --verify-no-changes --no-restore
 ```
 
+Damit ein Commit bereits bei einer nicht formatierten Änderung abgebrochen
+wird, die versionierten Repository-Hooks einmal pro lokaler Clone aktivieren:
+
+```sh
+sh scripts/setup-git-hooks.sh
+```
+
+Der Pre-Commit-Hook führt dieselbe Formatprüfung wie die CI aus und stellt
+Abhängigkeiten bei Bedarf wieder her. Er verwendet den lokal installierten
+.NET SDK oder, falls dieser nicht vorhanden ist, das offizielle .NET-SDK-
+Docker-Image. Git aktiviert Hooks aus Sicherheitsgründen nicht automatisch
+beim Klonen; die CI bleibt der verbindliche Schutz, da Hooks mit
+`git commit --no-verify` umgangen werden können.
+
 Die verbindlichen Editor- und Zeilenendekonventionen stehen in
 [.editorconfig](.editorconfig) und [.gitattributes](.gitattributes).
 Hinweise zu Branches, Pull Requests, lokalen Secrets und dem Entwicklungsablauf
