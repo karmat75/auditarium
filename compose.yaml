@@ -6,8 +6,6 @@ services:
       target: development
     command: sleep infinity
     working_dir: /workspace
-    # Keep files produced through the bind mount owned by the host developer.
-    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     environment:
       HOME: /tmp
       NUGET_PACKAGES: /tmp/.nuget/packages

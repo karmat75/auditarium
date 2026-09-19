@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+#
+# Linux hosts need an explicit UID/GID mapping for files written through the
+# workspace bind mount. Invoke Compose through scripts/compose.sh so the local
+# .env file is maintained and this override is included automatically.
+services:
+  workspace:
+    user: "${LOCAL_UID:?Run 'sh scripts/compose.sh'}:${LOCAL_GID:?Run 'sh scripts/compose.sh'}"

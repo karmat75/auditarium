@@ -96,6 +96,27 @@ automatisch geöffnet.
 
 ## Lokaler Containerbetrieb
 
+Für den `workspace`-Entwicklungscontainer auf einem Linux-Host steht ein
+Compose-Wrapper bereit:
+
+```sh
+sh scripts/compose.sh up --build workspace
+```
+
+Der Wrapper erstellt oder ergänzt automatisch die nicht versionierte Datei
+`.env` um die UID und GID des jeweiligen Host-Benutzers, lädt die Linux-spezifische
+Compose-Ergänzung und führt dann den übergebenen `docker compose`-Befehl aus.
+Dadurch gehören Dateien, die der Container im
+eingebundenen Repository erzeugt, dem richtigen Entwickler – unabhängig von
+dessen Benutzername oder UID. Die Datei darf nicht ins Repository committed
+werden.
+
+Unter macOS und Windows genügt der normale `docker compose`-Befehl. Docker
+Desktop virtualisiert dort die eingebundenen Host-Dateisysteme; eine Linux-
+UID/GID-Abbildung ist weder sinnvoll noch notwendig. Wer unter Windows in WSL
+entwickelt, verwendet den Linux-Wrapper und legt das Repository im
+WSL-Dateisystem ab.
+
 Für den referenzierten lokalen Containerbetrieb:
 
 ```sh
