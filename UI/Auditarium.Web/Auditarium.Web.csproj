@@ -5,6 +5,7 @@
     <ProjectReference Include="../../Persistence/Auditarium.Dal.PostgreSql.Migrations/Auditarium.Dal.PostgreSql.Migrations.csproj" />
     <ProjectReference Include="../../Persistence/Auditarium.Dal.SqlServer.Migrations/Auditarium.Dal.SqlServer.Migrations.csproj" />
     <ProjectReference Include="../../Infrastructure/Auditarium.Infrastructure.Security/Auditarium.Infrastructure.Security.csproj" />
+    <ProjectReference Include="../../Infrastructure/Auditarium.Infrastructure.Ldap/Auditarium.Infrastructure.Ldap.csproj" />
     <ProjectReference Include="../../Core/Auditarium.Common/Auditarium.Common.csproj" />
   </ItemGroup>
   <ItemGroup>

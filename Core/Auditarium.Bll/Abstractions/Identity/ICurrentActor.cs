@@ -6,4 +6,5 @@ public interface ICurrentActor
     ActorType Type { get; }
     long? UserId { get; }
     bool IsAuthenticated { get; }
+    bool MustChangePassword => false;
 }

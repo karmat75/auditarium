@@ -23,6 +23,62 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Auditarium.Models.Identity.ApiCredential", b =>
+                {
+                    b.Property<long>("ApiCredentialId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("api_credential_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ApiCredentialId"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("expires_at");
+
+                    b.Property<long>("IdentityId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("identity_id");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("key_id");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("SecretHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("secret_hash");
+
+                    b.HasKey("ApiCredentialId");
+
+                    b.HasIndex("IdentityId");
+
+                    b.HasIndex("KeyId")
+                        .IsUnique();
+
+                    b.ToTable("api_credentials", "auditarium");
+                });
+
             modelBuilder.Entity("Auditarium.Models.Identity.ApplicationSetting", b =>
                 {
                     b.Property<string>("SettingKey")
@@ -313,6 +369,17 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("user_roles", "auditarium");
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Identity.ApiCredential", b =>
+                {
+                    b.HasOne("Auditarium.Models.Identity.UserIdentity", "Identity")
+                        .WithMany()
+                        .HasForeignKey("IdentityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Identity");
                 });
 
             modelBuilder.Entity("Auditarium.Models.Identity.LocalCredential", b =>

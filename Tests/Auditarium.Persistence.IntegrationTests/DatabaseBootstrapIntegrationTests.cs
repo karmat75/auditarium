@@ -187,9 +187,9 @@ public sealed class DatabaseBootstrapIntegrationTests
         Assert.Equal(0, system.UserId);
         Assert.False(system.IsActive);
         Assert.Equal(21, await db.Permissions.CountAsync());
-        Assert.Equal(5, await db.Roles.CountAsync());
+        Assert.Equal(6, await db.Roles.CountAsync());
         var systemAdmin = await db.Roles.SingleAsync(role => role.RoleKey == "SYSTEM_ADMIN");
-        Assert.Equal(21, await db.RolePermissions.CountAsync(x => x.RoleId == systemAdmin.RoleId));
+        Assert.Equal(5, await db.RolePermissions.CountAsync(x => x.RoleId == systemAdmin.RoleId));
     }
 
     private static async Task VerifyCancelledLockWaitAsync(string provider, string connectionString)

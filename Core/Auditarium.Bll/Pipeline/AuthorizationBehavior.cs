@@ -28,7 +28,12 @@ public sealed class AuthorizationBehavior<TMessage, TResponse>(ICurrentActor cur
             return ResultFactory.Failure<TResponse>(new AppError("AUTHORIZATION.SECURITY_DECLARATION_REQUIRED", ErrorType.Forbidden));
         }
 
-        if (!currentActor.IsAuthenticated || currentActor.UserId is null)
+        if (currentActor.Type == ActorType.User && currentActor.MustChangePassword)
+        {
+            return ResultFactory.Failure<TResponse>(new AppError("AUTHENTICATION.PASSWORD_CHANGE_REQUIRED", ErrorType.Forbidden));
+        }
+
+        if ((currentActor.Type != ActorType.System && !currentActor.IsAuthenticated) || currentActor.UserId is null)
         {
             return ResultFactory.Failure<TResponse>(new AppError("AUTHENTICATION.REQUIRED", ErrorType.Unauthorized));
         }

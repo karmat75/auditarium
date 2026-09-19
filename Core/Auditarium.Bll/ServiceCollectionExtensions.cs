@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
         public ActorType Type => ActorType.Anonymous;
         public long? UserId => null;
         public bool IsAuthenticated => false;
+        public bool MustChangePassword => false;
     }
 
     private sealed class DenyAllPermissionEvaluator : IPermissionEvaluator

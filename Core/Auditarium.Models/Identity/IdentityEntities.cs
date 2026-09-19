@@ -42,6 +42,19 @@ public sealed class LocalCredential
     public DateTimeOffset? LockoutUntil { get; set; }
     public UserIdentity? Identity { get; set; }
 }
+public sealed class ApiCredential
+{
+    public long ApiCredentialId { get; set; }
+    public long IdentityId { get; set; }
+    public required string KeyId { get; set; }
+    public required string SecretHash { get; set; }
+    public required string Name { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
+    public DateTimeOffset? RevokedAt { get; set; }
+    public DateTimeOffset? LastUsedAt { get; set; }
+    public UserIdentity? Identity { get; set; }
+}
 public sealed class Permission { public required string PermissionKey { get; set; } public required string Description { get; set; } public bool IsActive { get; set; } = true; }
 public sealed class Role { public long RoleId { get; set; } public string? RoleKey { get; set; } public required string Name { get; set; } public required string Description { get; set; } public bool IsActive { get; set; } = true; public long ConcurrencyVersion { get; set; } = 1; }
 public sealed class RolePermission { public long RoleId { get; set; } public required string PermissionKey { get; set; } }

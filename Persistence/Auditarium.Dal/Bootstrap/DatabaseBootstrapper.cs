@@ -19,6 +19,10 @@ internal sealed class DatabaseBootstrapper(AuditariumDbContext db, IPasswordHash
         await ProviderAsync("API", "API", "API", ct);
         await ReconcilePermissionsAsync(ct);
         await ReconcileRolesAsync(ct);
+        var internalRole = await db.Roles.SingleAsync(role => role.RoleKey == "SYSTEM_INTERNAL", ct);
+        // EF treats key value 0 as temporary for an added dependent. Insert the reserved actor mapping directly.
+        if (!await db.UserRoles.AnyAsync(x => x.UserId == 0 && x.RoleId == internalRole.RoleId, ct))
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO auditarium.user_roles (user_id, role_id) VALUES ({0L}, {internalRole.RoleId})", ct);
         var systemAdmin = await db.Roles.SingleAsync(role => role.RoleKey == "SYSTEM_ADMIN", ct);
         var admin = await AdminAsync(local, ct);
         if (!await db.UserRoles.AnyAsync(x => x.UserId == admin.UserId && x.RoleId == systemAdmin.RoleId, ct)) db.UserRoles.Add(new UserRole { UserId = admin.UserId, RoleId = systemAdmin.RoleId });

@@ -6,10 +6,12 @@
     <PackageReference Include="xunit.runner.visualstudio"><PrivateAssets>all</PrivateAssets></PackageReference>
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="Testcontainers" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../Persistence/Auditarium.Dal/Auditarium.Dal.csproj" />
     <ProjectReference Include="../../Persistence/Auditarium.Dal.PostgreSql.Migrations/Auditarium.Dal.PostgreSql.Migrations.csproj" />
     <ProjectReference Include="../../Persistence/Auditarium.Dal.SqlServer.Migrations/Auditarium.Dal.SqlServer.Migrations.csproj" />
+    <ProjectReference Include="../../Infrastructure/Auditarium.Infrastructure.Ldap/Auditarium.Infrastructure.Ldap.csproj" />
   </ItemGroup>
 </Project>

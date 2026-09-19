@@ -9,6 +9,7 @@ public interface IAuditariumDbContext
     DbSet<AuthenticationProvider> AuthenticationProviders { get; }
     DbSet<UserIdentity> UserIdentities { get; }
     DbSet<LocalCredential> LocalCredentials { get; }
+    DbSet<ApiCredential> ApiCredentials { get; }
     DbSet<Permission> Permissions { get; }
     DbSet<Role> Roles { get; }
     DbSet<RolePermission> RolePermissions { get; }

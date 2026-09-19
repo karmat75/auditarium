@@ -5,6 +5,8 @@ using Auditarium.Dal.Settings;
 using Auditarium.Dal.Bootstrap;
 using Auditarium.Dal.Configuration;
 using Auditarium.Models.Identity;
+using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Dal.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,9 +22,15 @@ public static class ServiceCollectionExtensions
         if (database.BootstrapTimeoutSeconds is < 1 or > 1800) throw new InvalidOperationException("Auditarium:Database:BootstrapTimeoutSeconds must be between 1 and 1800.");
         services.AddSingleton(database); var recovery = configuration.GetSection(RecoveryOptions.SectionName).Get<RecoveryOptions>() ?? new RecoveryOptions(); services.AddSingleton(recovery);
         services.AddScoped<IPasswordHasher<LocalCredential>, PasswordHasher<LocalCredential>>();
+        services.AddScoped<IPasswordHasher<ApiCredential>, PasswordHasher<ApiCredential>>();
         services.AddDbContext<AuditariumDbContext>((_, o) => { if (database.Provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)) o.UseNpgsql(database.ConnectionString, x => x.MigrationsAssembly("Auditarium.Dal.PostgreSql.Migrations").CommandTimeout(database.BootstrapTimeoutSeconds)); else if (database.Provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)) o.UseSqlServer(database.ConnectionString, x => x.MigrationsAssembly("Auditarium.Dal.SqlServer.Migrations").CommandTimeout(database.BootstrapTimeoutSeconds)); else throw new InvalidOperationException("Auditarium:Database:Provider must be PostgreSQL or SqlServer."); });
         services.AddScoped<IAuditariumDbContext>(p => p.GetRequiredService<AuditariumDbContext>());
         services.AddScoped<IApplicationSettingResolver, ApplicationSettingResolver>();
+        services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
+        services.AddScoped<IAuthenticationRouter, AuthenticationRouter>();
+        services.AddScoped<ILocalAuthenticationService, LocalAuthenticationService>();
+        services.AddScoped<IApiCredentialService, ApiCredentialService>();
+        services.AddScoped<ILdapAuthenticationService, LdapAuthenticationService>();
         return services;
     }
     public static async Task InitializeAuditariumDatabaseAsync(this IServiceProvider services, CancellationToken ct = default)

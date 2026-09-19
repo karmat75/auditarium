@@ -2,6 +2,7 @@
 using Auditarium.Bll;
 using Auditarium.Dal;
 using Auditarium.Infrastructure.Security;
+using Auditarium.Infrastructure.Ldap;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -11,8 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAuditariumBll();
 builder.Services.AddAuditariumPersistence(builder.Configuration);
 builder.Services.AddAuditariumDataProtection(builder.Configuration);
-builder.Services.AddAuditariumAnonymousActor();
+builder.Services.AddAuditariumLdap();
+builder.Services.AddAuditariumCookieAuthentication();
+builder.Services.AddAuditariumHttpCurrentActor();
 builder.Services.AddRazorPages();
+builder.Services.AddAntiforgery();
 builder.Services.AddHealthChecks()
     .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"]);
 builder.Services.AddProblemDetails();
@@ -46,6 +50,8 @@ else
 
 app.UseStaticFiles();
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = registration => registration.Tags.Contains("ready") });
 app.MapPrometheusScrapingEndpoint("/metrics");

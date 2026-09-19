@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Auditarium.Bll;
 using Auditarium.Dal;
 using Auditarium.Infrastructure.Security;
+using Auditarium.Infrastructure.Ldap;
 using Auditarium.Bll.Features.System.GetHostStatus;
 using Auditarium.Common.Results;
 using Microsoft.AspNetCore.Diagnostics;
@@ -16,7 +17,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAuditariumBll();
 builder.Services.AddAuditariumPersistence(builder.Configuration);
 builder.Services.AddAuditariumDataProtection(builder.Configuration);
-builder.Services.AddAuditariumAnonymousActor();
+builder.Services.AddAuditariumLdap();
+builder.Services.AddAuditariumApiAuthentication();
+builder.Services.AddAuditariumHttpCurrentActor();
 builder.Services.AddHealthChecks()
     .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"]);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -48,6 +51,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = registration => registration.Tags.Contains("ready") });
 app.MapPrometheusScrapingEndpoint("/metrics");

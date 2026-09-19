@@ -295,6 +295,13 @@
           "Microsoft.EntityFrameworkCore.SqlServer": "[10.0.12, )"
         }
       },
+      "auditarium.infrastructure.ldap": {
+        "type": "Project",
+        "dependencies": {
+          "Auditarium.Bll": "[1.0.0, )",
+          "System.DirectoryServices.Protocols": "[10.0.12, )"
+        }
+      },
       "auditarium.infrastructure.security": {
         "type": "Project",
         "dependencies": {
@@ -361,6 +368,12 @@
         "requested": "[1.18.0, )",
         "resolved": "1.18.0",
         "contentHash": "Dhzm5oughIY9EWckt2J1yXcEbXpki5WCL2q7prJoYxzH6C7jdkfGtPMTkUVZZ4AhjJKzQnlC+kLSIlmIVwC4Vw=="
+      },
+      "System.DirectoryServices.Protocols": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "L2PHm7ewfjQYgbhBUB+lXiewxoNo+rhn06geWeUJP3qYCDnkL+Qibv6TEPMlMsF/zab4cU2bE8BWTBqzHZYiYg=="
       }
     }
   }
