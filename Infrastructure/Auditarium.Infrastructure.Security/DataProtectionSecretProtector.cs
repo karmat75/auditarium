@@ -3,6 +3,7 @@ using Auditarium.Bll.Abstractions.Security;
 using Microsoft.AspNetCore.DataProtection;
 using System.Security.Cryptography;
 namespace Auditarium.Infrastructure.Security;
+
 public sealed class DataProtectionSecretProtector(IDataProtectionProvider provider) : ISecretProtector
 {
     private const string Prefix = "audsec:v1:";

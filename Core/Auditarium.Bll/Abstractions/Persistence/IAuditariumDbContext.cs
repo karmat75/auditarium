@@ -2,6 +2,7 @@
 using Auditarium.Models.Identity;
 using Microsoft.EntityFrameworkCore;
 namespace Auditarium.Bll.Abstractions.Persistence;
+
 public interface IAuditariumDbContext
 {
     DbSet<User> Users { get; }

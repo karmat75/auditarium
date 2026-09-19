@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 namespace Auditarium.Infrastructure.Security;
+
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAuditariumDataProtection(this IServiceCollection services, IConfiguration configuration)

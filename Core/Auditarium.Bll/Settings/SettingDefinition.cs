@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 namespace Auditarium.Bll.Settings;
+
 public sealed record SettingDefinition(string Key, string DataType, string DefaultJson, bool UiEditable, Func<string, bool> IsValid);
 public static class SettingDefinitions
 {

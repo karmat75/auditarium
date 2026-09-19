@@ -7,6 +7,7 @@ using Auditarium.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 namespace Auditarium.Dal.Bootstrap;
+
 internal sealed class DatabaseBootstrapper(AuditariumDbContext db, IPasswordHasher<LocalCredential> passwordHasher, RecoveryOptions recovery, IConfiguration configuration)
 {
     private const string DefaultAdminUsername = "administrator";
