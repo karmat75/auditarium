@@ -21,6 +21,8 @@ public sealed record DeleteDocumentElementPreview(int DescendantElementCount, in
 [RequiresPermission("Documents.Manage")] public sealed record DeleteDocumentElementCommand(long ElementId, bool Confirmed) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")] public sealed record AddQuestionCommand(long ElementId, string Text, string? VerificationHint, string? EvidenceHint, string? Notes, IReadOnlyCollection<long> ScopeTypeIds) : IRequest<Result<long>>;
 [RequiresPermission("Documents.Manage")] public sealed record UpdateQuestionCommand(long QuestionId, string Text, string? VerificationHint, string? EvidenceHint, string? Notes, IReadOnlyCollection<long> ScopeTypeIds) : IRequest<Result>;
+[RequiresPermission("Documents.Manage")] public sealed record MoveQuestionCommand(long QuestionId, int SortOrder) : IRequest<Result>;
+[RequiresPermission("Documents.Manage")] public sealed record DeleteQuestionCommand(long QuestionId, bool Confirmed) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")] public sealed record SetDocumentElementWeightCommand(long ElementId, int Weight) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")] public sealed record SetCatalogReadyCommand(long CatalogVersionId, long ConcurrencyVersion, bool Confirmed) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")] public sealed record SetCatalogDraftCommand(long CatalogVersionId, long ConcurrencyVersion, bool Confirmed) : IRequest<Result>;
@@ -29,7 +31,7 @@ public sealed record DeleteDocumentElementPreview(int DescendantElementCount, in
 public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor actor) :
     IRequestHandler<CreateDocumentCommand, Result<long>>, IRequestHandler<UpdateDocumentCommand, Result>, IRequestHandler<CreateCatalogVersionCommand, Result<long>>,
     IRequestHandler<AddDocumentElementCommand, Result<long>>, IRequestHandler<UpdateDocumentElementCommand, Result>, IRequestHandler<MoveDocumentElementCommand, Result>,
-    IRequestHandler<GetDeleteDocumentElementPreviewQuery, Result<DeleteDocumentElementPreview>>, IRequestHandler<DeleteDocumentElementCommand, Result>, IRequestHandler<AddQuestionCommand, Result<long>>, IRequestHandler<UpdateQuestionCommand, Result>,
+    IRequestHandler<GetDeleteDocumentElementPreviewQuery, Result<DeleteDocumentElementPreview>>, IRequestHandler<DeleteDocumentElementCommand, Result>, IRequestHandler<AddQuestionCommand, Result<long>>, IRequestHandler<UpdateQuestionCommand, Result>, IRequestHandler<MoveQuestionCommand, Result>, IRequestHandler<DeleteQuestionCommand, Result>,
     IRequestHandler<SetDocumentElementWeightCommand, Result>, IRequestHandler<SetCatalogReadyCommand, Result>, IRequestHandler<SetCatalogDraftCommand, Result>, IRequestHandler<CopyCatalogVersionCommand, Result<long>>
 {
     public async ValueTask<Result<long>> Handle(CreateDocumentCommand message, CancellationToken ct)
@@ -119,6 +121,24 @@ public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor
         var question = await db.Questions.SingleOrDefaultAsync(x => x.QuestionId == message.QuestionId, ct); if (question is null) return NotFound(); var element = await db.DocumentElements.SingleAsync(x => x.ElementId == question.ElementId, ct); var catalog = await EditableCatalogAsync(element.CatalogVersionId, ct); if (catalog.Error is not null) return Failure(catalog.Error);
         if (Empty(message.Text) || !await ScopeTypesValidAsync(message.ScopeTypeIds, ct)) return Failure("CATALOG.QUESTION_INVALID", ErrorType.Validation);
         question.Text = message.Text.Trim(); question.VerificationHint = Null(message.VerificationHint); question.EvidenceHint = Null(message.EvidenceHint); question.Notes = Null(message.Notes); db.QuestionScopeTypes.RemoveRange(db.QuestionScopeTypes.Where(x => x.QuestionId == question.QuestionId)); foreach (var scopeTypeId in message.ScopeTypeIds.Distinct()) db.QuestionScopeTypes.Add(new QuestionScopeType { QuestionId = question.QuestionId, ScopeTypeId = scopeTypeId }); catalog.Value!.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
+    }
+
+    public async ValueTask<Result> Handle(MoveQuestionCommand message, CancellationToken ct)
+    {
+        var question = await db.Questions.SingleOrDefaultAsync(x => x.QuestionId == message.QuestionId, ct); if (question is null) return NotFound();
+        var element = await db.DocumentElements.SingleAsync(x => x.ElementId == question.ElementId, ct); var catalog = await EditableCatalogAsync(element.CatalogVersionId, ct); if (catalog.Error is not null) return Failure(catalog.Error);
+        if (message.SortOrder < 0) return Failure("CATALOG.SORT_ORDER_INVALID", ErrorType.Validation);
+        var siblings = await db.Questions.Where(x => x.ElementId == question.ElementId && x.QuestionId != question.QuestionId).OrderBy(x => x.SortOrder).ToListAsync(ct);
+        siblings.Insert(Math.Min(message.SortOrder, siblings.Count), question); for (var i = 0; i < siblings.Count; i++) siblings[i].SortOrder = i;
+        catalog.Value!.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
+    }
+
+    public async ValueTask<Result> Handle(DeleteQuestionCommand message, CancellationToken ct)
+    {
+        var question = await db.Questions.SingleOrDefaultAsync(x => x.QuestionId == message.QuestionId, ct); if (question is null) return NotFound();
+        var element = await db.DocumentElements.SingleAsync(x => x.ElementId == question.ElementId, ct); var catalog = await EditableCatalogAsync(element.CatalogVersionId, ct); if (catalog.Error is not null) return Failure(catalog.Error);
+        if (!message.Confirmed) return Failure("CATALOG.DELETE_CONFIRMATION_REQUIRED", ErrorType.Validation);
+        db.Questions.Remove(question); catalog.Value!.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
     }
 
     public async ValueTask<Result> Handle(SetDocumentElementWeightCommand message, CancellationToken ct)

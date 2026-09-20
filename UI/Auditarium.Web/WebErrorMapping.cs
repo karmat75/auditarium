@@ -24,6 +24,12 @@ public static class WebErrorMapping
         "AUTHENTICATION.PASSWORD_CHANGE_REQUIRED" => "Ändern Sie zuerst Ihr Passwort.",
         "AUTHORIZATION.FORBIDDEN" => "Sie verfügen nicht über die erforderliche Berechtigung.",
         "AUTHENTICATION.REQUIRED" => "Melden Sie sich an, um fortzufahren.",
+        "CATALOG.QUESTION_SCOPE_REQUIRED" => "Jede Frage benötigt für READY mindestens einen gültigen Scope Type.",
+        "CATALOG.QUESTIONED_ELEMENT_TEXT_REQUIRED" => "Ein Element mit Fragen benötigt einen Text.",
+        "CATALOG.PARENT_INVALID" => "Die gewählte Hierarchie ist ungültig oder zyklisch.",
+        "CATALOG.NOT_DRAFT" => "Der Katalog ist nicht mehr bearbeitbar, weil er nicht im Zustand DRAFT ist.",
+        "CATALOG.CONCURRENCY_CONFLICT" => "Der Katalog wurde inzwischen geändert. Laden Sie die Seite neu.",
+        "IMPORT.BASE_REVISION_MISMATCH" => "Das Importpaket basiert nicht auf der aktuellen DRAFT-Revision.",
         _ => $"Die Aktion konnte nicht ausgeführt werden ({error.Code})."
     };
 }
