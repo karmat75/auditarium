@@ -3,8 +3,10 @@ using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Features.Catalog;
 using Auditarium.Dal;
 using Auditarium.Models.Catalog;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -12,6 +14,78 @@ namespace Auditarium.Persistence.IntegrationTests;
 
 public sealed class CatalogWorkflowIntegrationTests
 {
+    [Fact]
+    public async Task Import_apply_is_provider_neutral_on_sql_server()
+    {
+        await using var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+        await container.StartAsync();
+        await VerifyValidImportApplyAsync("SqlServer", container.GetConnectionString());
+    }
+
+    [Fact]
+    public async Task Import_apply_is_provider_neutral_on_postgresql()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await VerifyValidImportApplyAsync("PostgreSQL", container.GetConnectionString());
+    }
+
+    [Fact]
+    public async Task Import_apply_rolls_back_every_change_when_a_database_write_fails()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var catalogHandler = new CatalogCommandHandler(db, new TestActor());
+        var document = await catalogHandler.Handle(new CreateDocumentCommand(new("Regelwerk", null, null, null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var catalog = await catalogHandler.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+        await db.Database.ExecuteSqlRawAsync("CREATE FUNCTION auditarium.reject_import_question() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'reject import'; END; $$; CREATE TRIGGER reject_import_question BEFORE INSERT ON auditarium.questions FOR EACH ROW EXECUTE FUNCTION auditarium.reject_import_question();");
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => new CatalogImportHandler(db).Handle(new ApplyCatalogImportCommand(ValidPackage(catalog.Value!, 1), ImportApplyMode.Full, []), CancellationToken.None).AsTask());
+        db.ChangeTracker.Clear();
+
+        Assert.Empty(db.DocumentElements.Where(x => x.CatalogVersionId == catalog.Value));
+        Assert.Empty(db.Questions);
+        Assert.Equal(1, (await db.CatalogVersions.FindAsync(catalog.Value))!.DraftRevision);
+    }
+
+    [Fact]
+    public async Task Import_validates_without_writing_applies_only_valid_roots_and_protects_the_draft_revision()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var catalogHandler = new CatalogCommandHandler(db, new TestActor());
+        var document = await catalogHandler.Handle(new CreateDocumentCommand(new("Regelwerk", null, null, null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var catalog = await catalogHandler.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+        var importHandler = new CatalogImportHandler(db);
+        var package = Package(catalog.Value!, 1);
+
+        var report = await importHandler.Handle(new ValidateCatalogImportCommand(package), CancellationToken.None);
+        Assert.True(report.IsSuccess);
+        Assert.Equal(ImportStatus.PartiallyValid, report.Value!.Status);
+        Assert.Empty(db.DocumentElements);
+        Assert.Equal(1, (await db.CatalogVersions.FindAsync(catalog.Value))!.DraftRevision);
+
+        var applied = await importHandler.Handle(new ApplyCatalogImportCommand(package, ImportApplyMode.Partial, ["valid-root"]), CancellationToken.None);
+        Assert.True(applied.IsSuccess);
+        var root = Assert.Single(db.DocumentElements.Where(x => x.CatalogVersionId == catalog.Value));
+        Assert.Equal("Valid root", root.Title);
+        Assert.Single(db.Questions.Where(x => x.ElementId == root.ElementId));
+        Assert.Equal(2, (await db.CatalogVersions.FindAsync(catalog.Value))!.DraftRevision);
+
+        var stale = await importHandler.Handle(new ValidateCatalogImportCommand(package), CancellationToken.None);
+        Assert.Equal(ImportStatus.Rejected, stale.Value!.Status);
+        Assert.Contains(stale.Value.Errors, x => x.Code == "IMPORT.BASE_REVISION_MISMATCH");
+        Assert.Single(db.DocumentElements);
+    }
+
     [Fact]
     public async Task Draft_workflow_validates_publishes_copies_and_preserves_the_ready_content()
     {
@@ -83,10 +157,71 @@ public sealed class CatalogWorkflowIntegrationTests
         Assert.Empty(db.DocumentElements.Where(x => x.CatalogVersionId == catalog.Value));
     }
 
-    private static ServiceProvider CreateProvider(string connectionString)
+    private static async Task VerifyValidImportApplyAsync(string databaseProvider, string connectionString)
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = "PostgreSQL", ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();
+        await using var provider = CreateProvider(databaseProvider, connectionString);
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var catalogHandler = new CatalogCommandHandler(db, new TestActor());
+        var document = await catalogHandler.Handle(new CreateDocumentCommand(new("Regelwerk", null, null, null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var catalog = await catalogHandler.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+        var handler = new CatalogImportHandler(db);
+
+        var result = await handler.Handle(new ApplyCatalogImportCommand(ValidPackage(catalog.Value!, 1), ImportApplyMode.Full, []), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var root = Assert.Single(db.DocumentElements.Where(x => x.CatalogVersionId == catalog.Value));
+        Assert.Single(db.Questions.Where(x => x.ElementId == root.ElementId));
+        Assert.Equal(2, (await db.CatalogVersions.FindAsync(catalog.Value))!.DraftRevision);
+    }
+
+    private static ServiceProvider CreateProvider(string connectionString) => CreateProvider("PostgreSQL", connectionString);
+
+    private static ServiceProvider CreateProvider(string databaseProvider, string connectionString)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = databaseProvider, ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();
         var services = new ServiceCollection(); services.AddSingleton<IConfiguration>(configuration); services.AddAuditariumPersistence(configuration); return services.BuildServiceProvider();
     }
+
+    private static string Package(long catalogVersionId, int draftRevision) => $$"""
+        {
+          "import_format_version": 1,
+          "catalog_version_id": {{catalogVersionId}},
+          "draft_revision": {{draftRevision}},
+          "elements": [
+            {
+              "id": "valid-root", "parent_id": null, "sort_order": 0,
+              "title": "Valid root", "text": "The requirement.", "notes": null, "weight": null,
+              "questions": [
+                { "sort_order": 0, "text": "Is the requirement fulfilled?", "verification_hint": null, "evidence_hint": null, "notes": null, "scope_keys": ["TECHNICAL_AREA"] }
+              ]
+            },
+            {
+              "id": "invalid-root", "parent_id": "missing-parent", "sort_order": 0,
+              "title": "Invalid root", "text": "The invalid requirement.", "notes": null, "weight": null,
+              "questions": []
+            }
+          ]
+        }
+        """;
+
+    private static string ValidPackage(long catalogVersionId, int draftRevision) => $$"""
+        {
+          "import_format_version": 1,
+          "catalog_version_id": {{catalogVersionId}},
+          "draft_revision": {{draftRevision}},
+          "elements": [
+            {
+              "id": "root", "parent_id": null, "sort_order": 0,
+              "title": "Root", "text": "Requirement", "notes": null, "weight": null,
+              "questions": [
+                { "sort_order": 0, "text": "Is it fulfilled?", "verification_hint": null, "evidence_hint": null, "notes": null, "scope_keys": ["TECHNICAL_AREA"] }
+              ]
+            }
+          ]
+        }
+        """;
+
     private sealed class TestActor : ICurrentActor { public ActorType Type => ActorType.System; public long? UserId => 0; public bool IsAuthenticated => true; }
 }

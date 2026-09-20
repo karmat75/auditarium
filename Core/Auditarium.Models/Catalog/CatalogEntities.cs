@@ -44,12 +44,13 @@ public sealed class DocumentElement
     public string? Text { get; set; }
     public int SortOrder { get; set; }
     public string? Notes { get; set; }
+    public DocumentElement? ParentElement { get; set; }
 }
 
-public sealed class DocumentElementWeight { public long ElementId { get; set; } public int Weight { get; set; } }
-public sealed class Question { public long QuestionId { get; set; } public long ElementId { get; set; } public int SortOrder { get; set; } public required string Text { get; set; } public string? VerificationHint { get; set; } public string? EvidenceHint { get; set; } public string? Notes { get; set; } }
+public sealed class DocumentElementWeight { public long ElementId { get; set; } public int Weight { get; set; } public DocumentElement? Element { get; set; } }
+public sealed class Question { public long QuestionId { get; set; } public long ElementId { get; set; } public int SortOrder { get; set; } public required string Text { get; set; } public string? VerificationHint { get; set; } public string? EvidenceHint { get; set; } public string? Notes { get; set; } public DocumentElement? Element { get; set; } }
 public sealed class ScopeType { public long ScopeTypeId { get; set; } public required string Key { get; set; } public required string Name { get; set; } public required string Description { get; set; } }
-public sealed class QuestionScopeType { public long QuestionId { get; set; } public long ScopeTypeId { get; set; } }
+public sealed class QuestionScopeType { public long QuestionId { get; set; } public long ScopeTypeId { get; set; } public Question? Question { get; set; } public ScopeType? ScopeType { get; set; } }
 public sealed class FileItem { public long FileId { get; set; } public required string OriginalFileName { get; set; } public required string SaveFileName { get; set; } public required string Extension { get; set; } public required string SaveFilePath { get; set; } public required string ContentType { get; set; } public long Size { get; set; } public DateTimeOffset CreatedAt { get; set; } public long CreatedBy { get; set; } public required string Checksum { get; set; } }
 
 public sealed class AuditUnit { public long AuditUnitId { get; set; } public long? ParentAuditUnitId { get; set; } public long ScopeTypeId { get; set; } public required string Name { get; set; } public string? Description { get; set; } public AuditUnitUsageState UsageState { get; set; } = AuditUnitUsageState.Active; public string? UsageStateReason { get; set; } public string? Notes { get; set; } public long ConcurrencyVersion { get; set; } = 1; }
