@@ -60,3 +60,16 @@ public sealed class Role { public long RoleId { get; set; } public string? RoleK
 public sealed class RolePermission { public long RoleId { get; set; } public required string PermissionKey { get; set; } }
 public sealed class UserRole { public long UserId { get; set; } public long RoleId { get; set; } }
 public sealed class ApplicationSetting { public required string SettingKey { get; set; } public required string SerializedValue { get; set; } public long ConcurrencyVersion { get; set; } = 1; }
+
+/// <summary>Append-only technical history entry. This is deliberately separate from the business audit aggregate.</summary>
+public sealed class SystemAuditLog
+{
+    public long EventId { get; set; }
+    public DateTimeOffset OccurredAt { get; set; }
+    public long UserId { get; set; }
+    public required string Action { get; set; }
+    public required string ObjectType { get; set; }
+    public long? ObjectId { get; set; }
+    public string? BeforeState { get; set; }
+    public string? AfterState { get; set; }
+}

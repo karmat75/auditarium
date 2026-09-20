@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher<ApiCredential>, PasswordHasher<ApiCredential>>();
         services.AddDbContext<AuditariumDbContext>((_, o) => { if (database.Provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)) o.UseNpgsql(database.ConnectionString, x => x.MigrationsAssembly("Auditarium.Dal.PostgreSql.Migrations").CommandTimeout(database.BootstrapTimeoutSeconds)); else if (database.Provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)) o.UseSqlServer(database.ConnectionString, x => x.MigrationsAssembly("Auditarium.Dal.SqlServer.Migrations").CommandTimeout(database.BootstrapTimeoutSeconds)); else throw new InvalidOperationException("Auditarium:Database:Provider must be PostgreSQL or SqlServer."); });
         services.AddScoped<IAuditariumDbContext>(p => p.GetRequiredService<AuditariumDbContext>());
+        services.AddScoped<IAuditEventWriter, AuditEventWriter>();
         services.AddScoped<IApplicationSettingResolver, ApplicationSettingResolver>();
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
         services.AddScoped<IAuthenticationRouter, AuthenticationRouter>();

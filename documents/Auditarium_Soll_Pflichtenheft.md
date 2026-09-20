@@ -1,7 +1,7 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.111  
-**Stand:** 18.09.2026  
+**Version:** 0.112
+**Stand:** 20.09.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
 **Sub-Titel:** *Structured audits. Traceable results.*
@@ -6246,6 +6246,8 @@ Dieses Modell unterstützt Datenminimierung und den Schutz sensibler Daten. Die 
 
 Löschvorgänge für fachliche Objekte erfolgen grundsätzlich zweistufig.
 
+Soft Delete ist ausschließlich für fachliche Aggregate Roots vorgesehen. Es wird nicht für Benutzer, Rollen, Permissions, Authentifizierungsprovider, Zugangsdaten, Settings oder andere technische beziehungsweise Security-Konfigurationsobjekte eingesetzt. Deren fachliche Lifecycle-Regeln bleiben maßgeblich.
+
 ### Stufe 1: Soft Delete
 
 Das Objekt bleibt physisch in der Datenbank vorhanden, wird jedoch als gelöscht markiert.
@@ -11856,6 +11858,10 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.112
+
+- Soft Delete ist auf fachliche Aggregate Roots ab Work Package 5 beschränkt. Identity-, RBAC-, Credential-, Setting- und sonstige technische Konfigurationsobjekte verwenden ihre jeweils eigenen Lifecycle-Mechanismen und werden nicht soft gelöscht.
 
 ## Änderungen in Version 0.111
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 using System.Security.Claims;
 using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Auditarium.Web.Pages;
 
-public sealed class LoginModel(IAuthenticationRouter router, ILocalAuthenticationService localAuthentication, ILdapAuthenticationService ldapAuthentication) : PageModel
+public sealed class LoginModel(IAuthenticationRouter router, ILocalAuthenticationService localAuthentication, ILdapAuthenticationService ldapAuthentication, IAuditEventWriter auditEvents) : PageModel
 {
     [BindProperty] public string Username { get; set; } = string.Empty;
     [BindProperty] public string Password { get; set; } = string.Empty;
@@ -25,7 +26,13 @@ public sealed class LoginModel(IAuthenticationRouter router, ILocalAuthenticatio
             not null => await ldapAuthentication.AuthenticateAsync(provider, new AuthenticationAttempt(Username, Password, provider), cancellationToken),
             _ => null
         };
-        if (result is null) { ModelState.AddModelError(string.Empty, "Anmeldung nicht möglich."); return Page(); }
+        if (result is null)
+        {
+            await auditEvents.WriteAsync(new AuditEvent("LOGIN_FAILED", "Authentication"), cancellationToken);
+            ModelState.AddModelError(string.Empty, "Anmeldung nicht möglich."); return Page();
+        }
+        // The event is deliberately persisted before an authentication cookie is issued.
+        await auditEvents.WriteAsync(new AuditEvent("LOGIN", "User", result.UserId, ActorUserId: result.UserId), cancellationToken);
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, result.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture)) };
         if (result.MustChangePassword) claims.Add(new Claim(AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true"));
         await HttpContext.SignInAsync(AuditariumAuthenticationSchemes.Cookie, new ClaimsPrincipal(new ClaimsIdentity(claims, AuditariumAuthenticationSchemes.Cookie)));

@@ -268,6 +268,56 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                     b.ToTable("role_permissions", "auditarium");
                 });
 
+            modelBuilder.Entity("Auditarium.Models.Identity.SystemAuditLog", b =>
+                {
+                    b.Property<long>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("event_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("EventId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("action");
+
+                    b.Property<string>("AfterState")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("after_state");
+
+                    b.Property<string>("BeforeState")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("before_state");
+
+                    b.Property<long?>("ObjectId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("object_id");
+
+                    b.Property<string>("ObjectType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("object_type");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ObjectType", "ObjectId", "Action", "OccurredAt");
+
+                    b.ToTable("system_audit_log", "auditarium");
+                });
+
             modelBuilder.Entity("Auditarium.Models.Identity.User", b =>
                 {
                     b.Property<long>("UserId")
@@ -405,6 +455,15 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Identity.SystemAuditLog", b =>
+                {
+                    b.HasOne("Auditarium.Models.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

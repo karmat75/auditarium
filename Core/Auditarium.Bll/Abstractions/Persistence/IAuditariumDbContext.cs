@@ -15,5 +15,6 @@ public interface IAuditariumDbContext
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<UserRole> UserRoles { get; }
     DbSet<ApplicationSetting> ApplicationSettings { get; }
+    DbSet<SystemAuditLog> SystemAuditLogs { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

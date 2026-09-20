@@ -1,13 +1,24 @@
 // SPDX-License-Identifier: MIT
+using System.Text.Json;
+using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Models.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
 namespace Auditarium.Dal;
 
-public sealed class AuditariumDbContext(DbContextOptions<AuditariumDbContext> options) : DbContext(options), IAuditariumDbContext
+public sealed class AuditariumDbContext : DbContext, IAuditariumDbContext
 {
-    public DbSet<User> Users => Set<User>(); public DbSet<AuthenticationProvider> AuthenticationProviders => Set<AuthenticationProvider>(); public DbSet<UserIdentity> UserIdentities => Set<UserIdentity>(); public DbSet<LocalCredential> LocalCredentials => Set<LocalCredential>(); public DbSet<ApiCredential> ApiCredentials => Set<ApiCredential>(); public DbSet<Permission> Permissions => Set<Permission>(); public DbSet<Role> Roles => Set<Role>(); public DbSet<RolePermission> RolePermissions => Set<RolePermission>(); public DbSet<UserRole> UserRoles => Set<UserRole>(); public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
+    private readonly ICurrentActor _currentActor;
+    private bool _writingAuditLog;
+    public AuditariumDbContext(DbContextOptions<AuditariumDbContext> options) : this(options, SystemCurrentActor.Instance) { }
+    public AuditariumDbContext(DbContextOptions<AuditariumDbContext> options, ICurrentActor currentActor) : base(options) => _currentActor = currentActor;
+
+    public DbSet<User> Users => Set<User>(); public DbSet<AuthenticationProvider> AuthenticationProviders => Set<AuthenticationProvider>(); public DbSet<UserIdentity> UserIdentities => Set<UserIdentity>(); public DbSet<LocalCredential> LocalCredentials => Set<LocalCredential>(); public DbSet<ApiCredential> ApiCredentials => Set<ApiCredential>(); public DbSet<Permission> Permissions => Set<Permission>(); public DbSet<Role> Roles => Set<Role>(); public DbSet<RolePermission> RolePermissions => Set<RolePermission>(); public DbSet<UserRole> UserRoles => Set<UserRole>(); public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>(); public DbSet<SystemAuditLog> SystemAuditLogs => Set<SystemAuditLog>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.HasDefaultSchema("auditarium");
@@ -21,15 +32,51 @@ public sealed class AuditariumDbContext(DbContextOptions<AuditariumDbContext> op
         b.Entity<RolePermission>(e => { e.ToTable("role_permissions"); e.HasKey(x => new { x.RoleId, x.PermissionKey }); e.Property(x => x.RoleId).HasColumnName("role_id"); e.Property(x => x.PermissionKey).HasColumnName("permission_key").HasMaxLength(256); e.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade); e.HasOne<Permission>().WithMany().HasForeignKey(x => x.PermissionKey).OnDelete(DeleteBehavior.Cascade); });
         b.Entity<UserRole>(e => { e.ToTable("user_roles"); e.HasKey(x => new { x.UserId, x.RoleId }); e.Property(x => x.UserId).HasColumnName("user_id"); e.Property(x => x.RoleId).HasColumnName("role_id"); e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict); e.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict); });
         b.Entity<ApplicationSetting>(e => { e.ToTable("application_settings"); e.HasKey(x => x.SettingKey); e.Property(x => x.SettingKey).HasColumnName("setting_key").HasMaxLength(256); e.Property(x => x.SerializedValue).HasColumnName("serialized_value"); Version(e.Property(x => x.ConcurrencyVersion)); });
+        b.Entity<SystemAuditLog>(e => { e.ToTable("system_audit_log"); e.HasKey(x => x.EventId); e.Property(x => x.EventId).HasColumnName("event_id").ValueGeneratedOnAdd(); e.Property(x => x.OccurredAt).HasColumnName("occurred_at"); e.Property(x => x.UserId).HasColumnName("user_id"); e.Property(x => x.Action).HasColumnName("action").HasMaxLength(64); e.Property(x => x.ObjectType).HasColumnName("object_type").HasMaxLength(128); e.Property(x => x.ObjectId).HasColumnName("object_id"); e.Property(x => x.BeforeState).HasColumnName("before_state"); e.Property(x => x.AfterState).HasColumnName("after_state"); e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict); e.HasIndex(x => new { x.ObjectType, x.ObjectId, x.Action, x.OccurredAt }); });
     }
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var entry in ChangeTracker.Entries().Where(x => x.State == EntityState.Modified))
+        if (_writingAuditLog) return await base.SaveChangesAsync(cancellationToken);
+        foreach (var entry in ChangeTracker.Entries().Where(x => x.State == EntityState.Modified)) { var version = entry.Metadata.FindProperty("ConcurrencyVersion"); if (version is not null) entry.Property("ConcurrencyVersion").CurrentValue = ((long)entry.Property("ConcurrencyVersion").OriginalValue!) + 1; }
+        var changes = ChangeTracker.Entries().Where(e => e.Entity is not SystemAuditLog && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).Select(AuditChange.Create).ToList();
+        if (changes.Count == 0 || !await Users.AsNoTracking().AnyAsync(x => x.UserId == 0, cancellationToken)) return await base.SaveChangesAsync(cancellationToken);
+        var transaction = Database.CurrentTransaction;
+        var ownsTransaction = transaction is null;
+        if (ownsTransaction) transaction = await Database.BeginTransactionAsync(cancellationToken);
+        else await transaction!.CreateSavepointAsync("auditarium_save_changes", cancellationToken);
+        try
         {
-            var version = entry.Metadata.FindProperty("ConcurrencyVersion");
-            if (version is not null) entry.Property("ConcurrencyVersion").CurrentValue = ((long)entry.Property("ConcurrencyVersion").OriginalValue!) + 1;
+            var result = await base.SaveChangesAsync(cancellationToken);
+            foreach (var change in changes) SystemAuditLogs.Add(change.ToLog(_currentActor.UserId ?? 0));
+            _writingAuditLog = true; await base.SaveChangesAsync(cancellationToken); _writingAuditLog = false;
+            if (ownsTransaction) await transaction!.CommitAsync(cancellationToken);
+            return result;
         }
-        return base.SaveChangesAsync(cancellationToken);
+        catch
+        {
+            _writingAuditLog = false;
+            if (ownsTransaction) await transaction!.RollbackAsync(cancellationToken);
+            else await transaction!.RollbackToSavepointAsync("auditarium_save_changes", cancellationToken);
+            throw;
+        }
+        finally { if (ownsTransaction && transaction is not null) await transaction.DisposeAsync(); }
     }
+
     private static void Version(PropertyBuilder<long> p) => p.HasColumnName("concurrency_version").IsConcurrencyToken().HasDefaultValue(1);
+
+    private sealed record AuditChange(EntityEntry Entry, string Action, string ObjectType, Dictionary<string, object?> Before, Dictionary<string, object?> After)
+    {
+        private static readonly IReadOnlyDictionary<string, string[]> Allowed = new Dictionary<string, string[]>(StringComparer.Ordinal) { [nameof(User)] = [nameof(User.IsActive)], [nameof(AuthenticationProvider)] = [nameof(AuthenticationProvider.ProviderKey), nameof(AuthenticationProvider.ProviderType), nameof(AuthenticationProvider.IsEnabled)], [nameof(Role)] = [nameof(Role.RoleKey), nameof(Role.Name), nameof(Role.Description), nameof(Role.IsActive)], [nameof(Permission)] = [nameof(Permission.PermissionKey), nameof(Permission.Description), nameof(Permission.IsActive)], [nameof(ApiCredential)] = [nameof(ApiCredential.Name), nameof(ApiCredential.CreatedAt), nameof(ApiCredential.ExpiresAt), nameof(ApiCredential.RevokedAt)], [nameof(ApplicationSetting)] = [nameof(ApplicationSetting.SettingKey)] };
+        public static AuditChange Create(EntityEntry entry)
+        {
+            var before = new Dictionary<string, object?>(); var after = new Dictionary<string, object?>(); var type = entry.Metadata.ClrType.Name;
+            if (Allowed.TryGetValue(type, out var allowed)) foreach (var p in entry.Properties.Where(p => allowed.Contains(p.Metadata.Name, StringComparer.Ordinal) && (entry.State != EntityState.Modified || p.IsModified))) { if (entry.State is EntityState.Modified or EntityState.Deleted) before[AuditPropertyName(p.Metadata.Name)] = p.OriginalValue; if (entry.State is EntityState.Modified or EntityState.Added) after[AuditPropertyName(p.Metadata.Name)] = p.CurrentValue; }
+            return new(entry, entry.State == EntityState.Added ? "CREATED" : entry.State == EntityState.Deleted ? "PURGED" : "UPDATED", type, before, after);
+        }
+        public SystemAuditLog ToLog(long actor) { AuditLogContract.Validate(Action, ObjectType); return new() { OccurredAt = DateTimeOffset.UtcNow, UserId = actor, Action = Action, ObjectType = ObjectType, ObjectId = Id(Entry), BeforeState = Before.Count == 0 ? null : JsonSerializer.Serialize(Before), AfterState = After.Count == 0 ? null : JsonSerializer.Serialize(After) }; }
+        private static long? Id(EntityEntry entry) { var key = entry.Metadata.FindPrimaryKey(); return key?.Properties.Count == 1 && entry.Property(key.Properties[0].Name).CurrentValue is long id ? id : null; }
+        private static string AuditPropertyName(string name) => string.Concat(name.Select((character, index) => index > 0 && char.IsUpper(character) ? "_" + char.ToLowerInvariant(character) : char.ToLowerInvariant(character).ToString()));
+    }
+    private sealed class SystemCurrentActor : ICurrentActor { public static readonly SystemCurrentActor Instance = new(); public ActorType Type => ActorType.System; public long? UserId => 0; public bool IsAuthenticated => true; }
 }

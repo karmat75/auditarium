@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Bll.Abstractions.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
@@ -63,17 +64,29 @@ public sealed class ApiCredentialAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    IApiCredentialService credentials)
+    IApiCredentialService credentials,
+    IAuditEventWriter auditEvents)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var header = Request.Headers.Authorization.ToString();
         if (string.IsNullOrWhiteSpace(header)) return AuthenticateResult.NoResult();
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return AuthenticateResult.Fail("Unsupported authentication scheme.");
+        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            await RecordFailedLoginAsync();
+            return AuthenticateResult.Fail("Unsupported authentication scheme.");
+        }
         var userId = await credentials.AuthenticateAsync(header[7..].Trim(), Context.RequestAborted);
-        if (userId is null) return AuthenticateResult.Fail("Invalid API credential.");
+        if (userId is null) { await RecordFailedLoginAsync(); return AuthenticateResult.Fail("Invalid API credential."); }
+        await auditEvents.WriteAsync(new AuditEvent("LOGIN", "User", userId, userId), Context.RequestAborted);
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))], Scheme.Name);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name));
+    }
+
+    private async Task RecordFailedLoginAsync()
+    {
+        try { await auditEvents.WriteAsync(new AuditEvent("LOGIN_FAILED", "Authentication"), Context.RequestAborted); }
+        catch (Exception exception) { Logger.LogError(exception, "Audit log write failed while API authentication remained rejected."); }
     }
 }

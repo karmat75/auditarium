@@ -190,6 +190,19 @@ public sealed class DatabaseBootstrapIntegrationTests
         Assert.Equal(6, await db.Roles.CountAsync());
         var systemAdmin = await db.Roles.SingleAsync(role => role.RoleKey == "SYSTEM_ADMIN");
         Assert.Equal(5, await db.RolePermissions.CountAsync(x => x.RoleId == systemAdmin.RoleId));
+
+        administrator.IsActive = false;
+        await db.SaveChangesAsync();
+        var change = await db.SystemAuditLogs.OrderByDescending(entry => entry.EventId).FirstAsync();
+        Assert.Equal("UPDATED", change.Action);
+        Assert.Equal("User", change.ObjectType);
+        Assert.Equal(administrator.UserId, change.ObjectId);
+        Assert.NotNull(change.BeforeState);
+        Assert.NotNull(change.AfterState);
+        Assert.Contains("is_active", change.BeforeState, StringComparison.Ordinal);
+        Assert.Contains("is_active", change.AfterState, StringComparison.Ordinal);
+        Assert.DoesNotContain("username", change.AfterState, StringComparison.Ordinal);
+        Assert.DoesNotContain("display_name", change.AfterState, StringComparison.Ordinal);
     }
 
     private static async Task VerifyCancelledLockWaitAsync(string provider, string connectionString)
