@@ -1,42 +1,39 @@
 // SPDX-License-Identifier: MIT
 using System.Security.Claims;
-using Auditarium.Bll.Abstractions.Identity;
-using Auditarium.Bll.Abstractions.Persistence;
+using Auditarium.Bll.Features.Identity.LocalCredentials;
 using Auditarium.Infrastructure.Security;
+using Mediator;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Auditarium.Web.Pages;
 
-public sealed class LoginModel(IAuthenticationRouter router, ILocalAuthenticationService localAuthentication, ILdapAuthenticationService ldapAuthentication, IAuditEventWriter auditEvents) : PageModel
+public sealed class LoginModel(IMediator mediator) : PageModel
 {
-    [BindProperty] public string Username { get; set; } = string.Empty;
-    [BindProperty] public string Password { get; set; } = string.Empty;
-    [BindProperty] public string? Provider { get; set; }
+    [BindProperty] public LoginInputModel Input { get; set; } = new();
     [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password)) { ModelState.AddModelError(string.Empty, "Benutzername und Passwort sind erforderlich."); return Page(); }
-        var provider = await router.RouteAsync(Username, Provider, cancellationToken);
-        AuthenticationSuccess? result = provider switch
+        var result = await mediator.Send(new AuthenticateInteractiveUserCommand(Input.Username, Input.Password, Input.Provider), cancellationToken);
+        if (!result.IsSuccess)
         {
-            "LOCAL" => await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(Username, Password, provider), cancellationToken),
-            not null => await ldapAuthentication.AuthenticateAsync(provider, new AuthenticationAttempt(Username, Password, provider), cancellationToken),
-            _ => null
-        };
-        if (result is null)
-        {
-            await auditEvents.WriteAsync(new AuditEvent("LOGIN_FAILED", "Authentication"), cancellationToken);
-            ModelState.AddModelError(string.Empty, "Anmeldung nicht möglich."); return Page();
+            result.ApplyTo(ModelState);
+            return Page();
         }
-        // The event is deliberately persisted before an authentication cookie is issued.
-        await auditEvents.WriteAsync(new AuditEvent("LOGIN", "User", result.UserId, ActorUserId: result.UserId), cancellationToken);
-        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, result.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture)) };
-        if (result.MustChangePassword) claims.Add(new Claim(AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true"));
+        var authentication = result.Value!;
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, authentication.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture)) };
+        if (authentication.MustChangePassword) claims.Add(new Claim(AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true"));
         await HttpContext.SignInAsync(AuditariumAuthenticationSchemes.Cookie, new ClaimsPrincipal(new ClaimsIdentity(claims, AuditariumAuthenticationSchemes.Cookie)));
-        if (result.MustChangePassword) return RedirectToPage("ChangePassword");
+        if (authentication.MustChangePassword) return RedirectToPage("ChangePassword");
         return LocalRedirect(Url.IsLocalUrl(ReturnUrl) ? ReturnUrl! : "/");
     }
+}
+
+public sealed class LoginInputModel
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string? Provider { get; set; }
 }

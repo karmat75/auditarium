@@ -1,0 +1,52 @@
+@using Auditarium.Bll.Settings
+@inject Auditarium.Bll.Abstractions.Identity.IPermissionEvaluator PermissionEvaluator
+@{
+    var permissions = User.Identity?.IsAuthenticated == true && long.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
+        ? await PermissionEvaluator.GetPermissionsAsync(userId)
+        : new HashSet<string>();
+    var mustChangePassword = User.HasClaim(Auditarium.Infrastructure.Security.AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true");
+}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Auditarium</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar" aria-label="Hauptnavigation">
+            <a class="brand" asp-page="/Index">Auditarium</a>
+            @if (User.Identity?.IsAuthenticated == true && !mustChangePassword)
+            {
+                <nav>
+                    @if (permissions.Contains("Audits.Read")) { <a href="#audits">Audits</a> }
+                    @if (permissions.Contains("AuditUnits.Manage")) { <a href="#audit-units">Audit Units</a> }
+                    @if (permissions.Contains("Documents.Manage")) { <a href="#rulebooks">Regelwerke</a> }
+                    @if (permissions.Any(permission => permission is "Users.Manage" or "Roles.Manage" or "Authentication.Manage" or "Settings.Manage"))
+                    {
+                        <span class="navigation-heading">Administration</span>
+                        @if (permissions.Contains("Users.Manage")) { <a href="#users">Benutzer</a> }
+                        @if (permissions.Contains("Roles.Manage")) { <a href="#roles">Rollen</a> }
+                        @if (permissions.Contains("Authentication.Manage")) { <a href="#authentication">Authentication Provider</a> }
+                        @if (permissions.Contains("Settings.Manage")) { <a href="#settings">Einstellungen</a> }
+                    }
+                </nav>
+            }
+        </aside>
+        <div class="main-area">
+            <header class="header">
+                <span>@(User.Identity?.IsAuthenticated == true ? "Angemeldet" : "Nicht angemeldet")</span>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <form method="post" asp-page="/Logout"><button type="submit">Abmelden</button></form>
+                }
+            </header>
+            <main class="content">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+</body>
+</html>

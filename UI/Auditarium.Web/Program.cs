@@ -4,6 +4,7 @@ using Auditarium.Dal;
 using Auditarium.Infrastructure.Security;
 using Auditarium.Infrastructure.Ldap;
 using Auditarium.Fal;
+using Microsoft.AspNetCore.Mvc;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -17,7 +18,8 @@ builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumLdap();
 builder.Services.AddAuditariumCookieAuthentication();
 builder.Services.AddAuditariumHttpCurrentActor();
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(options =>
+    options.Conventions.ConfigureFilter(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddAntiforgery();
 builder.Services.AddHealthChecks()
     .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"]);
@@ -54,6 +56,18 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    var mustChangePassword = context.User.HasClaim(AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true");
+    var path = context.Request.Path;
+    if (mustChangePassword && !path.StartsWithSegments("/account/change-password") && !path.StartsWithSegments("/logout"))
+    {
+        context.Response.Redirect("/account/change-password");
+        return;
+    }
+
+    await next(context);
+});
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = registration => registration.Tags.Contains("ready") });
 app.MapPrometheusScrapingEndpoint("/metrics");

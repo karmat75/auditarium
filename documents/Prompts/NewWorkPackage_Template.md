@@ -1,24 +1,66 @@
-Wir beginnen mit Work Package <Nummer> aus dem Projekt Auditarium.
+Bearbeite ausschließlich **Work Package <WP>** aus `documents/Auditarium_Soll_Pflichtenheft.md`.
 
-Verbindliche Quelle ist:
-documents/Auditarium_Soll_Pflichtenheft.md
+Lies zuerst `AGENTS.md` und beachte alle dort festgelegten Architektur-, Coding-, Test- und Model-/Reasoning-Regeln.
 
-Lies zuerst AGENTS.md sowie ausschließlich:
-- Kapitel 20.<Nummer> zum Work Package,
-- die dort fachlich referenzierten Kapitel,
-- Kapitel 19 zu Tests und Abnahmekriterien.
+Lies anschließend das ausgewählte Work Package vollständig sowie gezielt alle fachlichen und technischen Kapitel des Soll-/Pflichtenhefts, die für seine Umsetzung erforderlich sind. Das Soll-/Pflichtenheft ist die normative Quelle. Die Änderungshistorie ist kein zweiter Sollzustand. Offene Punkte aus Kapitel 21 dürfen nicht eigenmächtig entschieden werden.
 
-Setze das Work Package vollständig im Repository um.
-Halte dich strikt an die Architektur- und Sicherheitsvorgaben des Pflichtenhefts.
-Triff keine neue Produktentscheidung stillschweigend. Wenn eine verbindliche Entscheidung fehlt, halte an dieser Stelle an und frage gezielt nach.
+Prüfe vor Änderungen den bestehenden Code, relevante Tests und `git status`. Erhalte vorhandene oder fremde Änderungen.
 
-Ändere das Pflichtenheft nur, wenn wir eine neue oder korrigierte Anforderung entscheiden. Dann Versionsnummer erhöhen und Änderungshistorie ergänzen.
+Implementiere nur den Scope des ausgewählten Work Packages. Ziehe keine Funktionen späterer Work Packages vor und beginne nach Abschluss nicht automatisch mit dem nächsten Work Package.
 
-Prüfe die zugehörigen Abnahmekriterien mit angemessenen Tests.
-Für containerbasierte Builds, Tests und insbesondere Testcontainers-Integrationstests darfst du den Docker-Socket des Entwicklungssystems verwenden. Binde ihn bei Bedarf gezielt in den SDK-Container ein (`-v /var/run/docker.sock:/var/run/docker.sock`), damit Testcontainer auf dem Entwicklungssystem gestartet werden können. Diese Freigabe gilt ausschließlich für Entwicklungs- und Testcontainer im Rahmen dieses Work Packages; entferne von dir erzeugte temporäre Container nach Abschluss.
-Führe vor dem Abschluss zwingend den projektweiten CI-nahen Format-Check mit `sh scripts/verify-format.sh` aus und behebe alle Befunde. Prüfe bei neu erzeugten oder von Werkzeugen generierten Textdateien, insbesondere EF-Core-Migrationen, zusätzlich das Dateiformat: Die Dateien müssen UTF-8 ohne BOM verwenden. Führe anschließend einen vollständigen Release-Build sowie die passenden Tests aus.
-Berichte abschließend:
-- geänderte Dateien,
-- durchgeführte Prüfungen,
-- erfüllte Abnahmekriterien,
-- verbleibende offene Entscheidungen.
+Für `20.8.x` gilt zusätzlich:
+- Web verwendet Razor Pages → Mediator → BLL.
+- API verwendet HTTP → Mediator → BLL.
+- Web verwendet niemals die eigene API als Backend.
+- Web und API verwenden dieselben fachlichen BLL-Use-Cases.
+- Keine Businesslogik in Razor Pages oder API-Endpunkten duplizieren.
+- Berechtigungen bleiben serverseitig in BLL/Authorization erzwungen.
+- Web-Schreibformulare verwenden InputModels, PRG und Antiforgery.
+- EF-/Domain-Entities sind keine Web-ViewModels oder öffentlichen API-Verträge.
+- API-Fehler verwenden das zentrale `AppError` → `ProblemDetails`-Mapping.
+- Concurrency-Konflikte dürfen keine Fremdänderungen überschreiben.
+- Filter und Sortierung nur über explizit freigegebene Felder.
+- OpenAPI beschreibt die tatsächlich implementierte API.
+- Die im Soll-/Pflichtenheft definierte Grenze zum nächsten `20.8.x`-Teilpaket ist verbindlich.
+
+Falls für die Umsetzung ein kleiner technischer oder BLL-seitiger Baustein fehlt, ergänze ihn nur dann, wenn er zwingend erforderlich ist und das gewünschte Verhalten im Soll-/Pflichtenheft bereits eindeutig festgelegt ist. Keine neuen Produktentscheidungen und keine opportunistischen Refactorings.
+
+Wenn das aktuell gewählte Modell oder Reasoning-Level gemäß `AGENTS.md` für eine große oder riskante Änderung nicht ausreicht, stoppe vor der Implementierung und nenne knapp das empfohlene Modell und Reasoning-Level.
+
+Führe nach der Implementierung die relevanten Prüfungen aus, mindestens soweit anwendbar:
+
+```bash
+dotnet restore Auditarium.sln --locked-mode
+dotnet build Auditarium.sln --configuration Release --no-restore
+dotnet test Auditarium.sln --configuration Release --no-build --no-restore
+dotnet format Auditarium.sln --verify-no-changes --no-restore
+```
+
+Schwäche keine Abnahmekriterien ab, nur damit Tests grün werden.
+
+Beende den Lauf mit einem kurzen Bericht:
+
+```text
+Status
+→ abgeschlossen | teilweise abgeschlossen | blockiert
+
+Umgesetzt
+→ wichtigste Ergebnisse
+
+Zusätzliche notwendige Änderungen außerhalb des direkten WP-Scope
+→ keine | exakt benennen und begründen
+
+Tests / Verifikation
+→ ausgeführte Kommandos und Ergebnis
+
+Abnahmekriterien
+→ je Kriterium: erfüllt | nicht erfüllt
+
+Blocker / Abweichungen
+→ keine | konkret benennen
+
+Scope
+→ bestätigen, dass kein nachfolgendes Work Package vorgezogen wurde
+```
+
+Wenn die Abnahmekriterien des Work Package erfüllt sind: **STOP**.

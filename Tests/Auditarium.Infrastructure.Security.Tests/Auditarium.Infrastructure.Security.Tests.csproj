@@ -8,5 +8,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../Infrastructure/Auditarium.Infrastructure.Security/Auditarium.Infrastructure.Security.csproj" />
+    <ProjectReference Include="../../UI/Auditarium.Api/Auditarium.Api.csproj" />
+    <ProjectReference Include="../../UI/Auditarium.Web/Auditarium.Web.csproj" />
   </ItemGroup>
 </Project>

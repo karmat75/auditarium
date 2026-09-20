@@ -1,0 +1,13 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #172033; background: #f4f6f8; }
+body { margin: 0; }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 15rem; padding: 1.25rem; background: #172033; color: #fff; }
+.brand, .sidebar a { display: block; color: inherit; margin: .5rem 0; text-decoration: none; }
+.brand { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
+.navigation-heading { display: block; margin: 1.25rem 0 .5rem; color: #b9c5d8; font-size: .85rem; text-transform: uppercase; }
+.main-area { flex: 1; min-width: 0; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.5rem; background: #fff; border-bottom: 1px solid #d9dee7; }
+.content { max-width: 72rem; padding: 2rem 1.5rem; }
+label, input, button { display: block; } input { margin: .25rem 0 1rem; max-width: 28rem; width: 100%; } button { padding: .45rem .8rem; }
+.validation-summary-errors, .field-validation-error { color: #a61b1b; }
+@media (max-width: 48rem) { .sidebar { width: auto; padding: .75rem; } .sidebar nav, .navigation-heading { display: none; } .content { padding: 1.25rem; } }

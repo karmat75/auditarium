@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Features.System.GetHostStatus;
 using Mediator;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Auditarium.Web.Pages;
 
+[Authorize]
 public sealed class IndexModel(IMediator mediator) : PageModel
 {
     public async Task OnGetAsync(CancellationToken cancellationToken)

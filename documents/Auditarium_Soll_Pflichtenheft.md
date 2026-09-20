@@ -1,6 +1,6 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.115
+**Version:** 0.116
 **Stand:** 20.09.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
@@ -11789,32 +11789,668 @@ Abnahme:
 
 ## 20.8 Work Package 8 – Web und API
 
-Web:
+Work Package 20.8 führt die bereits implementierten fachlichen BLL-Use-Cases über zwei Präsentationswege nach außen:
 
 ```text
-Razor Pages
-→ Listen / Details
-→ InputModels / Formulare
-→ Permission-gesteuerte UI
-→ PRG / Antiforgery
+Web
+→ ASP.NET Core Razor Pages
+→ Mediator
+→ BLL
+
+API
+→ HTTP /api/v1
+→ Mediator
+→ BLL
 ```
 
-API:
+Web und API sind dabei ausschließlich Präsentations- bzw. Transport-Layer.
+
+Es gilt weiterhin:
+
+- Web verwendet niemals die eigene API als internes Backend.
+- Web und API verwenden dieselben fachlichen BLL-Use-Cases.
+- Fachliche Entscheidungen, Berechtigungsentscheidungen und Persistenzlogik werden nicht in Web oder API dupliziert.
+- Razor Pages binden bei schreibenden Formularen auf Web-InputModels und nicht direkt auf BLL-Commands oder Entities.
+- API-Verträge bilden HTTP-spezifische Requests und Responses ab und exponieren keine EF-Entities.
+- Permission-gesteuerte Sichtbarkeit oder Deaktivierung von UI-Aktionen ersetzt niemals die serverseitige Autorisierung.
+- Browser-Schreiboperationen verwenden die festgelegten PRG- und Antiforgery-Regeln.
+- API-Schreiboperationen verwenden die festgelegten Concurrency-, `ProblemDetails`- und Statuscode-Regeln.
+- Pagination, Filterung und Sortierung folgen ausschließlich den explizit freigegebenen API-Verträgen; freie LINQ-/SQL-/OData-Ausdrücke bleiben ausgeschlossen.
+- OpenAPI wird aus der tatsächlichen API-Implementierung erzeugt und ist der öffentliche API-Vertrag.
+- Die in Kapitel 16 und 17 festgelegten allgemeinen Web-/API-Regeln gelten für alle nachfolgenden Teilpakete.
+
+Work Package 20.8 wird bewusst in vertikale, einzeln implementier- und abnehmbare Teilpakete zerlegt.
+
+Grundsatz:
+
+> **Ein Teilpaket umfasst Web und API für denselben fachlichen Bereich. Es wird vollständig abgeschlossen und abgenommen, bevor das nächste Teilpaket begonnen wird.**
+
+Damit entsteht nicht zuerst eine vollständige Web-Oberfläche und anschließend eine zweite, davon möglicherweise abweichende API-Implementierung.
+
+### Scope-Grenze von Work Package 20.8
+
+Nicht Bestandteil von 20.8 sind:
+
+```text
+Jobs und deren operative UI/API
+→ Work Package 20.9
+
+Auswertung
+Zeitleisten
+CSV-Export
+Reports
+Visualisierungen
+abschließendes Hardening
+→ Work Package 20.10
+```
+
+Insbesondere wird `POST /api/v1/jobs/{jobKey}/run` erst mit Work Package 20.9 umgesetzt.
+
+Offene fachliche Punkte aus Kapitel 21 werden durch die Umsetzung von 20.8 nicht implizit entschieden.
+
+Stellt sich während eines Teilpakets heraus, dass zum Exponieren eines bereits normativ festgelegten Verhaltens ein kleiner BLL-Query, ein ViewModel oder ein technischer Vertrag fehlt, darf ausschließlich die minimal erforderliche Lücke geschlossen werden.
+
+Dabei gilt:
+
+- keine neue fachliche Produktentscheidung,
+- keine Erweiterung auf das nächste Teilpaket,
+- keine opportunistische Architekturänderung,
+- die Abweichung bzw. Ergänzung wird im Abschlussbericht des Teilpakets ausdrücklich genannt.
+
+---
+
+### 20.8.1 Presentation Foundations
+
+#### Ziel
+
+Ein gemeinsames Präsentationsfundament für alle folgenden Web- und API-Teilpakete schaffen, ohne bereits die fachlichen Verwaltungs- und Auditoberflächen vollständig umzusetzen.
+
+#### Web
+
+Mindestens umzusetzen:
+
+```text
+gemeinsames Razor-Layout
+linke einklappbare Navigation
+globale Kopf-/Benutzerfunktionen
+Login
+Logout
+erzwungener LOCAL-Passwortwechsel
+Permission-gesteuerte Navigation
+gemeinsame Statusdarstellung
+gemeinsame Form-/Tabellen-/Meldungsmuster
+PRG
+Antiforgery
+zentrale Darstellung erwartbarer Fehler
+```
+
+Die UI orientiert sich an den festgelegten UI-/UX-Leitplanken.
+
+Nicht erlaubte Navigationseinträge und Aktionen werden nach Möglichkeit nicht angeboten. Die tatsächliche Autorisierungsentscheidung verbleibt trotzdem in BLL und Authorization Pipeline.
+
+Für erwartbare Formularfehler gilt:
+
+```text
+Binding / Parsing
+→ Web InputModel
+
+BLL Request
+→ Validation / Authorization / Handler
+
+AppError mit Target
+→ passender ModelState-Eintrag
+
+AppError ohne geeignetes Feld-Target
+→ verständliche globale Seiten-/Formularmeldung
+```
+
+Concurrency-Konflikte führen nicht zu stiller Überschreibung. Die UI fordert zum erneuten Laden und Prüfen des aktuellen Stands auf.
+
+#### API
+
+Mindestens umzusetzen bzw. zu vereinheitlichen:
 
 ```text
 /api/v1
-→ Resources
-→ Queries / Commands
-→ Pagination / Filter / Sort
-→ ProblemDetails
-→ OpenAPI
+API Authentication
+Mediator-Anbindung
+Result / AppError → ProblemDetails
+zentrale Exception-Behandlung
+sanitisiertes 500-ProblemDetails mit traceId
+gemeinsame Pagination-Verträge
+Grundregeln für Filter / Sort
+OpenAPI
 ```
 
-Abnahme:
+Die festgelegte Statuscode-Abbildung gilt mindestens:
 
-- Web verwendet niemals die eigene API als Backend.
-- API und Web führen dieselben BLL-Use-Cases aus.
+```text
+Validation   → 400
+Unauthorized → 401
+Forbidden    → 403
+NotFound     → 404
+Conflict     → 409
+Exception    → 500
+```
 
+#### Nicht Bestandteil
+
+20.8.1 baut keine vollständigen CRUD-Oberflächen für Dokumente, Kataloge, Audit Units, Audits, Benutzer, Rollen oder Authentication Provider.
+
+#### Abnahme
+
+- Web startet mit dem gemeinsamen Auditarium-Layout und der linken Navigation.
+- Login und Logout funktionieren über das bestehende Authentication-Modell.
+- Ein LOCAL-Benutzer mit `must_change_password = true` kann die normale Anwendung nicht verwenden, bevor der Passwortwechsel erfolgreich abgeschlossen wurde.
+- Permission-gesteuerte Navigation und Aktionen sind sichtbar konsistent, ohne die serverseitige Autorisierung zu ersetzen.
+- Browser-Schreiboperationen verwenden Antiforgery und PRG.
+- erwartbare BLL-Fehler werden kontrolliert und verständlich dargestellt.
+- die API besitzt eine konsistente `/api/v1`-Basis.
+- `AppError` wird zentral und konsistent auf `ProblemDetails` abgebildet.
+- unerwartete Exceptions liefern keine internen Details, aber eine `traceId`.
+- OpenAPI beschreibt die tatsächlich vorhandenen Endpunkte.
+- Web verwendet die eigene API nicht als Backend.
+- relevante Tests für Authentifizierung, Error-Mapping und gemeinsame Presentation-Infrastruktur sind vorhanden.
+
+---
+
+### 20.8.2 Documents & Catalog Versions
+
+#### Ziel
+
+Die bereits festgelegten Dokument- und Katalogversions-Use-Cases über Web und API vollständig bedienbar machen.
+
+#### Web und API
+
+Mindestens abzubilden sind die bereits vorhandenen bzw. normativ geforderten Use Cases für:
+
+```text
+Documents
+├── Liste / Suche
+├── Detail
+├── Anlegen
+├── Bearbeiten
+└── Usage State
+
+Catalog Versions
+├── Liste / Detail
+├── neue DRAFT-Version
+├── Kopieren / neue Version
+├── DRAFT / READY Lifecycle
+└── Source File
+```
+
+Die konkrete Oberfläche und die HTTP-Endpunkte verwenden dieselben BLL-Requests.
+
+Für Quelldokumente gelten die bestehenden FileStorage-/FAL-Regeln:
+
+- Upload, Ersetzen und Entfernen nur in den fachlich erlaubten DRAFT-Zuständen.
+- READY friert die Dateireferenz ein.
+- Downloads laufen kontrolliert über Auditarium und die FAL.
+- Storage-Pfade werden niemals als öffentliche URL exponiert.
+- Upload-Validierung und Größenlimits werden nicht im UI umgangen.
+
+Lifecycle-, Usage-State- und Freeze-Regeln werden ausschließlich entsprechend dem normativen Hauptteil umgesetzt.
+
+#### Nicht Bestandteil
+
+Nicht Bestandteil von 20.8.2 sind:
+
+```text
+Document-Element-Editor
+Questions
+Scope-Zuordnungen
+Weights
+Import
+```
+
+Diese folgen in 20.8.3.
+
+#### Abnahme
+
+- Dokumente können entsprechend den vorhandenen Permissions gelesen und verwaltet werden.
+- ACTIVE/DEPRECATED-Verhalten entspricht dem normativen Dokumentmodell.
+- Katalogversionen können entsprechend den bestehenden Lifecycle-Regeln verwaltet werden.
+- bereits verwendete Katalogversionen bleiben eingefroren.
+- READY→DRAFT ist nur in den bereits definierten zulässigen Fällen möglich.
+- Source-File-Operationen beachten DRAFT-/READY- und FAL-Regeln.
+- Web und API liefern bei Validation-, Permission-, NotFound- und Concurrency-Fällen konsistentes Verhalten.
+- API-Schreiboperationen führen `concurrencyVersion` mit, wenn das Zielobjekt einen Concurrency Token besitzt.
+- Web verwendet die eigene API nicht als Backend.
+
+---
+
+### 20.8.3 Catalog Editor & Import
+
+#### Ziel
+
+Den vollständigen manuellen DRAFT-Katalogworkflow sowie die bereits implementierte Importfunktion über Web und API zugänglich machen.
+
+#### Catalog Editor
+
+Mindestens abzubilden:
+
+```text
+Document Elements
+├── Hierarchie
+├── Anlegen
+├── Bearbeiten
+├── Verschieben
+├── Sortieren
+└── kontrolliertes Löschen
+
+Questions
+├── Anlegen
+├── Bearbeiten
+├── Sortieren
+└── Löschen
+
+Question Scope Types
+Document Element Weights
+READY-Validierung
+```
+
+Der Editor bildet die bestehenden Regeln zu:
+
+```text
+gleicher catalog_version
+keine Zyklen
+Sibling-Sortierung
+Elementrollen
+Fragenformulierung
+Scope-Zuordnung
+Weight 1..5 / Default 3
+Freeze ab READY bzw. Verwendung
+```
+
+ab, ohne sie im Web-Layer neu zu implementieren.
+
+#### Import
+
+Der Import-Workflow bildet die vorhandenen BLL-/Import-Schritte ab:
+
+```text
+Upload
+→ Parse / Validate
+→ Report / Preview
+→ bewusster Apply
+```
+
+Dabei gelten insbesondere:
+
+- Upload oder reine Validierung verändert keinen DRAFT.
+- Hard Errors gelangen niemals in die Datenbank.
+- Teilimporte folgen den bereits definierten deterministischen Regeln.
+- Apply erfolgt bewusst und transaktional.
+- `draft_revision` wird geprüft.
+- `IMPORT.BASE_REVISION_MISMATCH` wird als kontrollierter Konflikt behandelt.
+- Auditarium enthält keine eigene KI-Funktionalität.
+- offene Punkte aus Kapitel 21 zum endgültigen Import-Schema oder Hilfsprompt werden nicht durch den Presentation-Layer erfunden.
+
+#### Abnahme
+
+- ein DRAFT-Katalog kann vollständig über die Web-Oberfläche bearbeitet werden.
+- dieselben fachlichen Operationen sind über die API verfügbar, soweit sie als öffentliche v1-API vorgesehen sind.
+- Hierarchie-, Cycle-, Sortier-, Scope-, Weight- und Freeze-Regeln werden serverseitig erzwungen.
+- READY-Validierung zeigt fachlich verwertbare Fehler.
+- Import-Preview verändert keine Katalogdaten.
+- Apply ist eine separate, bewusste und transaktionale Aktion.
+- Revision-Konflikte führen nicht zu stiller Überschreibung.
+- Web und API benutzen dieselben BLL-Import- und Editor-Use-Cases.
+- Web verwendet die eigene API nicht als Backend.
+
+---
+
+### 20.8.4 Audit Units & Audit Preparation
+
+#### Ziel
+
+Audit Units verwalten und ein Audit vollständig bis einschließlich Publish vorbereiten können.
+
+#### Audit Units
+
+Web und API bilden mindestens ab:
+
+```text
+Liste / Suche
+Hierarchie
+Detail
+Anlegen
+Bearbeiten
+Parent-Zuordnung
+Scope Type
+ACTIVE / INACTIVE
+```
+
+Die bestehenden Regeln zu Parent/Child, Zyklen, Scope-Typen, Usage State und Löschung bleiben maßgeblich.
+
+#### Audit-DRAFT
+
+Mindestens abzubilden:
+
+```text
+Audit anlegen
+Name / Beschreibung
+Audit Unit wählen
+Catalog Version wählen
+Audit Settings / Response Policy
+Preview
+Publish
+```
+
+Für `DRAFT` gilt weiterhin:
+
+```text
+Konfiguration
+→ änderbar gemäß Permission
+
+Materialisierung
+→ noch nicht vorhanden
+
+audit_unit_context
+→ noch nicht vorhanden
+```
+
+Die Preview wird aus dem aktuellen DRAFT-Zustand dynamisch ermittelt und erzeugt keine veröffentlichte Materialisierung.
+
+#### Publish
+
+Publish bleibt ein bewusster, atomarer BLL-Use-Case.
+
+Vor Publish werden mindestens die bereits definierten Voraussetzungen geprüft:
+
+```text
+Audit Unit zulässig
+Document für neue Audits zulässig
+Catalog Version READY
+Audit Settings gültig
+mindestens eine relevante Frage
+Scope-Matching gültig
+```
+
+Erst ein erfolgreicher Publish erzeugt die festgelegten Snapshots und Materialisierungen und überführt das Audit nach `READY`.
+
+#### Nicht Bestandteil
+
+Auditfragen werden in 20.8.4 noch nicht beantwortet.
+
+Claim, Assignment, Answering und Abschluss des veröffentlichten Audits folgen in 20.8.5.
+
+#### Abnahme
+
+- Audit Units können entsprechend den bestehenden Regeln über Web und API verwaltet werden.
+- ein Audit-DRAFT kann angelegt und konfiguriert werden.
+- die Preview zeigt die aus Unit, Katalog und Settings resultierende Zusammensetzung, ohne Materialisierung zu erzeugen.
+- ungültige Publish-Voraussetzungen führen zu kontrollierten Fehlern ohne Teilmaterialisierung.
+- erfolgreicher Publish ist atomar.
+- nach Publish existieren Audit-Unit-Kontext, relevante Elemente, Fragen und Weight-Snapshots entsprechend dem kanonischen Modell.
+- das Audit befindet sich anschließend in `READY`.
+- Web verwendet die eigene API nicht als Backend.
+
+---
+
+### 20.8.5 Audit Execution
+
+#### Ziel
+
+Veröffentlichte Audits über Web und API sicher, nachvollziehbar und exklusiv bearbeitbar machen.
+
+#### Sichtbarkeit und Zuweisung
+
+Für entsprechend leseberechtigte Auditoren bleiben veröffentlichte Audits sichtbar.
+
+Die UI bildet mindestens folgende Zustände eindeutig ab:
+
+```text
+nicht zugewiesen
+→ sichtbar
+→ read-only
+→ bei Audits.Claim claimbar
+
+mir zugewiesen
+→ sichtbar
+→ bei vorhandenen Bearbeitungs-Permissions editierbar
+
+anderem Auditor zugewiesen
+→ sichtbar
+→ read-only
+→ "In Bearbeitung durch <Display Name>"
+
+FINALIZED / CANCELED
+→ read-only gemäß fachlichem Zustand
+```
+
+Mindestens abzubilden:
+
+```text
+Claim
+ReleaseOwn
+Assign / Reassign / Release durch Audit Manager
+```
+
+Claim ist atomar.
+
+Bei konkurrierendem Claim darf genau ein Vorgang erfolgreich sein; weitere Versuche erhalten einen kontrollierten Conflict.
+
+#### Antworten
+
+Der zugewiesene Auditor kann bei vorhandenen Permissions:
+
+```text
+Antwort setzen
+Antwort ändern
+Antwort zurücksetzen
+Kommentar pflegen
+Evidence pflegen
+```
+
+Die bestehende Response Policy wird serverseitig erzwungen.
+
+Die UI darf Pflichtinformationen sichtbar machen, ist aber nicht die verbindliche Validierungsinstanz.
+
+#### State Transitions
+
+Mindestens abzubilden:
+
+```text
+READY
+→ erste Antwort
+→ IN_PROGRESS
+
+IN_PROGRESS
+→ letzte verbliebene Antwort auf unbeantwortet zurücksetzen
+→ READY
+
+IN_PROGRESS
+→ Finalize
+→ FINALIZED
+
+READY / IN_PROGRESS
+→ Cancel
+→ CANCELED
+
+CANCELED
+→ Reopen
+→ READY oder IN_PROGRESS gemäß vorhandenem Antwortstand
+```
+
+Beim erfolgreichen Finalize wird die aktive Auditor-Zuweisung in derselben fachlichen Transaktion entfernt.
+
+`FINALIZED` besitzt niemals eine aktive Auditor-Zuweisung.
+
+#### Concurrency
+
+Audit und Auditfragen verwenden das bestehende optimistische Concurrency-Modell.
+
+Ein veralteter Bearbeitungsstand führt zu Conflict und niemals zu automatischem Merge oder Last-Write-Wins.
+
+#### API
+
+Fachliche Zustandsaktionen erhalten explizite Action-Endpunkte entsprechend Kapitel 17.
+
+Dazu gehören, soweit vom bestehenden BLL-Modell vorgesehen, insbesondere:
+
+```text
+claim
+release-own
+assign / reassign / release-assignment
+finalize
+cancel
+reopen
+```
+
+Antworten werden über ressourcenorientierte oder fachlich passende Endpunkte auf die bestehenden BLL-Commands abgebildet.
+
+#### Abnahme
+
+- freie und fremd zugewiesene Audits bleiben für leseberechtigte Auditoren sichtbar.
+- freie Audits sind read-only und claimbar.
+- fremd zugewiesene Audits sind read-only und zeigen den zuständigen Auditor.
+- ein eigenes zugewiesenes Audit ist nur mit den notwendigen Permissions bearbeitbar.
+- Claim ist atomar.
+- `ReleaseOwn` erhält Audit-State, Antworten, Kommentare, Evidence und Antwortmetadaten.
+- die Response Policy wird bei jeder Antwortänderung serverseitig erzwungen.
+- die erste Antwort überführt `READY` nach `IN_PROGRESS`.
+- das Zurücksetzen der letzten Antwort überführt `IN_PROGRESS` nach `READY`.
+- Finalize ist nur unter den bestehenden fachlichen Voraussetzungen möglich und entfernt die Assignment atomar.
+- Cancel und Reopen folgen den festgelegten State-Regeln und Reason-Anforderungen.
+- Concurrency-Konflikte überschreiben keine Fremdänderung.
+- fehlende Permissions werden serverseitig abgewiesen.
+- dieselben fachlichen Use Cases sind über Web und API erreichbar.
+- API-Fehler folgen den festgelegten `ProblemDetails`- und Statuscode-Regeln.
+- Web verwendet die eigene API nicht als Backend.
+
+---
+
+### 20.8.6 Administration
+
+#### Ziel
+
+Die bereits implementierten administrativen Funktionen über Web und API nutzbar machen, ohne ein zweites Identity-, Settings- oder Berechtigungsmodell im Presentation-Layer aufzubauen.
+
+#### Benutzer und Rollen
+
+Mindestens abzubilden:
+
+```text
+Users
+├── Liste / Detail
+├── Anlegen / Bearbeiten, soweit fachlich zulässig
+├── aktivieren / deaktivieren
+├── Rollen zuweisen
+└── technische / systemverwaltete Einschränkungen
+
+Roles
+├── Liste / Detail
+├── Custom Roles
+├── Permission-Zuordnung
+└── Schutz systemverwalteter Rollen
+```
+
+Systemverwaltete Benutzer, Rollen und Permissions bleiben entsprechend den bestehenden Reconcile-/RBAC-Regeln geschützt.
+
+#### Authentication Provider
+
+Mindestens abzubilden:
+
+```text
+Provider-Instanzen anzeigen
+LDAP-Instanz anlegen
+LDAP-Instanz bearbeiten
+aktivieren / deaktivieren
+löschen, wenn zulässig
+Effective Configuration anzeigen
+Source Metadata anzeigen
+LDAP-Verbindung testen
+Provisioning-Einstellungen
+```
+
+`LOCAL` und `API` bleiben systemverwaltet und nicht löschbar.
+
+LDAP-Lifecycle und Dependency-Regeln werden nicht in der UI nachgebaut, sondern durch bestehende BLL-Regeln erzwungen.
+
+Der LDAP-Verbindungstest bleibt ohne fachliche Nebenwirkungen.
+
+#### Settings
+
+Die Settings-UI zeigt gemäß bestehendem Settings-Modell mindestens:
+
+```text
+Configured Value
+Effective Value
+Source
+Editierbarkeit / externer Override
+```
+
+Secret-Werte:
+
+```text
+werden niemals angezeigt
+können bewusst ersetzt werden
+zeigen nur konfiguriert / nicht konfiguriert
+```
+
+Config-/DB-/Environment-Prioritäten werden nicht im Presentation-Layer neu berechnet.
+
+#### API Credentials
+
+Die Administration bildet die bestehenden API-Credential-Use-Cases ab:
+
+```text
+erzeugen
+anzeigen der Metadaten
+rotieren
+widerrufen
+```
+
+Ein Klartext-Secret wird ausschließlich im bereits festgelegten Erzeugungs-/Rotationsmoment einmalig ausgegeben.
+
+#### Abnahme
+
+- Benutzer- und Rollenverwaltung respektiert das bestehende RBAC- und SystemManaged-Modell.
+- deaktivierte Benutzer können sich nicht anmelden.
+- systemverwaltete Rollen/Provider können nicht über UI oder API in unzulässige Zustände versetzt werden.
+- mehrere LDAP-Instanzen können unabhängig konfiguriert werden.
+- LDAP-Verbindungstest erzeugt keine Benutzer, Identities oder Rollen.
+- Provider mit Abhängigkeiten können nicht gelöscht werden.
+- Settings zeigen Effective Value und Source korrekt an.
+- extern überschriebene Settings werden als solche erkennbar dargestellt.
+- Secret-Werte werden niemals im Klartext wieder angezeigt.
+- API-Credential-Secrets sind nur bei Erzeugung bzw. Rotation einmal sichtbar.
+- alle administrativen API-Endpunkte verwenden dasselbe BLL-/Permission-Modell wie die Web-Oberfläche.
+- Web verwendet die eigene API nicht als Backend.
+
+---
+
+### Abschluss von Work Package 20.8
+
+Work Package 20.8 gilt erst als abgeschlossen, wenn:
+
+```text
+20.8.1 Presentation Foundations
+20.8.2 Documents & Catalog Versions
+20.8.3 Catalog Editor & Import
+20.8.4 Audit Units & Audit Preparation
+20.8.5 Audit Execution
+20.8.6 Administration
+```
+
+jeweils einzeln implementiert und gegen ihre Abnahmekriterien geprüft wurden.
+
+Ein Codex-/Implementierungslauf soll grundsätzlich genau ein Teilpaket bearbeiten.
+
+Der erfolgreiche Abschluss eines Teilpakets ist **keine** Anweisung, im selben Lauf automatisch mit dem nächsten Teilpaket fortzufahren.
+
+Die vollständige Abnahme von 20.8 bestätigt zusätzlich:
+
+- Web verwendet niemals die eigene API als internes Backend.
+- Web und API führen dieselben fachlichen BLL-Use-Cases aus.
+- Presentation-Layer enthalten keine duplizierte fachliche Businesslogik.
+- Permission-, Validation-, State- und Concurrency-Regeln bleiben serverseitig wirksam.
+- Jobs wurden nicht aus Work Package 20.9 vorgezogen.
+- Auswertung, Zeitleiste, CSV-Export und Reports wurden nicht aus Work Package 20.10 vorgezogen.
+
+---
 ## 20.9 Work Package 9 – Jobs und Betriebsfunktionen
 
 1. `BackgroundService` + Cronos integrieren.
@@ -11868,6 +12504,29 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.116
+
+Gegenüber Version 0.115 wurde Work Package 20.8 als Implementierungsplan für Web und API neu zugeschnitten, ohne die fachliche Produktsemantik zu verändern:
+
+- Work Package 20.8 bleibt das gemeinsame Dach für Web und API.
+- Die Umsetzung wird in die sechs einzeln implementier- und abnehmbaren Teilpakete `20.8.1` bis `20.8.6` zerlegt.
+- Die Teilpakete sind vertikale fachliche Schnitte: Web und API eines Fachbereichs werden gemeinsam auf dieselben BLL-Use-Cases aufgebaut, statt zunächst die gesamte Web-Oberfläche und danach eine separate API zu implementieren.
+- `20.8.1 Presentation Foundations` schafft ausschließlich die gemeinsamen Web-/API-Grundlagen, Authentifizierungsoberflächen, Fehlerabbildung, Layout- und Vertragsmuster.
+- `20.8.2 Documents & Catalog Versions` exponiert Dokument-, Katalogversions- und Source-File-Use-Cases.
+- `20.8.3 Catalog Editor & Import` exponiert den manuellen DRAFT-Editor, Fragen, Scopes, Gewichte, READY-Validierung und den vorhandenen Importworkflow.
+- `20.8.4 Audit Units & Audit Preparation` umfasst Audit-Unit-Verwaltung sowie Audit-DRAFT, Preview und Publish.
+- `20.8.5 Audit Execution` umfasst Claim/Release/Assignment, Antwortbearbeitung, Response Policy, Lifecycle-Aktionen und Concurrency.
+- `20.8.6 Administration` umfasst Benutzer, Rollen, Authentication Provider, Settings und API-Credentials.
+- Für jedes Teilpaket wurden konkrete Scope-Grenzen und Abnahmekriterien ergänzt.
+- Ein Implementierungslauf soll grundsätzlich genau ein `20.8.x`-Teilpaket abschließen und nicht automatisch in das nächste Teilpaket übergehen.
+- Kleinste fehlende BLL-Queries oder technische Verträge dürfen innerhalb eines Teilpakets nur ergänzt werden, wenn sie zwingend erforderlich sind, um bereits normativ festgelegtes Verhalten zu exponieren; neue Produktentscheidungen oder opportunistische Scope-Erweiterungen sind damit nicht erlaubt.
+- Jobs und deren operative UI/API bleiben ausdrücklich Work Package 20.9.
+- Auswertung, Zeitleiste, CSV-Export, Reports und abschließendes Hardening bleiben ausdrücklich Work Package 20.10.
+- Die Zerlegung reduziert den Arbeits- und Review-Kontext einzelner Implementierungsläufe und schafft klare Zwischenabnahmen, ohne einen zweiten fachlichen Sollstand einzuführen.
+- Das Work-Package-Prompt-Template wurde parallel auf exakt ausgewählten WP-Scope, gezieltes Lesen des normativen Dokuments, Scope-Stopp, Verifikation und strukturierten Abschlussbericht ausgerichtet.
+
+Die bisherigen fachlichen und technischen Festlegungen bleiben bestehen.
 
 ## Änderungen in Version 0.115
 

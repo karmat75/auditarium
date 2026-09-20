@@ -6,9 +6,9 @@ using Auditarium.Infrastructure.Security;
 using Auditarium.Infrastructure.Ldap;
 using Auditarium.Fal;
 using Auditarium.Bll.Features.System.GetHostStatus;
-using Auditarium.Common.Results;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Auditarium.Api;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -47,10 +47,7 @@ var app = builder.Build();
 await app.Services.InitializeAuditariumDatabaseAsync();
 var recoveryMode = builder.Configuration.GetValue<bool>("Auditarium:Recovery:Enabled");
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.MapOpenApi();
 
 app.UseExceptionHandler();
 app.UseAuthentication();
@@ -66,7 +63,7 @@ if (recoveryMode)
 app.MapGet("/api/v1/system/status", async (Mediator.IMediator mediator, CancellationToken cancellationToken) =>
 {
     var result = await mediator.Send(new GetHostStatusQuery(), cancellationToken);
-    return result.ToHttpResult();
+    return ApiProblemDetails.From(result);
 })
     .WithName("GetSystemStatus")
     .WithSummary("Returns the API host status.")
@@ -89,33 +86,5 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : I
             Extensions = { ["code"] = "SYSTEM.UNEXPECTED_ERROR", ["traceId"] = traceId }
         }, cancellationToken);
         return true;
-    }
-}
-
-public static class ResultHttpMapping
-{
-    public static IResult ToHttpResult<T>(this Result<T> result)
-    {
-        if (result.IsSuccess)
-        {
-            return Results.Ok(result.Value);
-        }
-
-        var firstError = result.Errors[0];
-        var status = firstError.Type switch
-        {
-            ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorType.Conflict => StatusCodes.Status409Conflict,
-            _ => StatusCodes.Status500InternalServerError
-        };
-        return Results.Problem(statusCode: status, title: firstError.Type.ToString(), extensions: new Dictionary<string, object?>
-        {
-            ["code"] = firstError.Code,
-            ["errors"] = result.Errors,
-            ["traceId"] = Activity.Current?.TraceId.ToString()
-        });
     }
 }
