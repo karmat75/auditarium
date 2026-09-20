@@ -99,7 +99,9 @@ public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor
         var element = await db.DocumentElements.SingleOrDefaultAsync(x => x.ElementId == message.ElementId, ct); if (element is null) return NotFound();
         var catalog = await EditableCatalogAsync(element.CatalogVersionId, ct); if (catalog.Error is not null) return Failure(catalog.Error);
         if (!message.Confirmed) return Failure("CATALOG.DELETE_CONFIRMATION_REQUIRED", ErrorType.Validation);
-        db.DocumentElements.Remove(element); catalog.Value!.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
+        var subtreeIds = await DescendantIdsAsync(element.ElementId, ct);
+        var subtree = await db.DocumentElements.Where(x => subtreeIds.Contains(x.ElementId)).OrderByDescending(x => x.ElementId).ToListAsync(ct);
+        db.DocumentElements.RemoveRange(subtree); catalog.Value!.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
     }
 
     public async ValueTask<Result<long>> Handle(AddQuestionCommand message, CancellationToken ct)
