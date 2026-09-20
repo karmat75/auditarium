@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 using System.Text.RegularExpressions;
+using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Bll.Security;
 using Auditarium.Common.Results;
@@ -18,8 +19,11 @@ public sealed record SetAuthenticationProviderEnabledCommand(long ProviderId, bo
 [RequiresPermission("Authentication.Manage")]
 public sealed record DeleteAuthenticationProviderCommand(long ProviderId) : IRequest<Result>;
 
-public sealed class AuthenticationProviderCommandHandler(IAuditariumDbContext db)
-    : IRequestHandler<CreateLdapProviderCommand, Result<long>>, IRequestHandler<SetAuthenticationProviderEnabledCommand, Result>, IRequestHandler<DeleteAuthenticationProviderCommand, Result>
+[RequiresPermission("Authentication.Manage")]
+public sealed record TestLdapProviderConnectionCommand(string ProviderKey) : IRequest<Result>;
+
+public sealed class AuthenticationProviderCommandHandler(IAuditariumDbContext db, ILdapAuthenticationService ldapAuthentication)
+    : IRequestHandler<CreateLdapProviderCommand, Result<long>>, IRequestHandler<SetAuthenticationProviderEnabledCommand, Result>, IRequestHandler<DeleteAuthenticationProviderCommand, Result>, IRequestHandler<TestLdapProviderConnectionCommand, Result>
 {
     public async ValueTask<Result<long>> Handle(CreateLdapProviderCommand message, CancellationToken cancellationToken)
     {
@@ -47,5 +51,19 @@ public sealed class AuthenticationProviderCommandHandler(IAuditariumDbContext db
         if (provider.ProviderKey is "LOCAL" or "API") return Result.Failure(new AppError("AUTH_PROVIDER.SYSTEM_MANAGED", ErrorType.Forbidden));
         if (await db.UserIdentities.AnyAsync(x => x.AuthenticationProviderId == provider.AuthenticationProviderId, cancellationToken)) return Result.Failure(new AppError("AUTH_PROVIDER.HAS_DEPENDENCIES", ErrorType.Conflict));
         db.AuthenticationProviders.Remove(provider); await db.SaveChangesAsync(cancellationToken); return Result.Success();
+    }
+
+    public async ValueTask<Result> Handle(TestLdapProviderConnectionCommand message, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(message.ProviderKey)) return Result.Failure(new AppError("AUTH_PROVIDER.KEY_REQUIRED", ErrorType.Validation));
+        try
+        {
+            await ldapAuthentication.ValidateConnectionAsync(message.ProviderKey.Trim().ToUpperInvariant(), cancellationToken);
+            return Result.Success();
+        }
+        catch (InvalidOperationException)
+        {
+            return Result.Failure(new AppError("LDAP.CONNECTION_TEST_FAILED", ErrorType.Validation));
+        }
     }
 }

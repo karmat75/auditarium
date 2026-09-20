@@ -15,12 +15,21 @@ public sealed class AuthorizationBehavior<TMessage, TResponse>(ICurrentActor cur
     {
         var requestType = typeof(TMessage);
         var anonymous = requestType.GetCustomAttributes(typeof(AllowAnonymousAttribute), inherit: false);
+        var passwordChange = requestType.GetCustomAttributes(typeof(AllowPasswordChangeAttribute), inherit: false);
         var required = requestType.GetCustomAttributes(typeof(RequiresPermissionAttribute), inherit: false)
             .Cast<RequiresPermissionAttribute>().SingleOrDefault();
 
         if (anonymous.Length == 1 && required is null)
         {
             return await next(message, cancellationToken);
+        }
+
+        if (passwordChange.Length == 1 && anonymous.Length == 0 && required is null)
+        {
+            if (currentActor.Type == ActorType.User && currentActor.IsAuthenticated && currentActor.UserId is not null)
+                return await next(message, cancellationToken);
+
+            return ResultFactory.Failure<TResponse>(new AppError("AUTHENTICATION.REQUIRED", ErrorType.Unauthorized));
         }
 
         if (anonymous.Length != 0 || required is null)

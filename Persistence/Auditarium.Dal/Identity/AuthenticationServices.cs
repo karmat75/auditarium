@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 using System.Security.Cryptography;
 using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Bll.Abstractions.Settings;
 using Auditarium.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,7 @@ internal sealed class AuthenticationRouter(AuditariumDbContext db, IConfiguratio
     }
 }
 
-internal sealed class LocalAuthenticationService(AuditariumDbContext db, IPasswordHasher<LocalCredential> hasher) : ILocalAuthenticationService
+internal sealed class LocalAuthenticationService(AuditariumDbContext db, IPasswordHasher<LocalCredential> hasher, IApplicationSettingResolver settings) : ILocalAuthenticationService
 {
     public async Task<AuthenticationSuccess?> AuthenticateAsync(AuthenticationAttempt attempt, CancellationToken cancellationToken = default)
     {
@@ -36,15 +37,17 @@ internal sealed class LocalAuthenticationService(AuditariumDbContext db, IPasswo
         var result = await (from identity in db.UserIdentities.Include(x => x.LocalCredential)
                             join provider in db.AuthenticationProviders on identity.AuthenticationProviderId equals provider.AuthenticationProviderId
                             join user in db.Users on identity.UserId equals user.UserId
-                            where provider.ProviderKey == "LOCAL" && identity.ExternalId == username
+                            where provider.ProviderKey == "LOCAL" && provider.IsEnabled && identity.ExternalId == username
                             select new { identity, user }).SingleOrDefaultAsync(cancellationToken);
         if (result?.identity.LocalCredential is not { } credential || !result.user.IsActive || credential.LockoutUntil > DateTimeOffset.UtcNow) return null;
         if (hasher.VerifyHashedPassword(credential, credential.PasswordHash, attempt.Secret) == PasswordVerificationResult.Failed)
         {
             var now = DateTimeOffset.UtcNow;
-            if (credential.FailedAttemptWindowStartedAt is null || credential.FailedAttemptWindowStartedAt < now.AddMinutes(-15)) { credential.FailedAttemptWindowStartedAt = now; credential.FailedAttemptCount = 0; }
+            var window = await IntSettingAsync("Security:LocalLockout:WindowMinutes", cancellationToken);
+            var attempts = await IntSettingAsync("Security:LocalLockout:FailedAttempts", cancellationToken);
+            if (credential.FailedAttemptWindowStartedAt is null || credential.FailedAttemptWindowStartedAt < now.AddMinutes(-window)) { credential.FailedAttemptWindowStartedAt = now; credential.FailedAttemptCount = 0; }
             credential.FailedAttemptCount++;
-            if (credential.FailedAttemptCount >= 5) credential.LockoutUntil = now.AddMinutes(15);
+            if (credential.FailedAttemptCount >= attempts) credential.LockoutUntil = now.AddMinutes(await IntSettingAsync("Security:LocalLockout:DurationMinutes", cancellationToken));
             await db.SaveChangesAsync(cancellationToken); return null;
         }
         credential.FailedAttemptCount = 0; credential.FailedAttemptWindowStartedAt = null; credential.LockoutUntil = null;
@@ -53,7 +56,9 @@ internal sealed class LocalAuthenticationService(AuditariumDbContext db, IPasswo
     }
     public async Task<bool> ChangePasswordAsync(long userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
     {
-        if (newPassword.Length is < 15 or > 128) return false;
+        var minimumLength = await IntSettingAsync("Security:LocalPassword:MinimumLength", cancellationToken);
+        var maximumLength = await IntSettingAsync("Security:LocalPassword:MaximumLength", cancellationToken);
+        if (newPassword.Length < minimumLength || newPassword.Length > maximumLength) return false;
         var row = await (from identity in db.UserIdentities.Include(x => x.LocalCredential)
                          join provider in db.AuthenticationProviders on identity.AuthenticationProviderId equals provider.AuthenticationProviderId
                          join user in db.Users on identity.UserId equals user.UserId
@@ -64,19 +69,24 @@ internal sealed class LocalAuthenticationService(AuditariumDbContext db, IPasswo
         credential.FailedAttemptCount = 0; credential.FailedAttemptWindowStartedAt = null; credential.LockoutUntil = null;
         await db.SaveChangesAsync(cancellationToken); return true;
     }
+
+    private async Task<int> IntSettingAsync(string key, CancellationToken cancellationToken) =>
+        int.Parse((await settings.GetAsync(key, cancellationToken)).Value, System.Globalization.CultureInfo.InvariantCulture);
 }
 
-internal sealed class ApiCredentialService(AuditariumDbContext db, IPasswordHasher<ApiCredential> hasher) : IApiCredentialService
+internal sealed class ApiCredentialService(AuditariumDbContext db, IPasswordHasher<ApiCredential> hasher, IApplicationSettingResolver settings) : IApiCredentialService
 {
     public async Task<(string Credential, long CredentialId)> CreateAsync(long identityId, string name, DateTimeOffset? expiresAt, CancellationToken cancellationToken = default)
     {
         var identity = await db.UserIdentities.Include(x => x.AuthenticationProvider).SingleAsync(x => x.IdentityId == identityId, cancellationToken);
         if (identity.AuthenticationProvider!.ProviderKey != "API") throw new InvalidOperationException("API credentials require an API identity.");
         var active = await db.ApiCredentials.CountAsync(x => x.IdentityId == identityId && x.RevokedAt == null && (x.ExpiresAt == null || x.ExpiresAt > DateTimeOffset.UtcNow), cancellationToken);
-        if (active >= 5) throw new InvalidOperationException("API_CREDENTIAL.MAXIMUM_ACTIVE_REACHED");
+        var maximumActiveCredentials = int.Parse((await settings.GetAsync("Security:ApiCredentials:MaximumActiveCredentials", cancellationToken)).Value, System.Globalization.CultureInfo.InvariantCulture);
+        if (active >= maximumActiveCredentials) throw new InvalidOperationException("API_CREDENTIAL.MAXIMUM_ACTIVE_REACHED");
+        var effectiveExpiry = expiresAt ?? DateTimeOffset.UtcNow.AddDays(int.Parse((await settings.GetAsync("Security:ApiCredentials:DefaultLifetimeDays", cancellationToken)).Value, System.Globalization.CultureInfo.InvariantCulture));
         var keyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
         var secret = Base64Url(RandomNumberGenerator.GetBytes(32));
-        var credential = new ApiCredential { IdentityId = identityId, KeyId = keyId, SecretHash = "", Name = name, CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = expiresAt };
+        var credential = new ApiCredential { IdentityId = identityId, KeyId = keyId, SecretHash = "", Name = name, CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = effectiveExpiry };
         credential.SecretHash = hasher.HashPassword(credential, secret); db.ApiCredentials.Add(credential); await db.SaveChangesAsync(cancellationToken);
         return ($"aud_v1_{keyId}_{secret}", credential.ApiCredentialId);
     }

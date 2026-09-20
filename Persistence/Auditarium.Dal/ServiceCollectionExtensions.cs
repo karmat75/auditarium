@@ -36,8 +36,11 @@ public static class ServiceCollectionExtensions
     public static async Task InitializeAuditariumDatabaseAsync(this IServiceProvider services, CancellationToken ct = default)
     {
         await using var scope = services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>(); var database = scope.ServiceProvider.GetRequiredService<DatabaseOptions>(); var recovery = scope.ServiceProvider.GetRequiredService<RecoveryOptions>(); var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        var applied = await db.Database.GetAppliedMigrationsAsync(ct); var known = db.Database.GetMigrations(); if (applied.Except(known).Any()) throw new InvalidOperationException("DATABASE_SCHEMA_NEWER_THAN_APPLICATION");
-        await db.Database.MigrateAsync(ct);
+        await using (var migrationLock = await BootstrapLock.AcquireAsync(db, database.Provider, TimeSpan.FromSeconds(database.BootstrapTimeoutSeconds), ct, BootstrapLock.MigrationResource))
+        {
+            var applied = await db.Database.GetAppliedMigrationsAsync(ct); var known = db.Database.GetMigrations(); if (applied.Except(known).Any()) throw new InvalidOperationException("DATABASE_SCHEMA_NEWER_THAN_APPLICATION");
+            await db.Database.MigrateAsync(ct);
+        }
         await using var bootstrapLock = await BootstrapLock.AcquireAsync(db, database.Provider, TimeSpan.FromSeconds(database.BootstrapTimeoutSeconds), ct);
         var password = await new DatabaseBootstrapper(db, new PasswordHasher<LocalCredential>(), recovery, configuration).InitializeAsync(ct);
         if (password is not null) await DatabaseBootstrapper.WriteInitialCredentialAsync(password);

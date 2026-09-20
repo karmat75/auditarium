@@ -27,19 +27,27 @@ internal sealed class LdapAuthenticationService(AuditariumDbContext db, IConfigu
 
         var mode = (await ValueAsync(provider.ProviderKey, "ProvisioningMode", false, cancellationToken) ?? "EXISTING_ONLY").ToUpperInvariant();
         if (mode == "EXISTING_ONLY") return null;
+        if (mode is not "CREATE_INACTIVE" and not "CREATE_ACTIVE") throw new InvalidOperationException("LDAP.PROVISIONING.MODE_INVALID");
         var username = directoryUser.Username.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Username == username, cancellationToken)) throw new InvalidOperationException("LDAP.PROVISIONING.USERNAME_CONFLICT");
-        var user = new User { Username = username, DisplayName = directoryUser.DisplayName, Email = directoryUser.Email, IsActive = mode == "CREATE_ACTIVE" };
-        db.Users.Add(user); await db.SaveChangesAsync(cancellationToken);
-        db.UserIdentities.Add(new UserIdentity { UserId = user.UserId, AuthenticationProviderId = provider.AuthenticationProviderId, ExternalId = directoryUser.ExternalId });
+        var roles = new List<Role>();
         if (mode == "CREATE_ACTIVE")
         {
             var roleKeys = (await ValueAsync(provider.ProviderKey, "AutoProvisionRoles", false, cancellationToken) ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var roles = await db.Roles.Where(x => x.IsActive && x.RoleKey != null && roleKeys.Contains(x.RoleKey!)).ToListAsync(cancellationToken);
+            roles = await db.Roles.Where(x => x.IsActive && x.RoleKey != null && roleKeys.Contains(x.RoleKey!)).ToListAsync(cancellationToken);
             if (roles.Count == 0) throw new InvalidOperationException("LDAP.PROVISIONING.ACTIVE_REQUIRES_ROLE");
+        }
+        var user = new User { Username = username, DisplayName = directoryUser.DisplayName, Email = directoryUser.Email, IsActive = mode == "CREATE_ACTIVE" };
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        db.Users.Add(user);
+        await db.SaveChangesAsync(cancellationToken);
+        db.UserIdentities.Add(new UserIdentity { UserId = user.UserId, AuthenticationProviderId = provider.AuthenticationProviderId, ExternalId = directoryUser.ExternalId });
+        if (mode == "CREATE_ACTIVE")
+        {
             foreach (var role in roles) db.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = role.RoleId });
         }
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return user.IsActive ? new AuthenticationSuccess(user.UserId, false) : null;
     }
 
