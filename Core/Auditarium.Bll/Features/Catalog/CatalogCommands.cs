@@ -139,8 +139,7 @@ public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor
         if (!message.Confirmed) return Failure("CATALOG.DRAFT_CONFIRMATION_REQUIRED", ErrorType.Validation);
         var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (catalog is null) return NotFound();
         if (catalog.CatalogState != CatalogState.Ready) return Failure("CATALOG.NOT_READY", ErrorType.Conflict);
-        // WP5 introduces no audit table; therefore no catalog version can yet be referenced by an audit.
-        // WP6 extends this transition with the required audit-reference guard.
+        if (await db.Audits.AnyAsync(x => x.CatalogVersionId == catalog.CatalogVersionId, ct)) return Failure("CATALOG.USED_VERSION_CREATE_DRAFT_COPY", ErrorType.Conflict);
         catalog.CatalogState = CatalogState.Draft; catalog.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
     }
 

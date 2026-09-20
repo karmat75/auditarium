@@ -3,25 +3,28 @@ using System;
 using Auditarium.Dal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
+namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 {
     [DbContext(typeof(AuditariumDbContext))]
-    partial class AuditariumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920123723_AddAuditEngine")]
+    partial class AddAuditEngine
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("auditarium")
                 .HasAnnotation("ProductVersion", "10.0.12")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("Auditarium.Models.Catalog.Audit", b =>
                 {
@@ -30,7 +33,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("audit_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AuditId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuditId"));
 
                     b.Property<long?>("AssignedAuditorUserId")
                         .HasColumnType("bigint")
@@ -38,17 +41,17 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 
                     b.Property<string>("AuditSettings")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("audit_settings");
 
                     b.Property<string>("AuditState")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("audit_state");
 
                     b.Property<string>("AuditUnitContext")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("audit_unit_context");
 
                     b.Property<long>("AuditUnitId")
@@ -67,21 +70,21 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("concurrency_version");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("name");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<long?>("OriginAuditId")
@@ -89,7 +92,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("origin_audit_id");
 
                     b.Property<string>("StateReason")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("state_reason");
 
                     b.HasKey("AuditId");
@@ -115,7 +118,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("audit_document_element_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AuditDocumentElementId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuditDocumentElementId"));
 
                     b.Property<long>("AuditId")
                         .HasColumnType("bigint")
@@ -126,7 +129,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("element_id");
 
                     b.Property<int>("WeightSnapshot")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("weight_snapshot");
 
                     b.HasKey("AuditDocumentElementId");
@@ -149,10 +152,10 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("audit_question_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AuditQuestionId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuditQuestionId"));
 
                     b.Property<DateTimeOffset?>("AnsweredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("answered_at");
 
                     b.Property<long?>("AnsweredBy")
@@ -164,7 +167,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("audit_document_element_id");
 
                     b.Property<string>("Comment")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("comment");
 
                     b.Property<long>("ConcurrencyVersion")
@@ -175,7 +178,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("concurrency_version");
 
                     b.Property<string>("Evidence")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("evidence");
 
                     b.Property<long>("QuestionId")
@@ -184,7 +187,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 
                     b.Property<string>("Result")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("nvarchar(32)")
                         .HasColumnName("result");
 
                     b.HasKey("AuditQuestionId");
@@ -209,7 +212,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("audit_unit_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AuditUnitId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuditUnitId"));
 
                     b.Property<long>("ConcurrencyVersion")
                         .IsConcurrencyToken()
@@ -219,17 +222,17 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("concurrency_version");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("name");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<long?>("ParentAuditUnitId")
@@ -243,11 +246,11 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("UsageState")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("usage_state");
 
                     b.Property<string>("UsageStateReason")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("usage_state_reason");
 
                     b.HasKey("AuditUnitId");
@@ -269,12 +272,12 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("catalog_version_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("CatalogVersionId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("CatalogVersionId"));
 
                     b.Property<string>("CatalogState")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("catalog_state");
 
                     b.Property<long>("ConcurrencyVersion")
@@ -285,7 +288,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("concurrency_version");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long>("CreatedBy")
@@ -297,11 +300,11 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("document_id");
 
                     b.Property<int>("DraftRevision")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("draft_revision");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<long?>("SourceFileId")
@@ -309,7 +312,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("source_file_id");
 
                     b.Property<int>("VersionNumber")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("version_number");
 
                     b.HasKey("CatalogVersionId");
@@ -336,7 +339,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("document_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("DocumentId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("DocumentId"));
 
                     b.Property<long>("ConcurrencyVersion")
                         .IsConcurrencyToken()
@@ -346,7 +349,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("concurrency_version");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<DateOnly?>("PublicationDate")
@@ -355,33 +358,33 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 
                     b.Property<string>("Publisher")
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("publisher");
 
                     b.Property<string>("Source")
                         .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
+                        .HasColumnType("nvarchar(2048)")
                         .HasColumnName("source");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("title");
 
                     b.Property<string>("UsageState")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("usage_state");
 
                     b.Property<string>("UsageStateReason")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("usage_state_reason");
 
                     b.Property<string>("Version")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("version");
 
                     b.HasKey("DocumentId");
@@ -401,14 +404,14 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("element_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ElementId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ElementId"));
 
                     b.Property<long>("CatalogVersionId")
                         .HasColumnType("bigint")
                         .HasColumnName("catalog_version_id");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<long?>("ParentElementId")
@@ -416,15 +419,15 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("parent_element_id");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sort_order");
 
                     b.Property<string>("Text")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("text");
 
                     b.Property<string>("Title")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("title");
 
                     b.HasKey("ElementId");
@@ -450,7 +453,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("element_id");
 
                     b.Property<int>("Weight")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("weight");
 
                     b.HasKey("ElementId");
@@ -468,22 +471,22 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("file_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("FileId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("FileId"));
 
                     b.Property<string>("Checksum")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("checksum");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("content_type");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long>("CreatedBy")
@@ -493,25 +496,25 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("Extension")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("nvarchar(32)")
                         .HasColumnName("extension");
 
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("original_file_name");
 
                     b.Property<string>("SaveFileName")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("save_file_name");
 
                     b.Property<string>("SaveFilePath")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("save_file_path");
 
                     b.Property<long>("Size")
@@ -532,31 +535,31 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("question_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("QuestionId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("QuestionId"));
 
                     b.Property<long>("ElementId")
                         .HasColumnType("bigint")
                         .HasColumnName("element_id");
 
                     b.Property<string>("EvidenceHint")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("evidence_hint");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sort_order");
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("text");
 
                     b.Property<string>("VerificationHint")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("verification_hint");
 
                     b.HasKey("QuestionId");
@@ -594,23 +597,23 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("scope_type_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ScopeTypeId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ScopeTypeId"));
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("key");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("name");
 
                     b.HasKey("ScopeTypeId");
@@ -721,14 +724,14 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("api_credential_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ApiCredentialId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ApiCredentialId"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<DateTimeOffset?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("expires_at");
 
                     b.Property<long>("IdentityId")
@@ -738,26 +741,26 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("KeyId")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("key_id");
 
                     b.Property<DateTimeOffset?>("LastUsedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("last_used_at");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("name");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("revoked_at");
 
                     b.Property<string>("SecretHash")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("secret_hash");
 
                     b.HasKey("ApiCredentialId");
@@ -774,7 +777,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                 {
                     b.Property<string>("SettingKey")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("setting_key");
 
                     b.Property<long>("ConcurrencyVersion")
@@ -786,7 +789,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 
                     b.Property<string>("SerializedValue")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("serialized_value");
 
                     b.HasKey("SettingKey");
@@ -801,7 +804,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("authentication_provider_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("AuthenticationProviderId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuthenticationProviderId"));
 
                     b.Property<long>("ConcurrencyVersion")
                         .IsConcurrencyToken()
@@ -813,22 +816,22 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("display_name");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ProviderKey")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("provider_key");
 
                     b.Property<string>("ProviderType")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("provider_type");
 
                     b.HasKey("AuthenticationProviderId");
@@ -846,28 +849,28 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnName("identity_id");
 
                     b.Property<int>("FailedAttemptCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("failed_attempt_count");
 
                     b.Property<DateTimeOffset?>("FailedAttemptWindowStartedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("failed_attempt_window_started_at");
 
                     b.Property<DateTimeOffset?>("LockoutUntil")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("lockout_until");
 
                     b.Property<bool>("MustChangePassword")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("must_change_password");
 
                     b.Property<DateTimeOffset?>("PasswordChangedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("password_changed_at");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("password_hash");
 
                     b.HasKey("IdentityId");
@@ -879,17 +882,17 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                 {
                     b.Property<string>("PermissionKey")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("permission_key");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.HasKey("PermissionKey");
 
@@ -903,7 +906,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("role_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("RoleId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RoleId"));
 
                     b.Property<long>("ConcurrencyVersion")
                         .IsConcurrencyToken()
@@ -915,21 +918,21 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasColumnType("nvarchar(512)")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("name");
 
                     b.Property<string>("RoleKey")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("role_key");
 
                     b.HasKey("RoleId");
@@ -949,7 +952,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 
                     b.Property<string>("PermissionKey")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("permission_key");
 
                     b.HasKey("RoleId", "PermissionKey");
@@ -966,20 +969,20 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("event_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("EventId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("EventId"));
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("action");
 
                     b.Property<string>("AfterState")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("after_state");
 
                     b.Property<string>("BeforeState")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("before_state");
 
                     b.Property<long?>("ObjectId")
@@ -989,11 +992,11 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("ObjectType")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("object_type");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<long>("UserId")
@@ -1016,7 +1019,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("user_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("UserId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("UserId"));
 
                     b.Property<long>("ConcurrencyVersion")
                         .IsConcurrencyToken()
@@ -1028,26 +1031,26 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("display_name");
 
                     b.Property<string>("Email")
                         .HasMaxLength(320)
-                        .HasColumnType("character varying(320)")
+                        .HasColumnType("nvarchar(320)")
                         .HasColumnName("email");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("UserKey")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("user_key");
 
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("username");
 
                     b.HasKey("UserId");
@@ -1069,7 +1072,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("identity_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("IdentityId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("IdentityId"));
 
                     b.Property<long>("AuthenticationProviderId")
                         .HasColumnType("bigint")
@@ -1078,7 +1081,7 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.Property<string>("ExternalId")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("external_id");
 
                     b.Property<long>("UserId")

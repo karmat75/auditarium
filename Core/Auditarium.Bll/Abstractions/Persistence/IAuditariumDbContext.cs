@@ -25,5 +25,9 @@ public interface IAuditariumDbContext
     DbSet<ScopeType> ScopeTypes { get; }
     DbSet<QuestionScopeType> QuestionScopeTypes { get; }
     DbSet<FileItem> FileItems { get; }
+    DbSet<AuditUnit> AuditUnits { get; }
+    DbSet<Audit> Audits { get; }
+    DbSet<AuditDocumentElement> AuditDocumentElements { get; }
+    DbSet<AuditQuestion> AuditQuestions { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

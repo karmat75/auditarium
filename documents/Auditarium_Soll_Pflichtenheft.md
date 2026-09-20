@@ -1,6 +1,6 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.114
+**Version:** 0.115
 **Stand:** 20.09.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
@@ -9179,6 +9179,15 @@ Die Response-Policy-Regeln sind Bestandteil der `audit_settings` des konkreten A
 
 Der `AUDIT_MANAGER` legt im Zustand `DRAFT` für jeden Antwortwert fest, ob zusätzlich ein Kommentar und/oder ein Nachweis erforderlich ist.
 
+Für neu angelegte Audits gilt folgende gültige Standardkonfiguration. Sie kann im `DRAFT` vollständig angepasst werden:
+
+| Ergebnis | Kommentar | Nachweis |
+|---|---|---|
+| `JA` | optional | optional |
+| `NEIN` | optional | optional |
+| `NICHT_ANWENDBAR` | erforderlich | optional |
+| `NICHT_FESTSTELLBAR` | erforderlich | optional |
+
 Beispiel:
 
 | Ergebnis | Kommentar | Nachweis |
@@ -11859,6 +11868,16 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.115
+
+Gegenüber Version 0.114 wurde die gültige Standard-Response-Policy für neu angelegte Audits verbindlich festgelegt:
+
+- `JA` und `NEIN` erfordern standardmäßig weder Kommentar noch Nachweis.
+- `NICHT_ANWENDBAR` und `NICHT_FESTSTELLBAR` erfordern standardmäßig einen Kommentar; ein Nachweis bleibt optional.
+- Die Policy bleibt im `DRAFT` eines konkreten Audits vollständig konfigurierbar und wird mit Publish unveränderlich.
+
+Die übrigen fachlichen und technischen Festlegungen bleiben bestehen.
 
 ## Änderungen in Version 0.114
 
