@@ -1,6 +1,6 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.113
+**Version:** 0.114
 **Stand:** 20.09.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
@@ -11761,6 +11761,7 @@ Abnahme:
 - `AUDIT_MANAGER` kann Zuweisungen setzen, ändern und lösen.
 - `FINALIZED` besitzt niemals eine aktive Auditor-Zuweisung.
 - alle Antwort-, Assignment- und Zustandsregeln werden erzwungen.
+- ein `READY`-Katalog, auf den mindestens ein Audit verweist, kann nicht nach `DRAFT` zurückkehren; der Fehlerpfad verweist auf die Erstellung einer vollständigen neuen DRAFT-Kopie.
 
 ## 20.7 Work Package 7 – Import
 
@@ -11858,6 +11859,10 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.114
+
+- Work Package 6 prüft und erzwingt zusätzlich die Sperre des Übergangs `READY → DRAFT` für Katalogversionen, die bereits durch mindestens ein Audit verwendet werden.
 
 ## Änderungen in Version 0.113
 
