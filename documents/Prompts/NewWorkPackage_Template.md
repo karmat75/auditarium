@@ -15,6 +15,7 @@ Triff keine neue Produktentscheidung stillschweigend. Wenn eine verbindliche Ent
 Ändere das Pflichtenheft nur, wenn wir eine neue oder korrigierte Anforderung entscheiden. Dann Versionsnummer erhöhen und Änderungshistorie ergänzen.
 
 Prüfe die zugehörigen Abnahmekriterien mit angemessenen Tests.
+Führe vor dem Abschluss zwingend den projektweiten CI-nahen Format-Check mit `sh scripts/verify-format.sh` aus und behebe alle Befunde. Prüfe bei neu erzeugten oder von Werkzeugen generierten Textdateien, insbesondere EF-Core-Migrationen, zusätzlich das Dateiformat: Die Dateien müssen UTF-8 ohne BOM verwenden. Führe anschließend einen vollständigen Release-Build sowie die passenden Tests aus.
 Berichte abschließend:
 - geänderte Dateien,
 - durchgeführte Prüfungen,
