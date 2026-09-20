@@ -17,6 +17,7 @@ builder.Services.AddAuditariumFileStorage(builder.Configuration);
 builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumLdap();
 builder.Services.AddAuditariumCookieAuthentication();
+builder.Services.AddAuthorization();
 builder.Services.AddAuditariumHttpCurrentActor();
 builder.Services.AddRazorPages(options =>
     options.Conventions.ConfigureFilter(new AutoValidateAntiforgeryTokenAttribute()));

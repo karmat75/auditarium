@@ -1,0 +1,21 @@
+@page "/documents"
+@model Auditarium.Web.Pages.Documents.IndexModel
+@{
+    ViewData["Title"] = "Regelwerke";
+}
+<h1>Regelwerke</h1>
+<p><a asp-page="Create">Regelwerk anlegen</a></p>
+<form method="get">
+    <label asp-for="Search">Suche</label>
+    <input asp-for="Search" />
+    <button type="submit">Suchen</button>
+</form>
+<table>
+    <thead><tr><th>Titel</th><th>Herausgeber</th><th>Version</th><th>Nutzungszustand</th></tr></thead>
+    <tbody>
+    @foreach (var document in Model.Documents)
+    {
+        <tr><td><a asp-page="Details" asp-route-id="@document.DocumentId">@document.Title</a></td><td>@document.Publisher</td><td>@document.Version</td><td>@document.UsageState</td></tr>
+    }
+    </tbody>
+</table>

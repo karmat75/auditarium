@@ -22,9 +22,9 @@ public sealed record DeleteDocumentElementPreview(int DescendantElementCount, in
 [RequiresPermission("Documents.Manage")] public sealed record AddQuestionCommand(long ElementId, string Text, string? VerificationHint, string? EvidenceHint, string? Notes, IReadOnlyCollection<long> ScopeTypeIds) : IRequest<Result<long>>;
 [RequiresPermission("Documents.Manage")] public sealed record UpdateQuestionCommand(long QuestionId, string Text, string? VerificationHint, string? EvidenceHint, string? Notes, IReadOnlyCollection<long> ScopeTypeIds) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")] public sealed record SetDocumentElementWeightCommand(long ElementId, int Weight) : IRequest<Result>;
-[RequiresPermission("Documents.Manage")] public sealed record SetCatalogReadyCommand(long CatalogVersionId, bool Confirmed) : IRequest<Result>;
-[RequiresPermission("Documents.Manage")] public sealed record SetCatalogDraftCommand(long CatalogVersionId, bool Confirmed) : IRequest<Result>;
-[RequiresPermission("Documents.Manage")] public sealed record CopyCatalogVersionCommand(long CatalogVersionId) : IRequest<Result<long>>;
+[RequiresPermission("Documents.Manage")] public sealed record SetCatalogReadyCommand(long CatalogVersionId, long ConcurrencyVersion, bool Confirmed) : IRequest<Result>;
+[RequiresPermission("Documents.Manage")] public sealed record SetCatalogDraftCommand(long CatalogVersionId, long ConcurrencyVersion, bool Confirmed) : IRequest<Result>;
+[RequiresPermission("Documents.Manage")] public sealed record CopyCatalogVersionCommand(long CatalogVersionId, long ConcurrencyVersion) : IRequest<Result<long>>;
 
 public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor actor) :
     IRequestHandler<CreateDocumentCommand, Result<long>>, IRequestHandler<UpdateDocumentCommand, Result>, IRequestHandler<CreateCatalogVersionCommand, Result<long>>,
@@ -130,14 +130,14 @@ public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor
 
     public async ValueTask<Result> Handle(SetCatalogReadyCommand message, CancellationToken ct)
     {
-        if (!message.Confirmed) return Failure("CATALOG.READY_CONFIRMATION_REQUIRED", ErrorType.Validation); var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (catalog is null) return NotFound(); if (catalog.CatalogState != CatalogState.Draft) return Failure("CATALOG.NOT_DRAFT", ErrorType.Conflict);
+        if (!message.Confirmed) return Failure("CATALOG.READY_CONFIRMATION_REQUIRED", ErrorType.Validation); var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (catalog is null) return NotFound(); if (catalog.ConcurrencyVersion != message.ConcurrencyVersion) return Conflict(); if (catalog.CatalogState != CatalogState.Draft) return Failure("CATALOG.NOT_DRAFT", ErrorType.Conflict);
         var error = await ValidateReadyAsync(catalog.CatalogVersionId, ct); if (error is not null) return Failure(error, ErrorType.Validation); catalog.CatalogState = CatalogState.Ready; await db.SaveChangesAsync(ct); return Result.Success();
     }
 
     public async ValueTask<Result> Handle(SetCatalogDraftCommand message, CancellationToken ct)
     {
         if (!message.Confirmed) return Failure("CATALOG.DRAFT_CONFIRMATION_REQUIRED", ErrorType.Validation);
-        var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (catalog is null) return NotFound();
+        var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (catalog is null) return NotFound(); if (catalog.ConcurrencyVersion != message.ConcurrencyVersion) return Conflict();
         if (catalog.CatalogState != CatalogState.Ready) return Failure("CATALOG.NOT_READY", ErrorType.Conflict);
         if (await db.Audits.AnyAsync(x => x.CatalogVersionId == catalog.CatalogVersionId, ct)) return Failure("CATALOG.USED_VERSION_CREATE_DRAFT_COPY", ErrorType.Conflict);
         catalog.CatalogState = CatalogState.Draft; catalog.DraftRevision++; await db.SaveChangesAsync(ct); return Result.Success();
@@ -145,7 +145,7 @@ public sealed class CatalogCommandHandler(IAuditariumDbContext db, ICurrentActor
 
     public async ValueTask<Result<long>> Handle(CopyCatalogVersionCommand message, CancellationToken ct)
     {
-        var source = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (source is null) return Failure<long>("CATALOG.NOT_FOUND", ErrorType.NotFound); var next = (await db.CatalogVersions.Where(x => x.DocumentId == source.DocumentId).Select(x => (int?)x.VersionNumber).MaxAsync(ct) ?? 0) + 1; var copy = new CatalogVersion { DocumentId = source.DocumentId, VersionNumber = next, CreatedAt = DateTimeOffset.UtcNow, CreatedBy = actor.UserId ?? 0, Notes = source.Notes, SourceFileId = source.SourceFileId }; db.CatalogVersions.Add(copy); await db.SaveChangesAsync(ct);
+        var source = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct); if (source is null) return Failure<long>("CATALOG.NOT_FOUND", ErrorType.NotFound); if (source.ConcurrencyVersion != message.ConcurrencyVersion) return Failure<long>("CATALOG.CONCURRENCY_CONFLICT", ErrorType.Conflict); var next = (await db.CatalogVersions.Where(x => x.DocumentId == source.DocumentId).Select(x => (int?)x.VersionNumber).MaxAsync(ct) ?? 0) + 1; var copy = new CatalogVersion { DocumentId = source.DocumentId, VersionNumber = next, CreatedAt = DateTimeOffset.UtcNow, CreatedBy = actor.UserId ?? 0, Notes = source.Notes, SourceFileId = source.SourceFileId }; db.CatalogVersions.Add(copy); await db.SaveChangesAsync(ct);
         var elements = await db.DocumentElements.Where(x => x.CatalogVersionId == source.CatalogVersionId).OrderBy(x => x.ElementId).ToListAsync(ct); var ids = new Dictionary<long, long>(); foreach (var item in elements) { var added = new DocumentElement { CatalogVersionId = copy.CatalogVersionId, ParentElementId = item.ParentElementId, Title = item.Title, Text = item.Text, SortOrder = item.SortOrder, Notes = item.Notes }; db.DocumentElements.Add(added); await db.SaveChangesAsync(ct); ids[item.ElementId] = added.ElementId; }
         foreach (var item in elements.Where(x => x.ParentElementId is not null)) db.DocumentElements.Single(x => x.ElementId == ids[item.ElementId]).ParentElementId = ids[item.ParentElementId!.Value];
         var questions = await db.Questions.Where(x => elements.Select(e => e.ElementId).Contains(x.ElementId)).ToListAsync(ct); var questionIds = new Dictionary<long, long>(); foreach (var item in questions) { var added = new Question { ElementId = ids[item.ElementId], SortOrder = item.SortOrder, Text = item.Text, VerificationHint = item.VerificationHint, EvidenceHint = item.EvidenceHint, Notes = item.Notes }; db.Questions.Add(added); await db.SaveChangesAsync(ct); questionIds[item.QuestionId] = added.QuestionId; }

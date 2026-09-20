@@ -28,7 +28,7 @@ public sealed class AuditWorkflowIntegrationTests
         var version = await catalog.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
         var element = await catalog.Handle(new AddDocumentElementCommand(version.Value!, null, null, "Anforderung", null), CancellationToken.None);
         Assert.True((await catalog.Handle(new AddQuestionCommand(element.Value!, "Erfüllt?", null, null, null, [6]), CancellationToken.None)).IsSuccess);
-        Assert.True((await catalog.Handle(new SetCatalogReadyCommand(version.Value!, true), CancellationToken.None)).IsSuccess);
+        Assert.True((await catalog.Handle(new SetCatalogReadyCommand(version.Value!, (await db.CatalogVersions.FindAsync(version.Value))!.ConcurrencyVersion, true), CancellationToken.None)).IsSuccess);
 
         var audits = new AuditCommandHandler(db, actor);
         var unit = await audits.Handle(new CreateAuditUnitCommand(new(null, 6, "Serverraum", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
@@ -52,7 +52,7 @@ public sealed class AuditWorkflowIntegrationTests
         Assert.Equal(AuditState.Finalized, (await db.Audits.FindAsync(audit.Value))!.AuditState);
         Assert.Null((await db.Audits.FindAsync(audit.Value))!.AssignedAuditorUserId);
 
-        var blocked = await catalog.Handle(new SetCatalogDraftCommand(version.Value!, true), CancellationToken.None);
+        var blocked = await catalog.Handle(new SetCatalogDraftCommand(version.Value!, (await db.CatalogVersions.FindAsync(version.Value))!.ConcurrencyVersion, true), CancellationToken.None);
         Assert.Equal("CATALOG.USED_VERSION_CREATE_DRAFT_COPY", Assert.Single(blocked.Errors).Code);
     }
 

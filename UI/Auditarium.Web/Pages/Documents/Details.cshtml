@@ -1,0 +1,12 @@
+@page "/documents/{id:long}"
+@model Auditarium.Web.Pages.Documents.DetailsModel
+@{
+    ViewData["Title"] = Model.Input.Title;
+}
+<h1>@Model.Input.Title</h1>
+<h2>Metadaten bearbeiten</h2>
+<partial name="_DocumentForm" model="Model.Input" />
+<h2>Katalogversionen</h2>
+<form method="post" asp-page-handler="CreateCatalog"><label asp-for="NewCatalogNotes">Hinweise für die neue DRAFT-Version</label><input asp-for="NewCatalogNotes" /><button type="submit">Neue DRAFT-Version</button></form>
+@if (Model.Catalogs.Count == 0) { <p>Keine Katalogversion vorhanden.</p> }
+else { <table><thead><tr><th>Version</th><th>Zustand</th><th>DRAFT-Revision</th><th>Quelldatei</th></tr></thead><tbody>@foreach (var catalog in Model.Catalogs) { <tr><td><a asp-page="Catalog" asp-route-id="@catalog.CatalogVersionId">@catalog.VersionNumber</a></td><td>@catalog.CatalogState</td><td>@catalog.DraftRevision</td><td>@(catalog.HasSourceFile ? "Vorhanden" : "–")</td></tr> }</tbody></table> }

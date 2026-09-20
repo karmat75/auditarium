@@ -15,6 +15,26 @@ namespace Auditarium.Persistence.IntegrationTests;
 public sealed class CatalogWorkflowIntegrationTests
 {
     [Fact]
+    public async Task Catalog_lifecycle_rejects_a_stale_concurrency_version()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var handler = new CatalogCommandHandler(db, new TestActor());
+        var document = await handler.Handle(new CreateDocumentCommand(new("Regelwerk", null, null, null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var catalog = await handler.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+
+        var result = await handler.Handle(new SetCatalogReadyCommand(catalog.Value!, 0, true), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("CATALOG.CONCURRENCY_CONFLICT", Assert.Single(result.Errors).Code);
+        Assert.Equal(CatalogState.Draft, (await db.CatalogVersions.FindAsync(catalog.Value))!.CatalogState);
+    }
+
+    [Fact]
     public async Task Import_apply_is_provider_neutral_on_sql_server()
     {
         await using var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
@@ -108,7 +128,7 @@ public sealed class CatalogWorkflowIntegrationTests
         var catalog = await handler.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
         var invalidElement = await handler.Handle(new AddDocumentElementCommand(catalog.Value!, null, null, "Vorläufige Anforderung", null), CancellationToken.None);
         var invalidQuestion = await handler.Handle(new AddQuestionCommand(invalidElement.Value!, "Ist die vorläufige Anforderung erfüllt?", null, null, null, []), CancellationToken.None);
-        var invalidReady = await handler.Handle(new SetCatalogReadyCommand(catalog.Value!, true), CancellationToken.None);
+        var invalidReady = await handler.Handle(new SetCatalogReadyCommand(catalog.Value!, (await db.CatalogVersions.FindAsync(catalog.Value))!.ConcurrencyVersion, true), CancellationToken.None);
         Assert.False(invalidReady.IsSuccess);
         Assert.Equal("CATALOG.QUESTION_SCOPE_REQUIRED", Assert.Single(invalidReady.Errors).Code);
         Assert.True((await handler.Handle(new UpdateQuestionCommand(invalidQuestion.Value!, "Ist die vorläufige Anforderung erfüllt?", null, null, null, [1]), CancellationToken.None)).IsSuccess);
@@ -117,13 +137,13 @@ public sealed class CatalogWorkflowIntegrationTests
         var question = await handler.Handle(new AddQuestionCommand(element.Value!, "Ist die Anforderung erfüllt?", null, null, null, [1]), CancellationToken.None);
         Assert.True(question.IsSuccess);
         Assert.True((await handler.Handle(new SetDocumentElementWeightCommand(element.Value!, 5), CancellationToken.None)).IsSuccess);
-        Assert.True((await handler.Handle(new SetCatalogReadyCommand(catalog.Value!, true), CancellationToken.None)).IsSuccess);
+        Assert.True((await handler.Handle(new SetCatalogReadyCommand(catalog.Value!, (await db.CatalogVersions.FindAsync(catalog.Value))!.ConcurrencyVersion, true), CancellationToken.None)).IsSuccess);
 
         var immutable = await handler.Handle(new UpdateDocumentElementCommand(element.Value!, "Geändert", "Die Anforderung muss erfüllt sein.", null), CancellationToken.None);
         Assert.False(immutable.IsSuccess);
         Assert.Equal("CATALOG.NOT_DRAFT", Assert.Single(immutable.Errors).Code);
 
-        var copy = await handler.Handle(new CopyCatalogVersionCommand(catalog.Value!), CancellationToken.None);
+        var copy = await handler.Handle(new CopyCatalogVersionCommand(catalog.Value!, (await db.CatalogVersions.FindAsync(catalog.Value))!.ConcurrencyVersion), CancellationToken.None);
         Assert.True(copy.IsSuccess);
         var copiedElement = Assert.Single(db.DocumentElements.Where(x => x.CatalogVersionId == copy.Value && x.Text == "Die Anforderung muss erfüllt sein."));
         var copiedQuestion = Assert.Single(db.Questions.Where(x => x.ElementId == copiedElement.ElementId));

@@ -13,9 +13,9 @@ namespace Auditarium.Bll.Features.Catalog;
 
 public sealed record CatalogOriginalFile(string OriginalFileName, string ContentType, long Size, Stream Content);
 [RequiresPermission("Documents.Manage")]
-public sealed record ReplaceCatalogOriginalFileCommand(long CatalogVersionId, string OriginalFileName, string ContentType, Stream Content) : IRequest<Result>;
+public sealed record ReplaceCatalogOriginalFileCommand(long CatalogVersionId, long ConcurrencyVersion, string OriginalFileName, string ContentType, Stream Content) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")]
-public sealed record RemoveCatalogOriginalFileCommand(long CatalogVersionId) : IRequest<Result>;
+public sealed record RemoveCatalogOriginalFileCommand(long CatalogVersionId, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Documents.Manage")]
 public sealed record GetCatalogOriginalFileQuery(long CatalogVersionId) : IRequest<Result<CatalogOriginalFile>>;
 
@@ -27,6 +27,7 @@ public sealed class CatalogOriginalFileHandler(IAuditariumDbContext db, IFileSto
         if (!IsPdfMetadata(message.OriginalFileName, message.ContentType) || !message.Content.CanRead) return Failure("CATALOG.ORIGINAL_FILE_INVALID", ErrorType.Validation);
         var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct);
         if (catalog is null) return Failure("CATALOG.NOT_FOUND", ErrorType.NotFound);
+        if (catalog.ConcurrencyVersion != message.ConcurrencyVersion) return Failure("CATALOG.CONCURRENCY_CONFLICT", ErrorType.Conflict);
         if (catalog.CatalogState != CatalogState.Draft) return Failure("CATALOG.NOT_DRAFT", ErrorType.Conflict);
         byte[] prefix;
         try { prefix = await ReadPrefixAsync(message.Content, ct); }
@@ -54,6 +55,7 @@ public sealed class CatalogOriginalFileHandler(IAuditariumDbContext db, IFileSto
     {
         var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct);
         if (catalog is null) return Failure("CATALOG.NOT_FOUND", ErrorType.NotFound);
+        if (catalog.ConcurrencyVersion != message.ConcurrencyVersion) return Failure("CATALOG.CONCURRENCY_CONFLICT", ErrorType.Conflict);
         if (catalog.CatalogState != CatalogState.Draft) return Failure("CATALOG.NOT_DRAFT", ErrorType.Conflict);
         var oldFileId = catalog.SourceFileId; if (oldFileId is null) return Result.Success();
         catalog.SourceFileId = null; catalog.DraftRevision++; await db.SaveChangesAsync(ct); await CleanupUnreferencedFileAsync(oldFileId.Value, ct); return Result.Success();

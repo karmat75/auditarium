@@ -21,6 +21,7 @@ builder.Services.AddAuditariumFileStorage(builder.Configuration);
 builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumLdap();
 builder.Services.AddAuditariumApiAuthentication();
+builder.Services.AddAuthorization();
 builder.Services.AddAuditariumHttpCurrentActor();
 builder.Services.AddHealthChecks()
     .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"]);
@@ -69,6 +70,7 @@ app.MapGet("/api/v1/system/status", async (Mediator.IMediator mediator, Cancella
     .WithSummary("Returns the API host status.")
     .Produces<HostStatusViewModel>(StatusCodes.Status200OK)
     .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
+app.MapCatalogEndpoints();
 
 app.Run();
 

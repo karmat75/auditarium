@@ -1,0 +1,21 @@
+@page "/catalog-versions/{id:long}"
+@model Auditarium.Web.Pages.Documents.CatalogModel
+@{
+    ViewData["Title"] = $"Katalogversion {Model.Catalog.VersionNumber}";
+}
+<p><a asp-page="Details" asp-route-id="@Model.Catalog.DocumentId">Zurück zum Regelwerk</a></p>
+<h1>Katalogversion @Model.Catalog.VersionNumber</h1>
+<dl><dt>Zustand</dt><dd>@Model.Catalog.CatalogState</dd><dt>DRAFT-Revision</dt><dd>@Model.Catalog.DraftRevision</dd></dl>
+<form method="post" asp-page-handler="Copy"><input type="hidden" name="concurrencyVersion" value="@Model.Catalog.ConcurrencyVersion" /><button type="submit">Als neue Version kopieren</button></form>
+@if (Model.Catalog.CatalogState == Auditarium.Models.Catalog.CatalogState.Draft)
+{
+    <form method="post" asp-page-handler="Ready"><input type="hidden" name="concurrencyVersion" value="@Model.Catalog.ConcurrencyVersion" /><button type="submit">Freigabe bestätigen (READY)</button></form>
+    <h2>Originaldokument</h2>
+    <form method="post" enctype="multipart/form-data" asp-page-handler="Upload"><input type="hidden" name="concurrencyVersion" value="@Model.Catalog.ConcurrencyVersion" /><label for="sourceFile">PDF-Datei</label><input id="sourceFile" name="sourceFile" type="file" accept="application/pdf,.pdf" /><button type="submit">Hochladen oder ersetzen</button></form>
+    @if (Model.Catalog.HasSourceFile) { <form method="post" asp-page-handler="Remove"><input type="hidden" name="concurrencyVersion" value="@Model.Catalog.ConcurrencyVersion" /><button type="submit">Originaldokument entfernen</button></form> }
+}
+else
+{
+    <form method="post" asp-page-handler="Draft"><input type="hidden" name="concurrencyVersion" value="@Model.Catalog.ConcurrencyVersion" /><button type="submit">Zurück zu DRAFT</button></form>
+}
+@if (Model.Catalog.HasSourceFile) { <p><a asp-page-handler="Download">Originaldokument herunterladen</a></p> }

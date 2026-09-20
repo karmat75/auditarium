@@ -1,0 +1,14 @@
+@model Auditarium.Web.Pages.Documents.DocumentInputModel
+<form method="post">
+    <div asp-validation-summary="ModelOnly"></div>
+    <label asp-for="Title">Titel</label><input asp-for="Title" /><span asp-validation-for="Title"></span>
+    <label asp-for="Publisher">Herausgeber</label><input asp-for="Publisher" />
+    <label asp-for="Version">Herausgeber-Version</label><input asp-for="Version" />
+    <label asp-for="PublicationDate">Veröffentlichungsdatum</label><input asp-for="PublicationDate" type="date" />
+    <label asp-for="Source">Quelle</label><input asp-for="Source" />
+    <label asp-for="UsageState">Nutzungszustand</label><select asp-for="UsageState" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.DocumentUsageState>()"></select>
+    <label asp-for="UsageStateReason">Begründung bei Außerbetriebnahme</label><input asp-for="UsageStateReason" />
+    <label asp-for="Notes">Hinweise</label><textarea asp-for="Notes"></textarea>
+    <input asp-for="ConcurrencyVersion" type="hidden" />
+    <button type="submit">Speichern</button>
+</form>
