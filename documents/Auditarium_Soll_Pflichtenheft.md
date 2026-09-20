@@ -1,6 +1,6 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.112
+**Version:** 0.113
 **Stand:** 20.09.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
@@ -7817,7 +7817,7 @@ Weitere unveränderliche Formate können später explizit ergänzt werden.
 
 ## Größenlimits
 
-Upload- und Download-Größenlimits sind konfigurierbar.
+Upload- und Download-Größenlimits sind konfigurierbar. Für Originaldokumente gelten initial jeweils **100 MiB**. Die nicht UI-editierbaren Betreiber-Settings `Files:OriginalDocuments:MaxUploadSize` und `Files:OriginalDocuments:MaxDownloadSize` enthalten die jeweiligen Bytewerte; sie werden über Konfiguration oder Environment gesetzt.
 
 Sie werden so gewählt, dass auch große PDF-Regelwerke akzeptiert werden können.
 
@@ -11858,6 +11858,10 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.113
+
+- Upload und Download von Originaldokumenten sind initial jeweils auf 100 MiB begrenzt. Die nicht UI-editierbaren Betreiber-Settings `Files:OriginalDocuments:MaxUploadSize` und `Files:OriginalDocuments:MaxDownloadSize` verwenden Bytewerte und können über Konfiguration oder Environment angepasst werden.
 
 ## Änderungen in Version 0.112
 

@@ -23,6 +23,458 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Auditarium.Models.Catalog.CatalogVersion", b =>
+                {
+                    b.Property<long>("CatalogVersionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("catalog_version_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("CatalogVersionId"));
+
+                    b.Property<string>("CatalogState")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("catalog_state");
+
+                    b.Property<long>("ConcurrencyVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("concurrency_version");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<long>("DocumentId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("document_id");
+
+                    b.Property<int>("DraftRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("draft_revision");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<long?>("SourceFileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("source_file_id");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("CatalogVersionId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("SourceFileId");
+
+                    b.HasIndex("DocumentId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("catalog_versions", "auditarium", t =>
+                        {
+                            t.HasCheckConstraint("ck_catalog_versions_numbers", "version_number >= 1 AND draft_revision >= 1");
+
+                            t.HasCheckConstraint("ck_catalog_versions_state", "catalog_state IN ('Draft', 'Ready')");
+                        });
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.Document", b =>
+                {
+                    b.Property<long>("DocumentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("document_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("DocumentId"));
+
+                    b.Property<long>("ConcurrencyVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("concurrency_version");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<DateOnly?>("PublicationDate")
+                        .HasColumnType("date")
+                        .HasColumnName("publication_date");
+
+                    b.Property<string>("Publisher")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("publisher");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("UsageState")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("usage_state");
+
+                    b.Property<string>("UsageStateReason")
+                        .HasColumnType("text")
+                        .HasColumnName("usage_state_reason");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("version");
+
+                    b.HasKey("DocumentId");
+
+                    b.ToTable("documents", "auditarium", t =>
+                        {
+                            t.HasCheckConstraint("ck_documents_deprecated_reason", "usage_state <> 'Deprecated' OR usage_state_reason IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_documents_usage_state", "usage_state IN ('Active', 'Deprecated')");
+                        });
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.DocumentElement", b =>
+                {
+                    b.Property<long>("ElementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("element_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ElementId"));
+
+                    b.Property<long>("CatalogVersionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("catalog_version_id");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<long?>("ParentElementId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("parent_element_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.HasKey("ElementId");
+
+                    b.HasIndex("CatalogVersionId", "SortOrder")
+                        .IsUnique()
+                        .HasFilter("parent_element_id IS NULL");
+
+                    b.HasIndex("ParentElementId", "SortOrder")
+                        .IsUnique()
+                        .HasFilter("parent_element_id IS NOT NULL");
+
+                    b.ToTable("document_elements", "auditarium", t =>
+                        {
+                            t.HasCheckConstraint("ck_document_elements_values", "sort_order >= 0 AND parent_element_id <> element_id AND (title IS NOT NULL OR text IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.DocumentElementWeight", b =>
+                {
+                    b.Property<long>("ElementId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("element_id");
+
+                    b.Property<int>("Weight")
+                        .HasColumnType("integer")
+                        .HasColumnName("weight");
+
+                    b.HasKey("ElementId");
+
+                    b.ToTable("document_element_weights", "auditarium", t =>
+                        {
+                            t.HasCheckConstraint("ck_document_element_weights_value", "weight IN (1, 2, 4, 5)");
+                        });
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.FileItem", b =>
+                {
+                    b.Property<long>("FileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("FileId"));
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("checksum");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Extension")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("extension");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("original_file_name");
+
+                    b.Property<string>("SaveFileName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("save_file_name");
+
+                    b.Property<string>("SaveFilePath")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("save_file_path");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.HasKey("FileId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("file_items", "auditarium");
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.Question", b =>
+                {
+                    b.Property<long>("QuestionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("question_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("QuestionId"));
+
+                    b.Property<long>("ElementId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("element_id");
+
+                    b.Property<string>("EvidenceHint")
+                        .HasColumnType("text")
+                        .HasColumnName("evidence_hint");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<string>("VerificationHint")
+                        .HasColumnType("text")
+                        .HasColumnName("verification_hint");
+
+                    b.HasKey("QuestionId");
+
+                    b.HasIndex("ElementId", "SortOrder")
+                        .IsUnique();
+
+                    b.ToTable("questions", "auditarium", t =>
+                        {
+                            t.HasCheckConstraint("ck_questions_values", "sort_order >= 0 AND text <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.QuestionScopeType", b =>
+                {
+                    b.Property<long>("QuestionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("question_id");
+
+                    b.Property<long>("ScopeTypeId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("scope_type_id");
+
+                    b.HasKey("QuestionId", "ScopeTypeId");
+
+                    b.HasIndex("ScopeTypeId");
+
+                    b.ToTable("question_scope_types", "auditarium");
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.ScopeType", b =>
+                {
+                    b.Property<long>("ScopeTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("scope_type_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ScopeTypeId"));
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("name");
+
+                    b.HasKey("ScopeTypeId");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("scope_types", "auditarium");
+
+                    b.HasData(
+                        new
+                        {
+                            ScopeTypeId = 1L,
+                            Description = "Organisatorisch abgegrenzte Gesamteinheit.",
+                            Key = "ORGANIZATION",
+                            Name = "Organisation"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 2L,
+                            Description = "Räumlich zusammenhängende Betriebsstätte.",
+                            Key = "SITE",
+                            Name = "Standort"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 3L,
+                            Description = "Einzelnes baulich abgegrenztes Gebäude.",
+                            Key = "BUILDING",
+                            Name = "Gebäude"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 4L,
+                            Description = "Organisatorisch oder funktional abgegrenzter Bereich.",
+                            Key = "AREA",
+                            Name = "Bereich"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 5L,
+                            Description = "Einzelner räumlich abgegrenzter Raum.",
+                            Key = "ROOM",
+                            Name = "Raum"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 6L,
+                            Description = "Bereich für technische Infrastruktur.",
+                            Key = "TECHNICAL_AREA",
+                            Name = "Technikbereich"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 7L,
+                            Description = "Abgegrenzte Kommunikationsinfrastruktur.",
+                            Key = "NETWORK",
+                            Name = "Netzwerk"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 8L,
+                            Description = "Konkretes technisches System oder Plattform.",
+                            Key = "IT_SYSTEM",
+                            Name = "IT-System"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 9L,
+                            Description = "Softwareanwendung oder Softwaresystem.",
+                            Key = "APPLICATION",
+                            Name = "Anwendung"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 10L,
+                            Description = "Definierter organisatorischer oder technischer Ablauf.",
+                            Key = "PROCESS",
+                            Name = "Prozess"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 11L,
+                            Description = "Bereitgestellte technische oder organisatorische Leistung.",
+                            Key = "SERVICE",
+                            Name = "Dienst / Service"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 12L,
+                            Description = "Externe Organisation oder Vertragspartner.",
+                            Key = "EXTERNAL_PROVIDER",
+                            Name = "Externer Dienstleister"
+                        },
+                        new
+                        {
+                            ScopeTypeId = 13L,
+                            Description = "Nur verwenden, wenn kein anderer Scope Type passt.",
+                            Key = "OTHER",
+                            Name = "Sonstiges"
+                        });
+                });
+
             modelBuilder.Entity("Auditarium.Models.Identity.ApiCredential", b =>
                 {
                     b.Property<long>("ApiCredentialId")
@@ -419,6 +871,82 @@ namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("user_roles", "auditarium");
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.CatalogVersion", b =>
+                {
+                    b.HasOne("Auditarium.Models.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Auditarium.Models.Catalog.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Auditarium.Models.Catalog.FileItem", null)
+                        .WithMany()
+                        .HasForeignKey("SourceFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.DocumentElement", b =>
+                {
+                    b.HasOne("Auditarium.Models.Catalog.CatalogVersion", null)
+                        .WithMany()
+                        .HasForeignKey("CatalogVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", null)
+                        .WithMany()
+                        .HasForeignKey("ParentElementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.DocumentElementWeight", b =>
+                {
+                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", null)
+                        .WithMany()
+                        .HasForeignKey("ElementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.FileItem", b =>
+                {
+                    b.HasOne("Auditarium.Models.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.Question", b =>
+                {
+                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", null)
+                        .WithMany()
+                        .HasForeignKey("ElementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.QuestionScopeType", b =>
+                {
+                    b.HasOne("Auditarium.Models.Catalog.Question", null)
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Auditarium.Models.Catalog.ScopeType", null)
+                        .WithMany()
+                        .HasForeignKey("ScopeTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Auditarium.Models.Identity.ApiCredential", b =>

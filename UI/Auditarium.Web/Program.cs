@@ -3,6 +3,7 @@ using Auditarium.Bll;
 using Auditarium.Dal;
 using Auditarium.Infrastructure.Security;
 using Auditarium.Infrastructure.Ldap;
+using Auditarium.Fal;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -11,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuditariumBll();
 builder.Services.AddAuditariumPersistence(builder.Configuration);
+builder.Services.AddAuditariumFileStorage(builder.Configuration);
 builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumLdap();
 builder.Services.AddAuditariumCookieAuthentication();

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Dal;
+using Auditarium.Bll.Settings;
 using System.Data.Common;
 using Xunit;
 using Microsoft.EntityFrameworkCore;
@@ -182,7 +183,7 @@ public sealed class DatabaseBootstrapIntegrationTests
         var administrator = await db.Users.SingleAsync(user => user.UserKey == "DEFAULT_ADMIN");
         Assert.Equal("administrator", administrator.Username);
         Assert.Single(await db.Users.Where(user => user.UserKey == "DEFAULT_ADMIN").ToListAsync());
-        Assert.Equal(7, await db.ApplicationSettings.CountAsync());
+        Assert.Equal(SettingDefinitions.All.Count, await db.ApplicationSettings.CountAsync());
         var system = await db.Users.SingleAsync(user => user.UserKey == "SYSTEM");
         Assert.Equal(0, system.UserId);
         Assert.False(system.IsActive);

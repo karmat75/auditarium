@@ -4,6 +4,7 @@ using Auditarium.Dal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 {
     [DbContext(typeof(AuditariumDbContext))]
-    partial class AuditariumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920081123_AddCatalogCore")]
+    partial class AddCatalogCore
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

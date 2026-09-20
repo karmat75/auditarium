@@ -12,6 +12,8 @@ public static class SettingDefinitions
         new("Security:LocalLockout:WindowMinutes", "int", "15", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 1440),
         new("Security:LocalLockout:DurationMinutes", "int", "15", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 1440),
         new("Security:ApiCredentials:DefaultLifetimeDays", "int", "180", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 3650),
-        new("Security:ApiCredentials:MaximumActiveCredentials", "int", "5", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 50)
+        new("Security:ApiCredentials:MaximumActiveCredentials", "int", "5", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 50),
+        new("Files:OriginalDocuments:MaxUploadSize", "long", "104857600", false, v => long.TryParse(v, out var n) && n is >= 1_048_576 and <= 1_073_741_824),
+        new("Files:OriginalDocuments:MaxDownloadSize", "long", "104857600", false, v => long.TryParse(v, out var n) && n is >= 1_048_576 and <= 1_073_741_824)
     ];
 }
