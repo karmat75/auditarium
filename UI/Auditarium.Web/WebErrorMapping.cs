@@ -29,6 +29,12 @@ public static class WebErrorMapping
         "CATALOG.PARENT_INVALID" => "Die gewählte Hierarchie ist ungültig oder zyklisch.",
         "CATALOG.NOT_DRAFT" => "Der Katalog ist nicht mehr bearbeitbar, weil er nicht im Zustand DRAFT ist.",
         "CATALOG.CONCURRENCY_CONFLICT" => "Der Katalog wurde inzwischen geändert. Laden Sie die Seite neu.",
+        "AUDIT_UNIT.CONCURRENCY_CONFLICT" => "Die Audit Unit wurde inzwischen geändert. Laden Sie die Seite neu.",
+        "AUDIT.CONCURRENCY_CONFLICT" => "Das Audit wurde inzwischen geändert. Laden Sie die Seite neu.",
+        "AUDIT.NOT_DRAFT" => "Das Audit ist nicht mehr im Zustand DRAFT und kann nicht geändert werden.",
+        "AUDIT.QUESTIONS_REQUIRED" => "Die Konfiguration enthält keine passenden Auditfragen und kann nicht veröffentlicht werden.",
+        "AUDIT.AUDIT_UNIT_INACTIVE" => "Die gewählte Audit Unit ist für neue Audits nicht aktiv.",
+        "AUDIT.CATALOG_NOT_USABLE" => "Die Katalogversion ist nicht READY oder ihr Dokument ist nicht aktiv.",
         "IMPORT.BASE_REVISION_MISMATCH" => "Das Importpaket basiert nicht auf der aktuellen DRAFT-Revision.",
         _ => $"Die Aktion konnte nicht ausgeführt werden ({error.Code})."
     };

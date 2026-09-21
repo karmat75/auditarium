@@ -22,6 +22,8 @@ public sealed class AuditariumDbContext : DbContext, IAuditariumDbContext
     public DbSet<Document> Documents => Set<Document>(); public DbSet<CatalogVersion> CatalogVersions => Set<CatalogVersion>(); public DbSet<DocumentElement> DocumentElements => Set<DocumentElement>(); public DbSet<DocumentElementWeight> DocumentElementWeights => Set<DocumentElementWeight>(); public DbSet<Question> Questions => Set<Question>(); public DbSet<ScopeType> ScopeTypes => Set<ScopeType>(); public DbSet<QuestionScopeType> QuestionScopeTypes => Set<QuestionScopeType>(); public DbSet<FileItem> FileItems => Set<FileItem>();
     public DbSet<AuditUnit> AuditUnits => Set<AuditUnit>(); public DbSet<Audit> Audits => Set<Audit>(); public DbSet<AuditDocumentElement> AuditDocumentElements => Set<AuditDocumentElement>(); public DbSet<AuditQuestion> AuditQuestions => Set<AuditQuestion>();
 
+    public Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) => Database.BeginTransactionAsync(cancellationToken);
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.HasDefaultSchema("auditarium");

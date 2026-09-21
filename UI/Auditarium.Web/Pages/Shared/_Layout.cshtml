@@ -21,8 +21,8 @@
             @if (User.Identity?.IsAuthenticated == true && !mustChangePassword)
             {
                 <nav>
-                    @if (permissions.Contains("Audits.Read")) { <a href="#audits">Audits</a> }
-                    @if (permissions.Contains("AuditUnits.Manage")) { <a href="#audit-units">Audit Units</a> }
+                    @if (permissions.Contains("Audits.Read")) { <a asp-page="/Audits/Index">Audits</a> }
+                    @if (permissions.Contains("AuditUnits.Manage")) { <a asp-page="/AuditUnits/Index">Audit Units</a> }
                     @if (permissions.Contains("Documents.Manage")) { <a asp-page="/Documents/Index">Regelwerke</a> }
                     @if (permissions.Any(permission => permission is "Users.Manage" or "Roles.Manage" or "Authentication.Manage" or "Settings.Manage"))
                     {

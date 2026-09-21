@@ -73,6 +73,36 @@ public sealed class AuditWorkflowIntegrationTests
         Assert.Equal("AUDIT_UNIT.OTHER_DESCRIPTION_REQUIRED", Assert.Single(other.Errors).Code);
     }
 
+    [Fact]
+    public async Task Draft_preview_does_not_materialize_and_invalid_publish_leaves_the_draft_unchanged()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var catalog = new CatalogCommandHandler(db, new TestActor());
+        var document = await catalog.Handle(new CreateDocumentCommand(new("Regelwerk", null, null, null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var version = await catalog.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+        var element = await catalog.Handle(new AddDocumentElementCommand(version.Value!, null, null, "Anforderung", null), CancellationToken.None);
+        Assert.True((await catalog.Handle(new AddQuestionCommand(element.Value!, "Erfüllt?", null, null, null, [6]), CancellationToken.None)).IsSuccess);
+
+        var audits = new AuditCommandHandler(db, new TestActor());
+        var unit = await audits.Handle(new CreateAuditUnitCommand(new(null, 6, "Serverraum", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
+        var audit = await audits.Handle(new CreateAuditCommand(new("Audit", null, unit.Value!, version.Value!, null, null)), CancellationToken.None);
+
+        Assert.Equal(new AuditPreview(1, 1), (await audits.Handle(new GetAuditPreviewQuery(audit.Value!), CancellationToken.None)).Value);
+        Assert.Empty(db.AuditDocumentElements);
+        Assert.Empty(db.AuditQuestions);
+
+        var publish = await audits.Handle(new PublishAuditCommand(audit.Value!), CancellationToken.None);
+        Assert.Equal("AUDIT.CATALOG_NOT_USABLE", Assert.Single(publish.Errors).Code);
+        Assert.Empty(db.AuditDocumentElements);
+        Assert.Empty(db.AuditQuestions);
+        Assert.Equal(AuditState.Draft, (await db.Audits.FindAsync(audit.Value))!.AuditState);
+    }
+
     private static ServiceProvider CreateProvider(string connectionString)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = "PostgreSQL", ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();

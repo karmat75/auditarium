@@ -1,0 +1,5 @@
+@page "/audits/create"
+@model Auditarium.Web.Pages.Audits.CreateModel
+@{ ViewData["Title"] = "Audit anlegen"; ViewBag.AuditUnits = Model.Options.AuditUnits; ViewBag.Catalogs = Model.Options.CatalogVersions; }
+<h1>Audit anlegen</h1>
+<partial name="_AuditForm" model="Model.Input" />

@@ -1,0 +1,7 @@
+@page "/audits"
+@model Auditarium.Web.Pages.Audits.IndexModel
+@{ ViewData["Title"] = "Audits"; }
+<h1>Audits</h1>
+<p><a asp-page="Create">Audit anlegen</a></p>
+<form method="get"><label asp-for="Search">Suche</label><input asp-for="Search" /><label asp-for="State">Zustand</label><select asp-for="State" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditState>()"><option value="">Alle</option></select><button type="submit">Filtern</button></form>
+<table><thead><tr><th>Name</th><th>Audit Unit</th><th>Katalog</th><th>Zustand</th><th>Erstellt</th></tr></thead><tbody>@foreach (var audit in Model.Audits) { <tr><td><a asp-page="Details" asp-route-id="@audit.AuditId">@audit.Name</a></td><td>@audit.AuditUnitName</td><td>@audit.DocumentTitle v@audit.CatalogVersionNumber</td><td>@audit.AuditState</td><td>@audit.CreatedAt.LocalDateTime</td></tr> }</tbody></table>

@@ -1,0 +1,5 @@
+@page "/audit-units/{id:long}"
+@model Auditarium.Web.Pages.AuditUnits.DetailsModel
+@{ ViewData["Title"] = Model.Input.Name; ViewBag.AuditUnits = Model.Options.AuditUnits.Where(x => x.AuditUnitId != Model.Input.AuditUnitId).ToArray(); ViewBag.ScopeTypes = Model.Options.ScopeTypes; }
+<h1>@Model.Input.Name</h1>
+<partial name="_AuditUnitForm" model="Model.Input" />

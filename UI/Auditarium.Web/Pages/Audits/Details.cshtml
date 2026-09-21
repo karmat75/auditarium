@@ -1,0 +1,17 @@
+@page "/audits/{id:long}"
+@model Auditarium.Web.Pages.Audits.DetailsModel
+@{ ViewData["Title"] = Model.Audit.Name; ViewBag.AuditUnits = Model.Options.AuditUnits; ViewBag.Catalogs = Model.Options.CatalogVersions; }
+<h1>@Model.Audit.Name</h1>
+<p>Zustand: <strong>@Model.Audit.AuditState</strong></p>
+@if (Model.Audit.AuditState == Auditarium.Models.Catalog.AuditState.Draft)
+{
+    @if (Model.Preview is not null) { <section><h2>Vorschau</h2><p>Die aktuelle DRAFT-Konfiguration würde @Model.Preview.DocumentElementCount prüfbare Dokumentelemente und @Model.Preview.QuestionCount Auditfragen erzeugen. Es wurden keine Inhalte materialisiert.</p></section> }
+    <h2>Konfiguration</h2>
+    <partial name="_AuditForm" model="Model.Input" />
+    <form method="post" asp-page-handler="Publish"><input asp-for="PublishInput.ConcurrencyVersion" type="hidden" /><button type="submit">Publish</button></form>
+}
+else
+{
+    <p>Die Auditkonfiguration ist veröffentlicht und unveränderlich.</p>
+    <p>Audit-Unit-Kontext: @Model.Audit.AuditUnitContext</p>
+}

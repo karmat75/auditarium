@@ -36,6 +36,8 @@ dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 dotnet format Auditarium.sln --verify-no-changes --no-restore
 ```
 
+Fehlt dir an irgendeiner Stelle der Zugriff auf die Docker Engine, verwende den Docker Socket des Host Systems.
+
 Schwäche keine Abnahmekriterien ab, nur damit Tests grün werden.
 
 Beende den Lauf mit einem kurzen Bericht:

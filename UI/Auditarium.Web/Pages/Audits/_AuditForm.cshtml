@@ -1,0 +1,12 @@
+@model Auditarium.Web.Pages.Audits.AuditInputModel
+<form method="post">
+    <div asp-validation-summary="ModelOnly"></div>
+    <label asp-for="Name">Name</label><input asp-for="Name" /><span asp-validation-for="Name"></span>
+    <label asp-for="Description">Beschreibung</label><textarea asp-for="Description"></textarea>
+    <label asp-for="AuditUnitId">Audit Unit</label><select asp-for="AuditUnitId">@foreach (var unit in ViewBag.AuditUnits as IReadOnlyList<Auditarium.Bll.Features.Audits.AuditUnitListItem> ?? []) { <option value="@unit.AuditUnitId">@unit.Name (@unit.ScopeTypeName, @unit.UsageState)</option> }</select>
+    <label asp-for="CatalogVersionId">Katalogversion</label><select asp-for="CatalogVersionId">@foreach (var catalog in ViewBag.Catalogs as IReadOnlyList<Auditarium.Bll.Features.Audits.CatalogVersionOption> ?? []) { <option value="@catalog.CatalogVersionId">@catalog.DocumentTitle – Version @catalog.VersionNumber (@catalog.CatalogState)</option> }</select>
+    <fieldset><legend>Response Policy</legend><table><thead><tr><th>Ergebnis</th><th>Kommentar erforderlich</th><th>Nachweis erforderlich</th></tr></thead><tbody><tr><td>JA</td><td><input asp-for="YesCommentRequired" /></td><td><input asp-for="YesEvidenceRequired" /></td></tr><tr><td>NEIN</td><td><input asp-for="NoCommentRequired" /></td><td><input asp-for="NoEvidenceRequired" /></td></tr><tr><td>NICHT_ANWENDBAR</td><td><input asp-for="NotApplicableCommentRequired" /></td><td><input asp-for="NotApplicableEvidenceRequired" /></td></tr><tr><td>NICHT_FESTSTELLBAR</td><td><input asp-for="NotDeterminableCommentRequired" /></td><td><input asp-for="NotDeterminableEvidenceRequired" /></td></tr></tbody></table></fieldset>
+    <label asp-for="Notes">Interne Hinweise</label><textarea asp-for="Notes"></textarea>
+    <input asp-for="ConcurrencyVersion" type="hidden" />
+    <button type="submit">DRAFT speichern</button>
+</form>

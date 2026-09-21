@@ -75,6 +75,7 @@ app.MapGet("/api/v1/system/status", async (Mediator.IMediator mediator, Cancella
     .Produces<HostStatusViewModel>(StatusCodes.Status200OK)
     .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
 app.MapCatalogEndpoints();
+app.MapAuditEndpoints();
 
 app.Run();
 

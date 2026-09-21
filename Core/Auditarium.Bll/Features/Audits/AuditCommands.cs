@@ -21,7 +21,7 @@ public sealed record AuditPreview(int DocumentElementCount, int QuestionCount);
 [RequiresPermission("Audits.Create")] public sealed record CreateAuditCommand(AuditInput Input) : IRequest<Result<long>>;
 [RequiresPermission("Audits.UpdateDraft")] public sealed record UpdateAuditDraftCommand(long AuditId, AuditInput Input, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.Read")] public sealed record GetAuditPreviewQuery(long AuditId) : IRequest<Result<AuditPreview>>;
-[RequiresPermission("Audits.Publish")] public sealed record PublishAuditCommand(long AuditId) : IRequest<Result>;
+[RequiresPermission("Audits.Publish")] public sealed record PublishAuditCommand(long AuditId, long? ConcurrencyVersion = null) : IRequest<Result>;
 [RequiresPermission("Audits.Claim")] public sealed record ClaimAuditCommand(long AuditId, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.ReleaseOwn")] public sealed record ReleaseOwnAuditCommand(long AuditId, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.Assign")] public sealed record AssignAuditorCommand(long AuditId, long? UserId, long ConcurrencyVersion) : IRequest<Result>;
@@ -75,15 +75,33 @@ public sealed class AuditCommandHandler(IAuditariumDbContext db, ICurrentActor a
 
     public async ValueTask<Result> Handle(PublishAuditCommand m, CancellationToken ct)
     {
-        var audit = await db.Audits.SingleOrDefaultAsync(x => x.AuditId == m.AuditId, ct); if (audit is null) return NotFound("AUDIT.NOT_FOUND"); if (audit.AuditState != AuditState.Draft) return Conflict("AUDIT.NOT_DRAFT");
+        var audit = await db.Audits.SingleOrDefaultAsync(x => x.AuditId == m.AuditId, ct); if (audit is null) return NotFound("AUDIT.NOT_FOUND"); if (audit.AuditState != AuditState.Draft) return Conflict("AUDIT.NOT_DRAFT"); if (m.ConcurrencyVersion is { } version && audit.ConcurrencyVersion != version) return Conflict("AUDIT.CONCURRENCY_CONFLICT");
         var input = new AuditInput(audit.Name, audit.Description, audit.AuditUnitId, audit.CatalogVersionId, Deserialize(audit.AuditSettings), audit.Notes); var error = await ValidateDraftInputAsync(input, ct); if (error is not null) return Fail(error);
         var unit = await db.AuditUnits.SingleAsync(x => x.AuditUnitId == audit.AuditUnitId, ct); if (unit.UsageState != AuditUnitUsageState.Active) return Fail("AUDIT.AUDIT_UNIT_INACTIVE");
         var catalog = await db.CatalogVersions.SingleAsync(x => x.CatalogVersionId == audit.CatalogVersionId, ct); var document = await db.Documents.SingleAsync(x => x.DocumentId == catalog.DocumentId, ct);
         if (catalog.CatalogState != CatalogState.Ready || document.UsageState != DocumentUsageState.Active) return Fail("AUDIT.CATALOG_NOT_USABLE");
         var matches = await MatchingQuestionsAsync(unit.AuditUnitId, catalog.CatalogVersionId, ct); if (matches.Count == 0) return Fail("AUDIT.QUESTIONS_REQUIRED");
         var weights = await db.DocumentElementWeights.Where(x => matches.Select(q => q.ElementId).Contains(x.ElementId)).ToDictionaryAsync(x => x.ElementId, x => x.Weight, ct);
-        foreach (var group in matches.GroupBy(x => x.ElementId)) { var element = new AuditDocumentElement { AuditId = audit.AuditId, ElementId = group.Key, WeightSnapshot = weights.GetValueOrDefault(group.Key, 3) }; db.AuditDocumentElements.Add(element); await db.SaveChangesAsync(ct); foreach (var question in group) db.AuditQuestions.Add(new AuditQuestion { AuditDocumentElementId = element.AuditDocumentElementId, QuestionId = question.QuestionId }); }
-        audit.AuditUnitContext = await ContextAsync(unit, ct); audit.AuditState = AuditState.Ready; await db.SaveChangesAsync(ct); return Result.Success();
+        await using var transaction = await db.BeginTransactionAsync(ct);
+        try
+        {
+            foreach (var group in matches.GroupBy(x => x.ElementId))
+            {
+                var element = new AuditDocumentElement { AuditId = audit.AuditId, ElementId = group.Key, WeightSnapshot = weights.GetValueOrDefault(group.Key, 3) };
+                db.AuditDocumentElements.Add(element);
+                await db.SaveChangesAsync(ct);
+                foreach (var question in group) db.AuditQuestions.Add(new AuditQuestion { AuditDocumentElementId = element.AuditDocumentElementId, QuestionId = question.QuestionId });
+            }
+            audit.AuditUnitContext = await ContextAsync(unit, ct); audit.AuditState = AuditState.Ready;
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return Result.Success();
+        }
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async ValueTask<Result> Handle(ClaimAuditCommand m, CancellationToken ct)
