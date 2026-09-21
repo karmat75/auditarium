@@ -246,7 +246,11 @@ public sealed class DatabaseBootstrapIntegrationTests
         await using (var scope = current.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
-            await db.Database.ExecuteSqlRawAsync("INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('99999999999999_NewerSchema', '10.0.0');");
+            var historyTable = provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
+                ? "auditarium.\"__EFMigrationsHistory\""
+                : "[auditarium].[__EFMigrationsHistory]";
+            var sql = "INSERT INTO " + historyTable + " (\"MigrationId\", \"ProductVersion\") VALUES ('99999999999999_NewerSchema', '10.0.0');";
+            await db.Database.ExecuteSqlRawAsync(sql);
         }
 
         await using var older = CreateServiceProvider(provider, connectionString);

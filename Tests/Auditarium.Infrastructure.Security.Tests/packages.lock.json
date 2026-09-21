@@ -317,7 +317,8 @@
           "OpenTelemetry.Exporter.Prometheus.AspNetCore": "[1.18.0-beta.1, )",
           "OpenTelemetry.Extensions.Hosting": "[1.18.0, )",
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.18.0, )",
-          "OpenTelemetry.Instrumentation.Runtime": "[1.18.0, )"
+          "OpenTelemetry.Instrumentation.Runtime": "[1.18.0, )",
+          "Swashbuckle.AspNetCore.SwaggerUI": "[7.2.0, )"
         }
       },
       "auditarium.bll": {
@@ -510,6 +511,12 @@
         "dependencies": {
           "OpenTelemetry.Api": "[1.18.0, 2.0.0)"
         }
+      },
+      "Swashbuckle.AspNetCore.SwaggerUI": {
+        "type": "CentralTransitive",
+        "requested": "[7.2.0, )",
+        "resolved": "7.2.0",
+        "contentHash": "hgrXeKzyp5OGN8qVvL7A+vhmU7mDJTfGpiMBRL66IcfLOyna8UTLtn3cC3CghamXpRDufcc9ciklTszUGEQK0w=="
       },
       "System.DirectoryServices.Protocols": {
         "type": "CentralTransitive",

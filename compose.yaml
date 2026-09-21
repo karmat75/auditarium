@@ -28,6 +28,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      ASPNETCORE_ENVIRONMENT: Development
       AUDITARIUM__Database__Provider: PostgreSQL
       AUDITARIUM__Database__ConnectionString: Host=postgres;Database=auditarium;Username=auditarium;Password=auditarium-development-only
       AUDITARIUM__Database__BootstrapTimeoutSeconds: "180"

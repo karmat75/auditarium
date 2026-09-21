@@ -49,6 +49,10 @@ await app.Services.InitializeAuditariumDatabaseAsync();
 var recoveryMode = builder.Configuration.GetValue<bool>("Auditarium:Recovery:Enabled");
 
 app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Auditarium API v1"));
+}
 
 app.UseExceptionHandler();
 app.UseAuthentication();
