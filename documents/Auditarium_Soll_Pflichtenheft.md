@@ -1,7 +1,7 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.116
-**Stand:** 20.09.2026
+**Version:** 0.117
+**Stand:** 21.09.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
 **Sub-Titel:** *Structured audits. Traceable results.*
@@ -12453,32 +12453,835 @@ Die vollständige Abnahme von 20.8 bestätigt zusätzlich:
 ---
 ## 20.9 Work Package 9 – Jobs und Betriebsfunktionen
 
-1. `BackgroundService` + Cronos integrieren.
-2. Jobdefinitionen und erlaubte Trigger implementieren.
-3. `JobCoordinator` und DB-basierte Lease implementieren.
-4. Startup-/Scheduled-/Manual-Trigger integrieren.
-5. Maintenance-Jobs für tatsächlich benötigte Retention-/Cleanup-Aufgaben ergänzen; der Retention-Job besitzt standardmäßig den täglichen Schedule `0 3 * * *` und bleibt manuell startbar.
+Work Package 20.9 setzt die in Kapitel 18 definierte Job- und Maintenance-Infrastruktur um.
 
-Abnahme:
+Dabei bleiben:
 
-- derselbe Job kann instanzübergreifend nicht parallel laufen.
-- abgestürzte Instanz blockiert einen Job nicht dauerhaft.
-- `RunOnStartup` läuft pro Job und Anwendungsversion höchstens einmal.
+```text
+Zeitplanung
+Trigger
+Ausführungskoordination
+Businesslogik des konkreten Jobs
+```
+
+getrennte Verantwortlichkeiten.
+
+Work Package 20.9 wird bewusst in einzeln implementier- und abnehmbare Teilpakete zerlegt.
+
+Grundsatz:
+
+> **Ein Teilpaket wird vollständig abgeschlossen und abgenommen, bevor das nächste Teilpaket begonnen wird.**
+
+Ein Codex-/Implementierungslauf soll grundsätzlich genau ein `20.9.x`-Teilpaket bearbeiten.
+
+Der erfolgreiche Abschluss eines Teilpakets ist **keine** Anweisung, im selben Lauf automatisch mit dem nächsten Teilpaket fortzufahren.
+
+Nicht Bestandteil von 20.9 sind:
+
+```text
+Auswertung
+Zeitleiste
+CSV-Export
+Reports
+abschließendes systemweites Hardening
+```
+
+Diese folgen in Work Package 20.10.
+
+Offene Punkte aus Kapitel 21 werden durch die Umsetzung von 20.9 nicht implizit entschieden.
+
+---
+
+### 20.9.1 Job Definitions & Scheduling
+
+#### Ziel
+
+Das gemeinsame Job-Grundmodell, die bekannten Jobdefinitionen und die Berechnung zeitbasierter Trigger bereitstellen, ohne bereits die verteilte Jobausführung oder konkrete Maintenance-Businesslogik umzusetzen.
+
+#### Umsetzen
+
+Mindestens umzusetzen:
+
+```text
+ASP.NET Core BackgroundService
+Cronos
+Job Registry / Job Definitions
+JobKey
+AllowedTriggers
+Enabled
+Schedule
+TimeZone
+RunOnStartup
+MisfirePolicy
+ConcurrencyPolicy
+Next-Run-Berechnung
+Konfigurationsvalidierung
+```
+
+Für reguläre zeitplanbasierte Jobs gelten die in Kapitel 18 festgelegten 5-Feld-Cron-Ausdrücke ohne Sekunden.
+
+Cron-Schedules werden immer zusammen mit einer expliziten Zeitzone ausgewertet.
+
+Die im Code festgelegten `AllowedTriggers` bleiben von der Betreiberkonfiguration getrennt.
+
+Widersprüchliche Konfigurationen werden erkannt und kontrolliert gemeldet.
+
+Beispiele:
+
+```text
+RunOnStartup = true
+aber Startup nicht in AllowedTriggers
+→ Konfigurationsfehler
+
+Schedule gesetzt
+aber Scheduled nicht in AllowedTriggers
+→ Konfigurationsfehler
+```
+
+`MisfirePolicy = Skip` bleibt der Default für normale Maintenance.
+
+`ConcurrencyPolicy = SkipIfRunning` bleibt der initiale Standard.
+
+#### Nicht Bestandteil
+
+Noch nicht Bestandteil von 20.9.1 sind:
+
+```text
+DB-Lease
+Heartbeat
+JobCoordinator-Ausführung
+System-Actor-Ausführung
+manueller Start über Web/API
+Retention-/Purge-Businesslogik
+```
+
+#### Abnahme
+
+- bekannte Jobs können über stabile `JobKey`-Definitionen aufgelöst werden.
+- erlaubte Triggerarten sind Code-Eigenschaft und nicht frei durch Konfiguration erweiterbar.
+- Schedule und TimeZone werden gemeinsam ausgewertet.
+- Next Run wird deterministisch aus Schedule, TimeZone und aktuellem Zeitpunkt berechnet.
+- `MisfirePolicy = Skip` verhält sich entsprechend Kapitel 18.
+- `RunOnStartup` und konfigurierte Schedules werden gegen `AllowedTriggers` validiert.
+- ungültige Jobkonfiguration wird nicht still ignoriert.
+- noch keine konkrete Maintenance-Businesslogik wird in `BackgroundService` oder Cron-Code eingebaut.
+
+---
+
+### 20.9.2 Job Coordination & Distributed Runtime
+
+#### Ziel
+
+Alle Triggerarten über einen gemeinsamen `JobCoordinator` sicher, providerneutral und instanzübergreifend koordinieren.
+
+#### Umsetzen
+
+Mindestens umzusetzen:
+
+```text
+JobCoordinator
+job_runtime_state
+atomarer Lease-Erwerb
+SkipIfRunning
+running_instance_id
+lease_until
+Heartbeat
+Lease-Verlängerung
+Lease-Ablauf / Crash Recovery
+last_started_at
+last_completed_at
+last_result
+last_startup_version
+Concurrency Token
+eigener DI Scope pro Lauf
+System-Ausführungskontext
+Mediator-Aufruf
+technische Telemetrie
+```
+
+Der Lease-Mechanismus bleibt providerneutral und verwendet die gemeinsame Datenbank.
+
+Nicht vorgesehen sind providergebundene Locking-Lösungen wie:
+
+```text
+PostgreSQL Advisory Locks
+SQL Server Application Locks
+```
+
+wenn sie nur für die gemeinsame Jobkoordination benötigt würden.
+
+Alle tatsächlichen Job-Use-Cases laufen nach Application-Start als:
+
+```text
+ActorType.System
+user_id = 0
+→ RBAC
+→ Mediator
+→ BLL
+```
+
+Es gibt keinen direkten `DbContext`- oder FAL-Bypass aus dem Scheduler oder `JobCoordinator`.
+
+#### Startup-Semantik
+
+`RunOnStartup` bedeutet installationsweit:
+
+```text
+pro Job
+pro Auditarium-Anwendungsversion
+höchstens ein erfolgreicher Startup-Lauf
+```
+
+Die erste Instanz, die die dafür erforderliche Lease erfolgreich übernimmt, darf den Startup-Lauf ausführen.
+
+#### Fehler
+
+Mindestens die in Kapitel 18 definierten stabilen Fehlerfälle werden kontrolliert behandelt:
+
+```text
+JOB.NOT_FOUND
+JOB.DISABLED
+JOB.TRIGGER_NOT_ALLOWED
+JOB.ALREADY_RUNNING
+```
+
+#### Abnahme
+
+- derselbe Job kann innerhalb einer Instanz und instanzübergreifend nicht parallel ausgeführt werden.
+- Lease-Erwerb ist atomar.
+- ein gültiger fremder Lease verhindert einen zweiten Lauf.
+- ein Prozessabsturz oder dauerhaft ausbleibender Heartbeat blockiert den Job nach Ablauf der Lease nicht dauerhaft.
+- längere Jobs verlängern ihre Lease kontrolliert.
+- normales Jobende räumt `running_instance_id` und `lease_until` auf und aktualisiert den Runtime-State.
+- `RunOnStartup` läuft pro Job und Anwendungsversion installationsweit höchstens einmal.
+- Jobausführung verwendet System-Actor, Mediator und normale BLL-/RBAC-Pfade.
+- die Lease-/Runtime-State-Semantik funktioniert auf PostgreSQL und Microsoft SQL Server fachlich gleichwertig.
+- relevante Concurrency- und Crash-Recovery-Pfade sind automatisiert getestet.
+
+---
+
+### 20.9.3 Job Operations & Administration
+
+#### Ziel
+
+Die in 20.9.1 und 20.9.2 geschaffene Jobinfrastruktur in den normalen Auditarium-Betrieb integrieren und berechtigten Administratoren kontrollierte Einsicht und manuelle Trigger ermöglichen.
+
+#### Trigger
+
+Mindestens vollständig anbinden:
+
+```text
+Scheduled
+Startup
+Manual
+```
+
+Alle Triggerarten laufen über denselben `JobCoordinator`.
+
+#### Administrative Sicht
+
+Für bekannte Jobs sollen mindestens folgende Informationen verfügbar sein:
+
+```text
+Job
+Enabled
+Allowed Triggers
+Schedule
+TimeZone
+Status
+Last start
+Last completion
+Last result
+Running instance
+Next run
+```
+
+Die vorhandenen zentralen Settings bleiben die Quelle für UI-editierbare bzw. externe Jobkonfiguration.
+
+Es wird kein zweites Job-Konfigurationssystem eingeführt.
+
+#### Manueller Start
+
+Ein manueller Start ist nur möglich, wenn:
+
+```text
+Manual in AllowedTriggers
+AND
+Job effektiv aktiviert
+AND
+aktueller Benutzer besitzt Maintenance.Jobs.Execute
+```
+
+Der manuelle Start wird als normaler BLL-Use-Case über Web und API angeboten.
+
+Web verwendet die eigene API nicht als Backend.
+
+Bei erfolgreicher Anforderung:
+
+```text
+Admin User
+→ autorisierter Trigger-Use-Case
+→ JOB_TRIGGERED im system_audit_log
+→ JobCoordinator
+→ neuer System-Ausführungskontext
+→ eigentlicher Job
+```
+
+Der anfordernde Benutzer und die anschließend als Systemactor ausgeführten Fachänderungen bleiben getrennt nachvollziehbar.
+
+Ein bereits laufender Job wird nicht parallel gestartet.
+
+#### Abnahme
+
+- Scheduled-, Startup- und Manual-Trigger verwenden denselben `JobCoordinator`.
+- manuelle Startmöglichkeiten werden nur für Jobs angeboten, die `Manual` erlauben.
+- die serverseitige Prüfung verhindert unzulässige Trigger unabhängig von der UI.
+- ein berechtigter Administrator kann einen zulässigen Job über Web und API manuell anfordern.
+- Web verwendet die eigene API nicht als Backend.
+- ein manueller Trigger protokolliert den anfordernden Benutzer.
+- die eigentliche Jobausführung erfolgt anschließend als Systemactor.
+- Status, letzter Lauf und nächster geplanter Lauf sind aus den vorhandenen Definitionen und Runtime-Daten nachvollziehbar.
+- `JOB.ALREADY_RUNNING` wird als erwartbarer Konflikt behandelt.
+- es wird keine persistente Langzeit-Jobhistorie eingeführt.
+
+---
+
+### 20.9.4 Retention & Maintenance Jobs
+
+#### Ziel
+
+Die tatsächlich benötigten Maintenance-Use-Cases auf die fertige Jobinfrastruktur aufsetzen.
+
+Für den initialen Sollstand ist der konkret definierte Retention-/Purge-Job maßgeblich.
+
+Beispielnamen wie `FileIntegrity` begründen allein noch keinen zusätzlichen v1-Job.
+
+#### Retention-Job
+
+Der Retention-Job verwendet:
+
+```text
+JobKey             = Retention
+AllowedTriggers    = Scheduled | Manual
+Default Schedule   = 0 3 * * *
+RunOnStartup       = false
+MisfirePolicy      = Skip
+ConcurrencyPolicy  = SkipIfRunning
+```
+
+Der Job läuft standardmäßig einmal täglich um 03:00 Uhr in seiner konfigurierten Zeitzone und bleibt bei vorhandener Permission manuell startbar.
+
+#### Businesslogik
+
+Der konkrete Job löst einen normalen BLL-Use-Case aus, beispielsweise:
+
+```text
+Retention Trigger
+→ JobCoordinator
+→ System Actor
+→ RunRetentionCommand
+→ AuthorizationBehavior
+→ Handler
+```
+
+Der Handler berücksichtigt die in Kapitel 7 definierten unabhängigen Retention-Regeln für:
+
+```text
+soft gelöschte fachliche Aggregate Roots
+system_audit_log
+```
+
+Dabei gilt weiterhin:
+
+- Ablauf einer Retention macht Daten nur purgeberechtigt.
+- fachliche und referenzielle Abhängigkeiten bleiben vor einem Purge zu prüfen.
+- Soft Delete wird am Aggregate Root behandelt.
+- der Purge eines Fachobjekts löscht dessen Audit-Log-Historie nicht automatisch.
+- Audit-Log-Einträge folgen ihrer eigenen Retention und Abhängigkeitsprüfung.
+- ein lediglich soft gelöschtes Ursprungsobjekt erlaubt noch keinen Purge seiner Audit-Log-Historie.
+- deaktivierte Purge-Bereiche werden nicht physisch gelöscht.
+- die bestehenden Audit-Log- und Atomaritätsregeln gelten auch für Maintenance.
+
+#### Nicht Bestandteil
+
+Nicht Bestandteil dieses Work Packages sind:
+
+```text
+Papierkorb / Restore-UI
+allgemeine Restore-API
+Backup-Funktion
+Backup-Überwachung
+nicht normativ definierte zusätzliche Maintenance-Jobs
+```
+
+#### Abnahme
+
+- der Retention-Job läuft über die gemeinsame Jobinfrastruktur.
+- der Default-Schedule ist `0 3 * * *`.
+- Scheduled und Manual sind die einzigen erlaubten Trigger des Retention-Jobs.
+- Soft-Delete- und Audit-Log-Retention werden unabhängig voneinander ausgewertet.
+- noch nicht purgeberechtigte Daten werden nicht gelöscht.
+- bestehende fachliche bzw. referenzielle Abhängigkeiten verhindern den jeweiligen Purge.
+- der Purge eines Fachobjekts entfernt dessen `system_audit_log` nicht automatisch.
+- deaktivierter Audit-Log-Purge lässt die betreffenden Einträge unverändert bestehen.
+- Purge-Operationen respektieren Aggregate-Grenzen und Audit-Log-Regeln.
+- relevantes Verhalten wird auf PostgreSQL und Microsoft SQL Server getestet.
+- es werden keine zusätzlichen Maintenance-Jobs nur aufgrund illustrative Beispiele aus Kapitel 18 eingeführt.
+
+---
+
+### Abschluss von Work Package 20.9
+
+Work Package 20.9 gilt erst als abgeschlossen, wenn:
+
+```text
+20.9.1 Job Definitions & Scheduling
+20.9.2 Job Coordination & Distributed Runtime
+20.9.3 Job Operations & Administration
+20.9.4 Retention & Maintenance Jobs
+```
+
+jeweils einzeln implementiert und gegen ihre Abnahmekriterien geprüft wurden.
+
+Die vollständige Abnahme von 20.9 bestätigt zusätzlich:
+
+- Zeitplanung, Trigger, Ausführungskoordination und Job-Businesslogik bleiben getrennt.
+- alle Triggerarten verwenden denselben `JobCoordinator`.
+- Jobausführung umgeht weder BLL noch RBAC.
+- Mehrinstanzbetrieb erzeugt keine parallelen Läufe desselben Jobs.
+- abgestürzte Instanzen blockieren Jobs nicht dauerhaft.
+- Jobs aus späteren fachlichen Erweiterungen wurden nicht vorweggenommen.
+- Auswertung, CSV-Export, Zeitleiste und abschließendes Hardening wurden nicht aus Work Package 20.10 vorgezogen.
+
+---
 
 ## 20.10 Work Package 10 – Auswertung, Export und Hardening
 
-1. CSV-Export umsetzen und strukturierte Weiterverarbeitung über die API sicherstellen.
-2. Tabellen-/Zeitleistenansichten gemäß fachlichen Regeln aufbauen.
-3. Provider-Testmatrix und Integrationstests vervollständigen.
-4. Security-, Telemetrie- und Retention-Regeln prüfen.
-5. offene Punkte nur nach bewusster Entscheidung in den Sollzustand übernehmen.
+Work Package 20.10 vervollständigt den initialen Produktstand mit einheitlichem Audit-Datenzugriff, CSV-Export, den bereits festgelegten Auswertungsansichten sowie der systemweiten technischen Abnahme.
 
-Abnahme:
+Work Package 20.10 wird bewusst in einzeln implementier- und abnehmbare Teilpakete zerlegt.
 
-- kein künstlicher Gesamtscore wird erzeugt.
-- relevante Auditdaten sind über UI, Export und API zugänglich.
-- PostgreSQL und SQL Server bestehen dieselben fachlichen Integrationstests.
-- der fachliche Referenzfall aus Kapitel 19 kann von der manuellen Katalogpflege bis zur finalisierten Erstprüfung und Wiederholung einschließlich CSV-Export und API-Datenzugriff durchlaufen werden.
+Grundsatz:
+
+> **Erst eine gemeinsame fachliche Datenauswahl schaffen, dann Export und Darstellung darauf aufbauen und anschließend den vollständigen Produktstand systemweit prüfen.**
+
+Ein Codex-/Implementierungslauf soll grundsätzlich genau ein `20.10.x`-Teilpaket bearbeiten.
+
+Der erfolgreiche Abschluss eines Teilpakets ist **keine** Anweisung, im selben Lauf automatisch mit dem nächsten Teilpaket fortzufahren.
+
+### Scope-Grenze
+
+Work Package 20.10 entscheidet keine noch offenen Produktfragen aus Kapitel 21.
+
+Insbesondere werden nicht stillschweigend festgelegt:
+
+```text
+Detailgestaltung weiterführender Reports
+Management-Dashboards oder Management-Kennzahlen
+fachliche Gesamtbewertung von Abweichungen
+weiterführende Vergleichslogik über Zeit
+zusätzliche Visualisierungen außerhalb des bereits normativ zugesicherten Mindestumfangs
+```
+
+Funktionen, deren Detailausgestaltung in Kapitel 21 noch offen ist, werden nur bis zu dem im normativen Hauptteil bereits eindeutig festgelegten Mindestumfang umgesetzt.
+
+---
+
+### 20.10.1 Audit Data Access & Filtering
+
+#### Ziel
+
+Eine gemeinsame BLL-seitige Datenauswahl für Auswertung, CSV-Export und strukturierten API-Zugriff bereitstellen.
+
+Damit sollen UI, Export und API nicht jeweils eigene leicht unterschiedliche Filter- und Projektionsregeln entwickeln.
+
+#### Datenebenen
+
+Mindestens unterstützt werden die in Kapitel 15 definierten Ebenen:
+
+```text
+Audit-Ebene
+→ ein Datensatz pro Audit
+
+Document-Element-Ebene
+→ ein Datensatz pro audit_document_element
+
+Frage-Ebene
+→ ein Datensatz pro audit_question
+```
+
+Die Ausgaben enthalten die für externe Verständlichkeit erforderlichen lesbaren Kontextinformationen und die notwendigen stabilen internen IDs.
+
+#### Filter
+
+Die gemeinsame fachliche Filtersemantik unterstützt mindestens die bereits vorgesehenen Dimensionen, soweit sie für die jeweilige Ebene relevant sind:
+
+```text
+Zeitraum
+Scope Type
+Audit Unit
+Document
+Catalog Version
+Audit State
+```
+
+Filter werden explizit modelliert und nicht als freie LINQ-, SQL- oder OData-Ausdrücke vom Client übernommen.
+
+Pagination und Sortierung folgen den bestehenden Web-/API-Regeln.
+
+#### Konsistenz
+
+Für dieselbe fachliche Auswahl gilt:
+
+```text
+interne Tabellenansicht
+CSV-Export
+API
+→ dieselbe Datenselektion und Semantik
+```
+
+Dokumentmetadaten und unveränderliche Audit-/Katalog-Snapshots folgen den in Kapitel 15 festgelegten Aktualitäts- und Historienregeln.
+
+#### Abnahme
+
+- Audit-, Element- und Frage-Ebene können jeweils über gemeinsame BLL-Queries gelesen werden.
+- dieselben fachlichen Filterbedingungen liefern über UI, Export und API dieselbe Datenauswahl.
+- Filter sind explizit freigegeben und nicht frei ausführbar.
+- lesbare Kontextinformationen und interne IDs sind gemeinsam verfügbar.
+- Dokumentmetadaten und historische Snapshots folgen der festgelegten Semantik.
+- keine künstliche Gesamtbewertung oder mathematische Compliance-Kennzahl wird erzeugt.
+- Permission- und Datenzugriffsregeln bleiben serverseitig wirksam.
+- relevante Query- und Filterfälle sind automatisiert getestet.
+
+---
+
+### 20.10.2 CSV Export
+
+#### Ziel
+
+Den in Kapitel 15 festgelegten dateibasierten Export als CSV vollständig und nachvollziehbar umsetzen.
+
+CSV bleibt das einzige initial unterstützte dateibasierte Exportformat.
+
+Nicht Bestandteil sind:
+
+```text
+XLSX
+PDF
+formatierte Berichte
+Drucklayouts
+Management-Summaries
+Report-Engines
+Template-basiertes Reporting
+```
+
+#### Exportebenen
+
+CSV-Export unterstützt mindestens:
+
+```text
+Audit-Ebene
+Document-Element-Ebene
+Frage-Ebene
+```
+
+Die Datenauswahl verwendet die gemeinsame Filterlogik aus 20.10.1.
+
+#### Inhalt
+
+CSV enthält:
+
+- stabile interne IDs,
+- lesbare Audit- und Audit-Unit-Kontexte,
+- Dokument- und Kataloginformationen,
+- relevante Elementinformationen,
+- Antworten, Kommentare, Evidence und Antwortmetadaten auf Frage-Ebene, soweit vorhanden,
+- die jeweils für die Ebene fachlich notwendigen Felder.
+
+Die konkrete Spaltenreihenfolge darf implementierungsnah festgelegt werden, solange die Daten außerhalb von Auditarium verständlich und eindeutig verknüpfbar bleiben.
+
+CSV-Encoding, Quoting, Zeilenumbrüche und Sonderzeichen werden robust behandelt.
+
+#### Audit-Log vor Auslieferung
+
+Vor Auslieferung eines Exports muss dessen erforderlicher Eintrag im `system_audit_log` erfolgreich gespeichert sein.
+
+Es gilt:
+
+```text
+Audit-Log-Eintrag erfolgreich
+→ Export darf ausgeliefert werden
+
+Audit-Log-Eintrag fehlgeschlagen
+→ Export wird abgebrochen
+→ keine Teilübertragung
+```
+
+Die bestehende Ereignis- und Fehlersemantik aus Kapitel 7 bleibt maßgeblich.
+
+#### Abnahme
+
+- alle drei vorgesehenen Datenebenen können als CSV exportiert werden.
+- Export verwendet dieselbe Datenauswahl wie UI und API.
+- CSV ist mit Sonderzeichen, Quotes, Trennzeichen und Zeilenumbrüchen korrekt verarbeitbar.
+- Exporte enthalten lesbaren Kontext und technische IDs.
+- fehlende Permission verhindert den Export.
+- ein erforderlicher fehlgeschlagener Audit-Log-Eintrag verhindert jede Auslieferung von Exportdaten.
+- es werden keine Teil- oder Restdaten eines fehlgeschlagenen Exports übertragen.
+- kein zusätzlicher JSON-Dateiexport oder anderes Komfortformat wird eingeführt.
+- relevante Exportpfade sind automatisiert getestet.
+
+---
+
+### 20.10.3 Analysis Views & Timeline
+
+#### Ziel
+
+Die bereits normativ zugesicherten internen Auswertungsansichten auf Basis der gemeinsamen Datenauswahl bereitstellen.
+
+#### Tabellenansichten
+
+Mindestens vorhanden sind filterbare tabellarische Sichten für:
+
+```text
+Audits
+prüfbare Document Elements
+Audit Questions
+```
+
+Die Ansichten verwenden die gemeinsame Filtersemantik aus 20.10.1.
+
+Gewichtungen werden als Priorisierungshilfe dargestellt, nicht als Multiplikator eines Gesamtscores.
+
+#### Zeitleiste
+
+Eine einfache funktionale Zeitleistenansicht stellt Audits über die Zeit dar.
+
+Mindestens nutzbare Unterscheidungs- bzw. Gruppierungsmerkmale sind, soweit sinnvoll:
+
+```text
+Scope Type
+Audit Unit
+Document
+Catalog Version
+Audit State
+Zeitraum
+```
+
+Die Darstellung darf Farbe, Gruppen/Lanes, Symbole, Zusatzinformationen oder Audit-Karten verwenden.
+
+Eine Farbe darf nicht gleichzeitig mehrere unterschiedliche Bedeutungen tragen.
+
+Die Zeitleiste ist ausschließlich Darstellungsform und führt keine technische Vergleichssperre zwischen fachlich ungewöhnlichen Auditkombinationen ein.
+
+#### Scope-Grenze
+
+20.10.3 implementiert **keine** noch offenen weiterführenden Reporting- oder Managementkonzepte aus Kapitel 21.
+
+Insbesondere nicht automatisch Bestandteil sind:
+
+```text
+Management-Dashboard
+Management-Kennzahlen
+formatierte Reports
+fachliche Gesamtbewertung
+umfangreiche Vergleichsmaschine
+zusätzliche Visualisierungsframeworks ohne konkreten Bedarf
+```
+
+#### Abnahme
+
+- Auditdaten sind auf Audit-, Element- und Frage-Ebene tabellarisch auswertbar.
+- dieselben Filterbedingungen wie bei CSV und API stehen zur Verfügung.
+- Gewichtung dient sichtbar der Priorisierung und erzeugt keinen Gesamtscore.
+- eine funktionale Zeitleiste zeigt Audits über einen Zeitraum.
+- Scope Type, Audit Unit, Document, Catalog Version und Audit State können entsprechend der vorhandenen Daten zur Orientierung genutzt werden.
+- unterschiedliche Katalogversionen oder Audit Units werden sichtbar unterscheidbar, aber nicht technisch vom gemeinsamen Betrachten ausgeschlossen.
+- Accessibility- und UI-/UX-Grundregeln bleiben eingehalten.
+- keine offenen Reporting-/Managemententscheidungen aus Kapitel 21 werden implizit festgelegt.
+
+---
+
+### 20.10.4 Provider Matrix & Reference Scenario
+
+#### Ziel
+
+Den vollständigen initialen Produktweg reproduzierbar auf beiden unterstützten Datenbankprovidern nachweisen.
+
+Dieses Teilpaket führt keine neue Produktfunktion ein, sondern vervollständigt Integrationstests, Testdatenaufbau und End-to-End-Abnahme gemäß Kapitel 19.
+
+#### Provider-Testmatrix
+
+Für PostgreSQL und Microsoft SQL Server wird jeweils automatisiert geprüft:
+
+```text
+leere Datenbank
+→ alle providerbezogenen Migrationen anwenden
+→ Bootstrap / Reconcile
+→ Anwendungskern betriebsbereit
+→ relevante Integrationstests
+```
+
+Providerneutralität bleibt eine Abnahmeeigenschaft.
+
+Eine Änderung gilt nicht als vollständig unterstützt, wenn sie nur auf einem der beiden freigegebenen Provider funktioniert.
+
+#### Fachlicher Referenzfall
+
+Der in Kapitel 19 definierte Serverraum-Referenzfall wird vollständig durchlaufen:
+
+```text
+Audit Unit und Hierarchie herstellen
+→ Beispielregelwerk manuell anlegen
+→ Catalog Version READY
+→ erstes Audit DRAFT
+→ Preview
+→ Publish
+→ Claim
+→ Erstbefunde beantworten
+→ FINALIZE
+→ Repeat
+→ zweites Audit veröffentlichen
+→ Claim
+→ Wiederholungsbefunde beantworten
+→ FINALIZE
+→ UI-Datenzugriff
+→ CSV-Export
+→ API-Datenzugriff
+```
+
+Die in Kapitel 19 vorgegebenen erwarteten Frage- und Elementergebnisse bleiben verbindlich.
+
+Der Referenzfall ist Test-/Abnahmedatenbestand und kein verpflichtender produktiver Seed.
+
+#### Abnahme
+
+- beide Provider können aus leerer Datenbank über Migrationen und Bootstrap/Reconcile vollständig aufgebaut werden.
+- der Referenzfall läuft auf beiden Providern fachlich gleichwertig durch.
+- Erstprüfung und Wiederholung bleiben getrennte, historisch stabile Audits.
+- erwartete Elementergebnisse entsprechen Kapitel 19.
+- spätere Antworten verändern die Erstprüfung nicht.
+- UI, CSV-Export und API liefern die Daten beider finalisierten Audits.
+- die Provider-Testmatrix läuft reproduzierbar automatisiert.
+- keine providergebundene fachliche Sonderregel wird eingeführt.
+
+---
+
+### 20.10.5 Final Hardening & Quality Gate
+
+#### Ziel
+
+Den nach 20.10.4 funktional vollständigen initialen Produktstand systematisch gegen die Querschnitts-, Security-, Observability-, Retention- und Qualitätsanforderungen des Soll-/Pflichtenhefts prüfen.
+
+Grundsatz:
+
+> **Dieses Teilpaket baut keine neue Produktfunktion. Es schließt nachweisbare Qualitäts-, Test- und Hardening-Lücken des bereits definierten Sollzustands.**
+
+#### Prüffelder
+
+Mindestens zu prüfen und bei Bedarf zu vervollständigen:
+
+```text
+RBAC / Default-Deny
+Permission-Deklaration von Mediator-Requests
+Authentication-/Session-Sicherheitsregeln
+User-Deaktivierung
+Forced Password Change
+Recovery
+System Actor
+Concurrency
+Audit-Log-Atomizität
+Audit-Log-Positivlisten / Sensitive Data
+Event-Logging-Fehlerverhalten
+Retention / Purge
+Mehrinstanz-Startup
+Bootstrap / Reconcile
+Migrationen
+Job-Leases
+Secrets in Logs / Traces / Errors
+OpenTelemetry / Health / technische Diagnose
+Architektur-Abhängigkeitsregeln
+Providerneutralität
+```
+
+Die zusätzlichen Qualitätsregeln aus Kapitel 19 sind dabei die verbindliche Checkliste.
+
+#### Observability
+
+Hardening prüft insbesondere:
+
+- technische Logs enthalten keine Secrets oder unzulässigen sensitiven Freitexte,
+- Traces und Metrics verwenden keine hochkardinalen oder sensitiven Labels,
+- unerwartete Fehler bleiben diagnostizierbar, ohne interne oder geheime Daten nach außen zu geben,
+- Health-/Readiness-Verhalten entspricht dem vorhandenen Betriebsmodell.
+
+#### Security und Audit-Log
+
+Insbesondere nachzuweisen sind:
+
+- protokollierungspflichtige Fachänderung und zugehöriges Audit-Log bleiben atomar,
+- ein Audit-Log-Schreibfehler kann die Fachänderung nicht als Erfolg bestehen lassen,
+- Fehlerereignisse verändern einen fehlgeschlagenen Vorgang nicht nachträglich in einen Erfolg,
+- Secret-, Credential-, Hash-, Token-, Schlüssel- und Recovery-Werte gelangen nicht in Audit-Log-Zustände oder Telemetrie,
+- Logout bleibt entsprechend der festgelegten Sonderregel auch bei Protokollierungsproblemen möglich.
+
+#### Architektur und Qualität
+
+Architecture Tests bzw. Analyzer sollen soweit vorgesehen mindestens absichern:
+
+```text
+erlaubte Projektabhängigkeiten
+Default-Deny
+Security-Deklaration von Mediator-Requests
+keine verbotenen UI→DAL/FAL-Abkürzungen
+```
+
+Die Standardprüfungen für Build, Tests und Formatierung müssen erfolgreich sein.
+
+#### Scope-Grenze
+
+Gefundene Defekte und fehlende Tests des bereits definierten Sollzustands werden behoben.
+
+Neue Produktideen oder noch offene Entscheidungen aus Kapitel 21 werden nicht im Rahmen des Hardening erfunden.
+
+#### Abnahme
+
+- die Qualitätsregeln aus Kapitel 19 sind geprüft und relevante Lücken geschlossen.
+- Security-relevante Pfade geben keine Secrets, Passwörter, Tokens oder sensible interne Daten aus.
+- Audit-Log-Atomizität und Fehlerverhalten sind auf beiden Datenbankprovidern getestet.
+- Recovery-, Bootstrap-/Reconcile- und Mehrinstanzfälle sind entsprechend Kapitel 19 geprüft.
+- Concurrency- und Permission-Pfade besitzen relevante Negativtests.
+- Job-Lease- und Crash-Recovery-Verhalten ist automatisiert geprüft.
+- Architecture Tests bzw. gleichwertige Prüfmechanismen sichern die vorgesehenen Schicht- und Security-Regeln.
+- PostgreSQL und Microsoft SQL Server bestehen die relevanten fachlichen und persistenzbezogenen Integrationstests.
+- Restore, Build, Test und Formatierung der Solution sind reproduzierbar erfolgreich.
+- es wurden keine offenen Themen aus Kapitel 21 stillschweigend zum Produkt-Soll erklärt.
+
+---
+
+### Abschluss von Work Package 20.10
+
+Work Package 20.10 gilt erst als abgeschlossen, wenn:
+
+```text
+20.10.1 Audit Data Access & Filtering
+20.10.2 CSV Export
+20.10.3 Analysis Views & Timeline
+20.10.4 Provider Matrix & Reference Scenario
+20.10.5 Final Hardening & Quality Gate
+```
+
+jeweils einzeln implementiert und gegen ihre Abnahmekriterien geprüft wurden.
+
+Die vollständige Abnahme von 20.10 bestätigt zusätzlich:
+
+- es wird kein künstlicher Gesamtscore erzeugt.
+- relevante Auditdaten sind über UI, CSV-Export und API zugänglich.
+- UI, Export und API verwenden dieselbe fachliche Datenauswahl und Filtersemantik.
+- PostgreSQL und Microsoft SQL Server bestehen dieselben fachlichen Kern- und Persistenzprüfungen.
+- der Referenzfall aus Kapitel 19 kann vollständig von der manuellen Katalogpflege bis zur finalisierten Erstprüfung und Wiederholung einschließlich CSV-Export und API-Datenzugriff durchlaufen werden.
+- alle Work Packages 20.1 bis 20.10 bilden gemeinsam den initial implementierten Sollstand.
+- offene Themen aus Kapitel 21 bleiben offen, bis sie bewusst entschieden und in einer späteren Dokumentversion in den normativen Hauptteil übernommen werden.
 
 ---
 
@@ -12504,6 +13307,27 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.117
+
+Gegenüber Version 0.116 wurden die bisher sehr grob beschriebenen Work Packages 20.9 und 20.10 in einzeln implementier- und abnehmbare Teilpakete zerlegt. Die fachlichen und technischen Zielregeln der Kapitel 7, 15, 18 und 19 wurden dabei nicht durch einen zweiten Sollzustand ersetzt, sondern für die Implementierungsreihenfolge konkret zugeordnet:
+
+- Work Package 20.9 bleibt das gemeinsame Dach für Jobs und Betriebsfunktionen.
+- `20.9.1 Job Definitions & Scheduling` umfasst Jobdefinitionen, Cronos, Schedule-/TimeZone-Auswertung, Trigger-Fähigkeiten, Misfire-/Concurrency-Policy und Konfigurationsvalidierung.
+- `20.9.2 Job Coordination & Distributed Runtime` umfasst `JobCoordinator`, `job_runtime_state`, providerneutrale DB-Leases, Heartbeat, Crash-Recovery, System-Actor-Ausführung und installationsweite `RunOnStartup`-Semantik.
+- `20.9.3 Job Operations & Administration` bindet Scheduled-, Startup- und Manual-Trigger an, stellt operative Jobinformationen bereit und exponiert den autorisierten manuellen Start über Web und API.
+- `20.9.4 Retention & Maintenance Jobs` setzt den konkret definierten Retention-/Purge-Use-Case auf die gemeinsame Jobinfrastruktur. Illustrative Jobnamen aus Kapitel 18 erzeugen keinen zusätzlichen v1-Scope.
+- Work Package 20.10 bleibt das gemeinsame Dach für Auswertung, Export und abschließende Qualitätsprüfung.
+- `20.10.1 Audit Data Access & Filtering` schafft die gemeinsame BLL-seitige Datenauswahl für Audit-, Element- und Frage-Ebene einschließlich gemeinsamer Filtersemantik für UI, Export und API.
+- `20.10.2 CSV Export` implementiert den einzigen initialen dateibasierten Export einschließlich Audit-Log-vor-Auslieferung und der bereits festgelegten Kontextdaten.
+- `20.10.3 Analysis Views & Timeline` implementiert filterbare Tabellen und die normativ zugesicherte funktionale Zeitleiste, ohne offene Reporting-, Management- oder Vergleichskonzepte aus Kapitel 21 zu entscheiden.
+- `20.10.4 Provider Matrix & Reference Scenario` führt die Provider-Testmatrix und den vollständigen fachlichen Referenzfall aus Kapitel 19 auf PostgreSQL und Microsoft SQL Server zusammen.
+- `20.10.5 Final Hardening & Quality Gate` prüft und schließt verbleibende Test-, Security-, Observability-, Retention-, Concurrency-, Mehrinstanz- und Architekturqualitätslücken des bereits definierten Sollzustands, ohne neue Produktfunktionen einzuführen.
+- Für 20.9 und 20.10 gilt wie bereits für 20.8: Ein Codex-/Implementierungslauf soll grundsätzlich genau ein Teilpaket bearbeiten und nach dessen Abnahme stoppen.
+- Die bisherige Formulierung, offene Punkte im Rahmen von 20.10 nur nach bewusster Entscheidung zu übernehmen, wurde als Implementierungsschritt entfernt. Stattdessen ist nun ausdrücklich festgelegt, dass Work Package 20.10 keine Themen aus Kapitel 21 implizit entscheidet und nur den bereits normativ definierten Mindestumfang umsetzt.
+- Die Abschlusskriterien von 20.9 und 20.10 wurden erweitert, damit die jeweiligen Dach-Work-Packages erst nach erfolgreicher Einzelabnahme aller Teilpakete als abgeschlossen gelten.
+
+Die bisherigen fachlichen und technischen Festlegungen bleiben bestehen.
 
 ## Änderungen in Version 0.116
 

@@ -8,7 +8,8 @@ Prüfe vor Änderungen den bestehenden Code, relevante Tests und `git status`. E
 
 Implementiere nur den Scope des ausgewählten Work Packages. Ziehe keine Funktionen späterer Work Packages vor und beginne nach Abschluss nicht automatisch mit dem nächsten Work Package.
 
-Für `20.8.x` gilt zusätzlich:
+Für `20.9.x` gilt zusätzlich:
+- Beachte die Einleitung von Kapitel `20.9`.
 - Web verwendet Razor Pages → Mediator → BLL.
 - API verwendet HTTP → Mediator → BLL.
 - Web verwendet niemals die eigene API als Backend.
@@ -21,7 +22,7 @@ Für `20.8.x` gilt zusätzlich:
 - Concurrency-Konflikte dürfen keine Fremdänderungen überschreiben.
 - Filter und Sortierung nur über explizit freigegebene Felder.
 - OpenAPI beschreibt die tatsächlich implementierte API.
-- Die im Soll-/Pflichtenheft definierte Grenze zum nächsten `20.8.x`-Teilpaket ist verbindlich.
+- Die im Soll-/Pflichtenheft definierte Grenze zum nächsten `20.9.x`-Teilpaket ist verbindlich.
 
 Falls für die Umsetzung ein kleiner technischer oder BLL-seitiger Baustein fehlt, ergänze ihn nur dann, wenn er zwingend erforderlich ist und das gewünschte Verhalten im Soll-/Pflichtenheft bereits eindeutig festgelegt ist. Keine neuen Produktentscheidungen und keine opportunistischen Refactorings.
 
