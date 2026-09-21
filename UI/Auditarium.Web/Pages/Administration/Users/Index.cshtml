@@ -1,0 +1,15 @@
+@page "/administration/users"
+@model Auditarium.Web.Pages.Administration.Users.IndexModel
+@{ ViewData["Title"] = "Benutzer"; }
+<h1>Benutzer</h1>
+<div asp-validation-summary="All"></div>
+<form method="get" class="form-grid">
+    <label asp-for="Search">Suche</label><input asp-for="Search" />
+    <label asp-for="IsActive">Status</label>
+    <select asp-for="IsActive"><option value="">Alle</option><option value="true">Aktiv</option><option value="false">Inaktiv</option></select>
+    <button type="submit">Filtern</button>
+</form>
+<p><a asp-page="Create">Benutzer anlegen</a></p>
+<div class="table-scroll"><table><thead><tr><th>Benutzername</th><th>Anzeigename</th><th>E-Mail</th><th>Status</th></tr></thead><tbody>
+@foreach (var user in Model.Users) { <tr><td><a asp-page="Details" asp-route-id="@user.UserId">@user.Username</a></td><td>@user.DisplayName</td><td>@user.Email</td><td>@(user.IsActive ? "Aktiv" : "Inaktiv")</td></tr> }
+</tbody></table></div>

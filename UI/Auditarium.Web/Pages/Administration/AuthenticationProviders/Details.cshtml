@@ -1,0 +1,22 @@
+@page "/administration/authentication-providers/{id:long}"
+@model Auditarium.Web.Pages.Administration.AuthenticationProviders.DetailsModel
+@{ ViewData["Title"] = "Authentication Provider"; var provider = Model.Provider; }
+<h1>Authentication Provider</h1><div asp-validation-summary="All"></div>@if (Model.StatusMessage is not null) { <p class="status-message">@Model.StatusMessage</p> }
+@if (provider is not null) {
+<dl><dt>Provider Key</dt><dd>@provider.ProviderKey</dd><dt>Typ</dt><dd>@provider.ProviderType</dd><dt>Status</dt><dd>@(provider.IsEnabled ? "Aktiv" : "Inaktiv")</dd><dt>Verwaltung</dt><dd>@(provider.SystemManaged ? "Systemverwaltet" : "Administrierbar")</dd></dl>
+@if (!provider.SystemManaged) {
+<form method="post" asp-page-handler="UpdateMetadata" class="form-grid"><input type="hidden" asp-for="MetadataInput.ConcurrencyVersion" /><label asp-for="MetadataInput.DisplayName">Anzeigename</label><input asp-for="MetadataInput.DisplayName" /><button>Speichern</button></form>
+<form method="post" asp-page-handler="SetEnabled"><input type="hidden" name="StateInput.ConcurrencyVersion" value="@provider.ConcurrencyVersion" /><input type="hidden" name="StateInput.IsEnabled" value="@(!provider.IsEnabled)" /><button>@(provider.IsEnabled ? "Deaktivieren" : "Aktivieren")</button></form>
+<form method="post" asp-page-handler="Test"><button>Verbindung testen</button></form>
+<h2>Effective Configuration und Source Metadata</h2><table><thead><tr><th>Eigenschaft</th><th>Configured Value</th><th>Effective Value</th><th>Source</th><th>Bearbeiten</th></tr></thead><tbody>
+@foreach (var setting in provider.Settings) { <tr><td>@setting.DisplayName</td><td>@(setting.Secret ? (setting.IsConfigured ? "Konfiguriert" : "Nicht konfiguriert") : setting.ConfiguredValue ?? "—")</td><td>@(setting.Secret ? (setting.IsEffectivelyConfigured ? "Konfiguriert" : "Nicht konfiguriert") : setting.EffectiveValue ?? "—")</td><td>@setting.Source @if (setting.IsExternallyOverridden) { <strong>– extern überschrieben</strong> }</td><td>
+@if (!setting.IsExternallyOverridden) { <form method="post" asp-page-handler="UpdateSetting"><input type="hidden" name="SettingInput.Property" value="@setting.Property" /><input type="hidden" name="SettingInput.ConcurrencyVersion" value="@setting.ConcurrencyVersion" /><input type="hidden" name="SettingInput.ProviderConcurrencyVersion" value="@provider.ConcurrencyVersion" />
+@if (setting.AllowedValues.Count > 0) { <select name="SettingInput.Value">@foreach (var choice in setting.AllowedValues) { <option value="@choice" selected="@(choice == setting.EffectiveValue)">@choice</option> }</select> } else { <input name="SettingInput.Value" value="@(setting.Secret ? null : setting.EffectiveValue)" type="@(setting.Secret ? "password" : "text")" autocomplete="@(setting.Secret ? "new-password" : null)" placeholder="@(setting.Secret ? "Neues Secret setzen" : null)" /> }
+<button>@(setting.Secret ? "Secret ersetzen" : "Setzen")</button></form>
+} else { <span>ReadOnly</span> }
+@if (setting.IsConfigured) { <form method="post" asp-page-handler="ResetSetting"><input type="hidden" name="SettingInput.Property" value="@setting.Property" /><input type="hidden" name="SettingInput.ConcurrencyVersion" value="@setting.ConcurrencyVersion" /><button>DB-Override entfernen</button></form> }
+</td></tr> }
+</tbody></table>
+<h2>Provider löschen</h2><form method="post" asp-page-handler="Delete"><input type="hidden" name="DeleteInput.ConcurrencyVersion" value="@provider.ConcurrencyVersion" /><label><input type="checkbox" asp-for="DeleteInput.Confirmed" /> Löschen bestätigen</label><button>Provider löschen</button></form>
+}
+}

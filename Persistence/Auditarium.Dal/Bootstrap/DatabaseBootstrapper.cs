@@ -94,14 +94,26 @@ internal sealed class DatabaseBootstrapper(AuditariumDbContext db, IPasswordHash
         foreach (var definition in SettingDefinitions.All)
         {
             var setting = await db.ApplicationSettings.SingleOrDefaultAsync(x => x.SettingKey == definition.Key, ct);
+            if (!definition.UiEditable)
+            {
+                if (setting is not null) db.ApplicationSettings.Remove(setting);
+                continue;
+            }
             if (setting is not null && IsValid(setting.SerializedValue, definition)) continue;
             var configured = configuration["Auditarium:" + definition.Key];
-            var value = configured is not null && definition.IsValid(configured) ? configured : definition.DefaultJson;
-            var envelope = JsonSerializer.Serialize(new { datatype = definition.DataType, value = JsonDocument.Parse(value).RootElement });
+            var value = configured is not null && definition.IsValid(configured) ? configured : definition.DefaultValue;
+            var envelope = JsonSerializer.Serialize(new { datatype = definition.DataType, value = EnvelopeValue(definition.DataType, value) });
             if (setting is null) db.ApplicationSettings.Add(new ApplicationSetting { SettingKey = definition.Key, SerializedValue = envelope });
             else setting.SerializedValue = envelope;
         }
     }
+    private static object EnvelopeValue(string dataType, string value) => dataType switch
+    {
+        "int" => int.Parse(value, System.Globalization.CultureInfo.InvariantCulture),
+        "float" => double.Parse(value, System.Globalization.CultureInfo.InvariantCulture),
+        "bool" => bool.Parse(value),
+        _ => value
+    };
     private static bool IsValid(string serialized, SettingDefinition definition)
     {
         try { using var document = JsonDocument.Parse(serialized); return document.RootElement.GetProperty("datatype").GetString() == definition.DataType && definition.IsValid(document.RootElement.GetProperty("value").ToString()); } catch (JsonException) { return false; } catch (KeyNotFoundException) { return false; }

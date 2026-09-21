@@ -1,0 +1,5 @@
+@page "/administration/authentication-providers/create"
+@model Auditarium.Web.Pages.Administration.AuthenticationProviders.CreateModel
+@{ ViewData["Title"] = "LDAP-Instanz anlegen"; }
+<h1>LDAP-Instanz anlegen</h1><div asp-validation-summary="All"></div>
+<form method="post" class="form-grid"><label asp-for="Input.ProviderKey">Provider Key</label><input asp-for="Input.ProviderKey" /><label asp-for="Input.DisplayName">Anzeigename</label><input asp-for="Input.DisplayName" /><button>Anlegen</button><a asp-page="Index">Abbrechen</a></form>

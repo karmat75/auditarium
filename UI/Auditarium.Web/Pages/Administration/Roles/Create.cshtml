@@ -1,0 +1,5 @@
+@page "/administration/roles/create"
+@model Auditarium.Web.Pages.Administration.Roles.CreateModel
+@{ ViewData["Title"] = "Rolle anlegen"; }
+<h1>Custom Role anlegen</h1><div asp-validation-summary="All"></div>
+<form method="post" class="form-grid"><label asp-for="Input.Name">Name</label><input asp-for="Input.Name" /><label asp-for="Input.Description">Beschreibung</label><textarea asp-for="Input.Description"></textarea><label><input asp-for="Input.IsActive" /> Aktiv</label><button>Anlegen</button><a asp-page="Index">Abbrechen</a></form>

@@ -1,0 +1,11 @@
+@page "/administration/users/create"
+@model Auditarium.Web.Pages.Administration.Users.CreateModel
+@{ ViewData["Title"] = "Benutzer anlegen"; }
+<h1>Benutzer anlegen</h1><div asp-validation-summary="All"></div>
+<form method="post" class="form-grid">
+    <label asp-for="Input.Username">Benutzername</label><input asp-for="Input.Username" />
+    <label asp-for="Input.DisplayName">Anzeigename</label><input asp-for="Input.DisplayName" />
+    <label asp-for="Input.Email">E-Mail</label><input asp-for="Input.Email" />
+    <label><input asp-for="Input.IsActive" /> Aktiv</label>
+    <button type="submit">Anlegen</button><a asp-page="Index">Abbrechen</a>
+</form>

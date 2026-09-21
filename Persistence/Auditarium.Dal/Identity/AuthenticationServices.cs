@@ -92,7 +92,7 @@ internal sealed class ApiCredentialService(AuditariumDbContext db, IPasswordHash
     }
     public async Task<long?> AuthenticateAsync(string credentialText, CancellationToken cancellationToken = default)
     {
-        var parts = credentialText.Split('_'); if (parts.Length != 4 || parts[0] != "aud" || parts[1] != "v1" || string.IsNullOrWhiteSpace(parts[2]) || string.IsNullOrWhiteSpace(parts[3])) return null;
+        var parts = credentialText.Split('_', 4, StringSplitOptions.None); if (parts.Length != 4 || parts[0] != "aud" || parts[1] != "v1" || string.IsNullOrWhiteSpace(parts[2]) || string.IsNullOrWhiteSpace(parts[3])) return null;
         var credential = await db.ApiCredentials.Include(x => x.Identity).ThenInclude(x => x!.User).SingleOrDefaultAsync(x => x.KeyId == parts[2], cancellationToken);
         if (credential?.Identity?.User is not { IsActive: true } user || credential.RevokedAt is not null || credential.ExpiresAt <= DateTimeOffset.UtcNow || hasher.VerifyHashedPassword(credential, credential.SecretHash, parts[3]) == PasswordVerificationResult.Failed) return null;
         credential.LastUsedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(cancellationToken); return user.UserId;

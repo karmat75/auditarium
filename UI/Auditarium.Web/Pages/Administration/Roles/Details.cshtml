@@ -1,0 +1,11 @@
+@page "/administration/roles/{id:long}"
+@model Auditarium.Web.Pages.Administration.Roles.DetailsModel
+@{ ViewData["Title"] = "Rolle"; var role = Model.Role; }
+<h1>Rolle</h1><div asp-validation-summary="All"></div>
+@if (role is not null) {
+@if (role.RoleKey is null) { <form method="post" asp-page-handler="Update" class="form-grid"><input type="hidden" asp-for="Input.ConcurrencyVersion" /><label asp-for="Input.Name">Name</label><input asp-for="Input.Name" /><label asp-for="Input.Description">Beschreibung</label><textarea asp-for="Input.Description"></textarea><label><input asp-for="Input.IsActive" /> Aktiv</label><button>Speichern</button></form> }
+else { <p><strong>@role.Name</strong> – systemverwaltet und schreibgeschützt.</p><p>@role.Description</p> }
+<h2>Permissions</h2><table><thead><tr><th>Permission</th><th>Beschreibung</th><th>Status</th><th>Aktion</th></tr></thead><tbody>
+@foreach (var permission in role.Permissions) { <tr><td>@permission.PermissionKey</td><td>@permission.Description</td><td>@(permission.Assigned ? "Zugeordnet" : "Nicht zugeordnet")</td><td>@if (role.RoleKey is null) { if (permission.Assigned) { <form method="post" asp-page-handler="RemovePermission"><input type="hidden" name="permissionKey" value="@permission.PermissionKey" /><button>Entfernen</button></form> } else { <form method="post" asp-page-handler="AddPermission"><input type="hidden" name="permissionKey" value="@permission.PermissionKey" /><button>Hinzufügen</button></form> } }</td></tr> }
+</tbody></table>
+}

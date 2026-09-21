@@ -1,0 +1,29 @@
+@page "/administration/users/{id:long}"
+@model Auditarium.Web.Pages.Administration.Users.DetailsModel
+@{ ViewData["Title"] = "Benutzer"; var user = Model.UserDetails; }
+<h1>Benutzer</h1><div asp-validation-summary="All"></div>
+@if (!string.IsNullOrEmpty(Model.CreatedCredential)) { <section class="secret-reveal"><h2>API-Credential – einmalige Anzeige</h2><p>Kopieren Sie das Credential jetzt. Es kann später nicht erneut angezeigt werden.</p><code>@Model.CreatedCredential</code></section> }
+@if (user is not null) {
+<form method="post" asp-page-handler="Update" class="form-grid">
+    <input type="hidden" asp-for="Input.ConcurrencyVersion" />
+    <label asp-for="Input.Username">Benutzername</label><input asp-for="Input.Username" readonly="@(user.UserKey is not null)" />
+    <label asp-for="Input.DisplayName">Anzeigename</label><input asp-for="Input.DisplayName" />
+    <label asp-for="Input.Email">E-Mail</label><input asp-for="Input.Email" />
+    <label><input asp-for="Input.IsActive" /> Aktiv</label><button type="submit">Speichern</button>
+</form>
+<h2>Rollen</h2><table><thead><tr><th>Rolle</th><th>Status</th><th>Aktion</th></tr></thead><tbody>
+@foreach (var role in user.Roles) { <tr><td>@role.Name @if (role.RoleKey is not null) { <small>(systemverwaltet)</small> }</td><td>@(role.Assigned ? "Zugewiesen" : "Nicht zugewiesen")</td><td>
+@if (user.UserKey is null) { if (role.Assigned) { <form method="post" asp-page-handler="RemoveRole"><input type="hidden" name="roleId" value="@role.RoleId" /><button>Entziehen</button></form> } else { <form method="post" asp-page-handler="AddRole"><input type="hidden" name="roleId" value="@role.RoleId" /><button>Zuweisen</button></form> } }
+</td></tr> }
+</tbody></table>
+<h2>Identitäten</h2><ul>@foreach (var identity in user.Identities) { <li>@identity.ProviderKey / @identity.ExternalId</li> }</ul>
+@if (user.UserKey is null) { <form method="post" asp-page-handler="AddIdentity" class="form-grid"><label asp-for="IdentityInput.ProviderId">Provider</label><select asp-for="IdentityInput.ProviderId">@foreach (var provider in Model.Providers) { <option value="@provider.ProviderId">@provider.DisplayName (@provider.ProviderType)</option> }</select><label asp-for="IdentityInput.ExternalId">Externe ID</label><input asp-for="IdentityInput.ExternalId" /><button>Identität hinzufügen</button></form> }
+@if (Model.CanManageCredentials) {
+<h2>API-Credentials</h2>
+var apiIdentities = user.Identities.Where(x => x.ProviderType == "API").ToArray();
+@if (apiIdentities.Length > 0) { <form method="post" asp-page-handler="CreateCredential" class="form-grid"><label asp-for="CredentialInput.IdentityId">API-Identität</label><select asp-for="CredentialInput.IdentityId">@foreach (var identity in apiIdentities) { <option value="@identity.IdentityId">@identity.ExternalId</option> }</select><label asp-for="CredentialInput.Name">Name</label><input asp-for="CredentialInput.Name" /><label asp-for="CredentialInput.ExpiresAt">Ablaufzeit</label><input asp-for="CredentialInput.ExpiresAt" /><button>Credential erzeugen</button></form> }
+<table><thead><tr><th>Name</th><th>Key ID</th><th>Erstellt</th><th>Ablauf</th><th>Status</th><th>Aktion</th></tr></thead><tbody>
+@foreach (var credential in Model.Credentials) { <tr><td>@credential.Name</td><td>@credential.KeyId</td><td>@credential.CreatedAt</td><td>@credential.ExpiresAt</td><td>@(credential.RevokedAt is null ? "Aktiv" : "Widerrufen")</td><td>@if (credential.RevokedAt is null) { <form method="post" asp-page-handler="RevokeCredential"><input type="hidden" name="credentialId" value="@credential.CredentialId" /><button>Widerrufen</button></form><form method="post" asp-page-handler="RotateCredential"><input type="hidden" name="credentialId" value="@credential.CredentialId" /><input asp-for="CredentialInput.Name" value="@($"{credential.Name} Rotation")" aria-label="Name des neuen Credentials" /><button>Rotieren</button></form> }</td></tr> }
+</tbody></table>
+}
+}

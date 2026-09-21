@@ -12,7 +12,7 @@ public sealed class LdapUserDirectory : IUserDirectory
         {
             using var connection = CreateConnection(settings);
             connection.Bind();
-            _ = FindUser(connection, settings, "__auditarium_connection_probe__", false);
+            ValidateSearchAndMappings(connection, settings);
         }, cancellationToken);
 
     public Task<DirectoryUser?> AuthenticateAsync(LdapProviderConnectionSettings settings, string login, string password, CancellationToken cancellationToken = default) =>
@@ -52,6 +52,20 @@ public sealed class LdapUserDirectory : IUserDirectory
             Attribute(entry, settings.StableExternalIdAttribute) ?? throw new InvalidOperationException("LDAP stable external ID attribute is missing."),
             Attribute(entry, settings.DisplayNameAttribute) ?? login,
             Attribute(entry, settings.EmailAttribute));
+    }
+
+    private static void ValidateSearchAndMappings(LdapConnection connection, LdapProviderConnectionSettings settings)
+    {
+        var request = new SearchRequest(settings.BaseDn, settings.SearchFilter, SearchScope.Subtree,
+            [settings.StableExternalIdAttribute, settings.DisplayNameAttribute, settings.EmailAttribute])
+        {
+            SizeLimit = 1
+        };
+        var response = (SearchResponse)connection.SendRequest(request);
+        if (response.Entries.Count == 0) return;
+        var entry = response.Entries[0];
+        _ = Attribute(entry, settings.StableExternalIdAttribute) ?? throw new InvalidOperationException("LDAP stable external ID attribute is missing.");
+        _ = Attribute(entry, settings.DisplayNameAttribute) ?? throw new InvalidOperationException("LDAP display name attribute is missing.");
     }
 
     private static string? Attribute(SearchResultEntry entry, string name) => entry.Attributes[name]?.GetValues(typeof(string)).Cast<string>().SingleOrDefault();

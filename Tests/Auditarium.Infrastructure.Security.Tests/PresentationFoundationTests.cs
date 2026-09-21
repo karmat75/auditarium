@@ -6,12 +6,26 @@ using Auditarium.Bll.Features.Identity.LocalCredentials;
 using Auditarium.Common.Results;
 using Auditarium.Web;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Mediator;
 using Xunit;
 
 namespace Auditarium.Infrastructure.Security.Tests;
 
 public sealed class PresentationFoundationTests
 {
+    [Fact]
+    public void Every_mediator_request_has_exactly_one_security_declaration()
+    {
+        var requestTypes = typeof(Auditarium.Bll.Features.System.GetHostStatus.GetHostStatusQuery).Assembly.GetTypes()
+            .Where(type => type is { IsAbstract: false, IsInterface: false } && type.GetInterfaces().Any(@interface => @interface.IsGenericType && @interface.GetGenericTypeDefinition() == typeof(IRequest<>)));
+
+        foreach (var requestType in requestTypes)
+        {
+            var declarations = requestType.GetCustomAttributes(false).Count(attribute => attribute is Auditarium.Bll.Security.RequiresPermissionAttribute or Auditarium.Bll.Security.AllowAnonymousAttribute or Auditarium.Bll.Security.AllowPasswordChangeAttribute);
+            Assert.True(declarations == 1, $"{requestType.FullName} has {declarations} security declarations.");
+        }
+    }
+
     [Theory]
     [InlineData(ErrorType.Validation, 400)]
     [InlineData(ErrorType.Unauthorized, 401)]

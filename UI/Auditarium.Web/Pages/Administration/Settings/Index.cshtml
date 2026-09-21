@@ -1,0 +1,11 @@
+@page "/administration/settings"
+@model Auditarium.Web.Pages.Administration.Settings.IndexModel
+@{ ViewData["Title"] = "Einstellungen"; }
+<h1>Einstellungen</h1><div asp-validation-summary="All"></div>
+<table><thead><tr><th>Setting</th><th>Configured Value</th><th>Effective Value</th><th>Source</th><th>Zustand</th><th>Aktion</th></tr></thead><tbody>
+@foreach (var setting in Model.Settings) { <tr><td><strong>@setting.DisplayName</strong><br /><small>@setting.Key</small>@if (setting.RestartRequired) { <br /><small>Neustart erforderlich</small> }</td><td>@(setting.Secret ? (setting.IsConfigured ? "Konfiguriert" : "Nicht konfiguriert") : setting.ConfiguredValue ?? "—")</td><td>@(setting.Secret ? (setting.IsEffectivelyConfigured ? "Konfiguriert" : "Nicht konfiguriert") : setting.EffectiveValue ?? "—")</td><td>@setting.Source</td><td>@if (!setting.UiEditable) { <span>ReadOnly</span> } else if (setting.IsExternallyOverridden) { <strong>Extern überschrieben</strong> } else { <span>Editierbar</span> }</td><td>
+@if (setting.UiEditable && !setting.IsExternallyOverridden) { <form method="post" asp-page-handler="Update"><input type="hidden" name="Input.Key" value="@setting.Key" /><input type="hidden" name="Input.ConcurrencyVersion" value="@setting.ConcurrencyVersion" />
+@if (setting.AllowedValues.Count > 0) { <select name="Input.Value">@foreach (var choice in setting.AllowedValues) { <option value="@choice">@choice</option> }</select> } else { <input name="Input.Value" value="@(setting.Secret ? null : setting.ConfiguredValue ?? setting.EffectiveValue)" type="@(setting.Secret ? "password" : "text")" autocomplete="@(setting.Secret ? "new-password" : null)" /> }
+<button>@(setting.Secret ? "Secret ersetzen" : "Speichern")</button></form> }
+</td></tr> }
+</tbody></table>

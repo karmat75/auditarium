@@ -12,7 +12,8 @@ internal sealed class LdapAuthenticationService(AuditariumDbContext db, IConfigu
 {
     public async Task ValidateConnectionAsync(string providerKey, CancellationToken cancellationToken = default)
     {
-        var provider = await ProviderAsync(providerKey, cancellationToken);
+        var provider = await db.AuthenticationProviders.SingleOrDefaultAsync(x => x.ProviderKey == providerKey && x.ProviderType == "LDAP", cancellationToken)
+            ?? throw new InvalidOperationException("LDAP.PROVIDER.NOT_AVAILABLE");
         await directory.ValidateConnectionAsync(await SettingsAsync(provider, cancellationToken), cancellationToken);
     }
 
