@@ -16,6 +16,9 @@ RUN dotnet publish UI/Auditarium.Web/Auditarium.Web.csproj --no-restore -c Relea
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/api .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
@@ -23,6 +26,9 @@ ENTRYPOINT ["dotnet", "Auditarium.Api.dll"]
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS web
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/web .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080

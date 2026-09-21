@@ -33,10 +33,17 @@ services:
       AUDITARIUM__Database__BootstrapTimeoutSeconds: "180"
       AUDITARIUM__DataProtection__KeyRingPath: /var/lib/auditarium/keys
       AUDITARIUM__DataProtection__ApplicationName: Auditarium
+      AUDITARIUM__Storage__RootPath: /var/lib/auditarium/storage
     volumes:
       - data-protection-keys:/var/lib/auditarium/keys
+      - storage-data:/var/lib/auditarium/storage
     depends_on:
       - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   web:
     build:
@@ -50,11 +57,15 @@ services:
       AUDITARIUM__Database__BootstrapTimeoutSeconds: "180"
       AUDITARIUM__DataProtection__KeyRingPath: /var/lib/auditarium/keys
       AUDITARIUM__DataProtection__ApplicationName: Auditarium
+      AUDITARIUM__Storage__RootPath: /var/lib/auditarium/storage
     volumes:
       - data-protection-keys:/var/lib/auditarium/keys
+      - storage-data:/var/lib/auditarium/storage
     depends_on:
-      - postgres
+      auditarium:
+        condition: service_healthy
 
 volumes:
   postgres-data:
   data-protection-keys:
+  storage-data:
