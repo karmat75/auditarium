@@ -14,8 +14,10 @@ public sealed record AuditUnitListItem(long AuditUnitId, long? ParentAuditUnitId
 public sealed record AuditUnitDetails(long AuditUnitId, long? ParentAuditUnitId, long ScopeTypeId, string Name, string? Description, AuditUnitUsageState UsageState, string? UsageStateReason, string? Notes, long ConcurrencyVersion);
 public sealed record AuditUnitPage(IReadOnlyList<AuditUnitListItem> Items, long TotalCount);
 public sealed record AuditUnitHierarchyItem(long AuditUnitId, long? ParentAuditUnitId, int Depth, string Name, string ScopeTypeName, AuditUnitUsageState UsageState);
-public sealed record AuditListItem(long AuditId, string Name, long AuditUnitId, string AuditUnitName, long CatalogVersionId, string DocumentTitle, int CatalogVersionNumber, AuditState AuditState, DateTimeOffset CreatedAt, long ConcurrencyVersion);
-public sealed record AuditDetails(long AuditId, string Name, string? Description, long AuditUnitId, long CatalogVersionId, AuditState AuditState, AuditSettings Settings, string? Notes, string? AuditUnitContext, long ConcurrencyVersion);
+public sealed record AuditListItem(long AuditId, string Name, long AuditUnitId, string AuditUnitName, long CatalogVersionId, string DocumentTitle, int CatalogVersionNumber, AuditState AuditState, DateTimeOffset CreatedAt, long? AssignedAuditorUserId, string? AssignedAuditorDisplayName, long ConcurrencyVersion);
+public sealed record AuditQuestionDetails(long AuditQuestionId, string Text, string? VerificationHint, string? EvidenceHint, AuditQuestionResult? Result, string? Comment, string? Evidence, DateTimeOffset? AnsweredAt, string? AnsweredByDisplayName, long ConcurrencyVersion);
+public sealed record AuditorOption(long UserId, string DisplayName);
+public sealed record AuditDetails(long AuditId, string Name, string? Description, long AuditUnitId, long CatalogVersionId, AuditState AuditState, AuditSettings Settings, string? Notes, string? AuditUnitContext, long? AssignedAuditorUserId, string? AssignedAuditorDisplayName, string? StateReason, IReadOnlyList<AuditQuestionDetails> Questions, long ConcurrencyVersion);
 public sealed record AuditPage(IReadOnlyList<AuditListItem> Items, long TotalCount);
 public sealed record AuditConfigurationOptions(IReadOnlyList<AuditUnitListItem> AuditUnits, IReadOnlyList<CatalogVersionOption> CatalogVersions, IReadOnlyList<ScopeTypeItem> ScopeTypes);
 public sealed record CatalogVersionOption(long CatalogVersionId, string DocumentTitle, int VersionNumber, CatalogState CatalogState);
@@ -27,11 +29,12 @@ public sealed record AuditUnitFormOptions(IReadOnlyList<AuditUnitListItem> Audit
 [RequiresPermission("AuditUnits.Manage")] public sealed record GetAuditUnitFormOptionsQuery() : IRequest<Result<AuditUnitFormOptions>>;
 [RequiresPermission("Audits.Read")] public sealed record ListAuditsQuery(string? Search, AuditState? State, int Skip, int Take, string Sort, bool Descending) : IRequest<Result<AuditPage>>;
 [RequiresPermission("Audits.Read")] public sealed record GetAuditQuery(long AuditId) : IRequest<Result<AuditDetails>>;
+[RequiresPermission("Audits.Assign")] public sealed record GetAuditorOptionsQuery() : IRequest<Result<IReadOnlyList<AuditorOption>>>;
 [RequiresPermission("Audits.Create")] public sealed record GetAuditConfigurationOptionsQuery() : IRequest<Result<AuditConfigurationOptions>>;
 
 public sealed class AuditQueryHandler(IAuditariumDbContext db) :
     IRequestHandler<ListAuditUnitsQuery, Result<AuditUnitPage>>, IRequestHandler<GetAuditUnitQuery, Result<AuditUnitDetails>>, IRequestHandler<GetAuditUnitHierarchyQuery, Result<IReadOnlyList<AuditUnitHierarchyItem>>>, IRequestHandler<GetAuditUnitFormOptionsQuery, Result<AuditUnitFormOptions>>,
-    IRequestHandler<ListAuditsQuery, Result<AuditPage>>, IRequestHandler<GetAuditQuery, Result<AuditDetails>>, IRequestHandler<GetAuditConfigurationOptionsQuery, Result<AuditConfigurationOptions>>
+    IRequestHandler<ListAuditsQuery, Result<AuditPage>>, IRequestHandler<GetAuditQuery, Result<AuditDetails>>, IRequestHandler<GetAuditorOptionsQuery, Result<IReadOnlyList<AuditorOption>>>, IRequestHandler<GetAuditConfigurationOptionsQuery, Result<AuditConfigurationOptions>>
 {
     public async ValueTask<Result<AuditUnitPage>> Handle(ListAuditUnitsQuery query, CancellationToken ct)
     {
@@ -100,7 +103,9 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
                      join unit in db.AuditUnits.AsNoTracking() on audit.AuditUnitId equals unit.AuditUnitId
                      join catalog in db.CatalogVersions.AsNoTracking() on audit.CatalogVersionId equals catalog.CatalogVersionId
                      join document in db.Documents.AsNoTracking() on catalog.DocumentId equals document.DocumentId
-                     select new AuditListItem(audit.AuditId, audit.Name, audit.AuditUnitId, unit.Name, audit.CatalogVersionId, document.Title, catalog.VersionNumber, audit.AuditState, audit.CreatedAt, audit.ConcurrencyVersion);
+                     join auditor in db.Users.AsNoTracking() on audit.AssignedAuditorUserId equals auditor.UserId into auditors
+                     from auditor in auditors.DefaultIfEmpty()
+                     select new AuditListItem(audit.AuditId, audit.Name, audit.AuditUnitId, unit.Name, audit.CatalogVersionId, document.Title, catalog.VersionNumber, audit.AuditState, audit.CreatedAt, audit.AssignedAuditorUserId, auditor == null ? null : auditor.DisplayName, audit.ConcurrencyVersion);
         var ordered = (query.Sort, query.Descending) switch
         {
             ("createdAt", false) => joined.OrderBy(x => x.CreatedAt),
@@ -115,8 +120,31 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
 
     public async ValueTask<Result<AuditDetails>> Handle(GetAuditQuery query, CancellationToken ct)
     {
-        var audit = await db.Audits.AsNoTracking().Where(x => x.AuditId == query.AuditId).Select(x => new { x.AuditId, x.Name, x.Description, x.AuditUnitId, x.CatalogVersionId, x.AuditState, x.AuditSettings, x.Notes, x.AuditUnitContext, x.ConcurrencyVersion }).SingleOrDefaultAsync(ct);
-        return audit is null ? Fail<AuditDetails>("AUDIT.NOT_FOUND", ErrorType.NotFound) : Result<AuditDetails>.Success(new(audit.AuditId, audit.Name, audit.Description, audit.AuditUnitId, audit.CatalogVersionId, audit.AuditState, Deserialize(audit.AuditSettings), audit.Notes, audit.AuditUnitContext, audit.ConcurrencyVersion));
+        var audit = await (from item in db.Audits.AsNoTracking().Where(x => x.AuditId == query.AuditId)
+                           join auditor in db.Users.AsNoTracking() on item.AssignedAuditorUserId equals auditor.UserId into auditors
+                           from auditor in auditors.DefaultIfEmpty()
+                           select new { item, AssignedAuditorDisplayName = auditor == null ? null : auditor.DisplayName }).SingleOrDefaultAsync(ct);
+        if (audit is null) return Fail<AuditDetails>("AUDIT.NOT_FOUND", ErrorType.NotFound);
+        var questions = await (from question in db.AuditQuestions.AsNoTracking()
+                               join element in db.AuditDocumentElements.AsNoTracking() on question.AuditDocumentElementId equals element.AuditDocumentElementId
+                               join definition in db.Questions.AsNoTracking() on question.QuestionId equals definition.QuestionId
+                               join answeredBy in db.Users.AsNoTracking() on question.AnsweredBy equals answeredBy.UserId into answerers
+                               from answeredBy in answerers.DefaultIfEmpty()
+                               where element.AuditId == audit.item.AuditId
+                               orderby element.AuditDocumentElementId, definition.SortOrder
+                               select new AuditQuestionDetails(question.AuditQuestionId, definition.Text, definition.VerificationHint, definition.EvidenceHint, question.Result, question.Comment, question.Evidence, question.AnsweredAt, answeredBy == null ? null : answeredBy.DisplayName, question.ConcurrencyVersion)).ToListAsync(ct);
+        return Result<AuditDetails>.Success(new(audit.item.AuditId, audit.item.Name, audit.item.Description, audit.item.AuditUnitId, audit.item.CatalogVersionId, audit.item.AuditState, Deserialize(audit.item.AuditSettings), audit.item.Notes, audit.item.AuditUnitContext, audit.item.AssignedAuditorUserId, audit.AssignedAuditorDisplayName, audit.item.StateReason, questions, audit.item.ConcurrencyVersion));
+    }
+
+    public async ValueTask<Result<IReadOnlyList<AuditorOption>>> Handle(GetAuditorOptionsQuery query, CancellationToken ct)
+    {
+        var auditors = await (from user in db.Users.AsNoTracking()
+                              join userRole in db.UserRoles.AsNoTracking() on user.UserId equals userRole.UserId
+                              join rolePermission in db.RolePermissions.AsNoTracking() on userRole.RoleId equals rolePermission.RoleId
+                              where user.IsActive && rolePermission.PermissionKey == "Audits.Answer"
+                              orderby user.DisplayName
+                              select new AuditorOption(user.UserId, user.DisplayName)).Distinct().ToListAsync(ct);
+        return Result<IReadOnlyList<AuditorOption>>.Success(auditors);
     }
 
     public async ValueTask<Result<AuditConfigurationOptions>> Handle(GetAuditConfigurationOptionsQuery query, CancellationToken ct)

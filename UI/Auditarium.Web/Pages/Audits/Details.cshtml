@@ -14,4 +14,71 @@ else
 {
     <p>Die Auditkonfiguration ist veröffentlicht und unveränderlich.</p>
     <p>Audit-Unit-Kontext: @Model.Audit.AuditUnitContext</p>
+    @if (Model.Audit.AssignedAuditorDisplayName is not null)
+    {
+        <p>In Bearbeitung durch <strong>@Model.Audit.AssignedAuditorDisplayName</strong></p>
+    }
+    else if (Model.Audit.AuditState is Auditarium.Models.Catalog.AuditState.Ready or Auditarium.Models.Catalog.AuditState.InProgress)
+    {
+        <p>Keine Auditor-Zuweisung. Das Audit ist bis zur Übernahme schreibgeschützt.</p>
+    }
+    @if (Model.Audit.StateReason is not null) { <p>Begründung des letzten Zustandswechsels: @Model.Audit.StateReason</p> }
+
+    <section>
+        <h2>Aktionen</h2>
+        @if (Model.CanClaim) { <form method="post" asp-page-handler="Claim"><input asp-for="ActionInput.ConcurrencyVersion" type="hidden" value="@Model.Audit.ConcurrencyVersion" /><button type="submit">Audit übernehmen</button></form> }
+        @if (Model.CanReleaseOwn) { <form method="post" asp-page-handler="ReleaseOwn"><input asp-for="ActionInput.ConcurrencyVersion" type="hidden" value="@Model.Audit.ConcurrencyVersion" /><button type="submit">Eigene Zuweisung freigeben</button></form> }
+        @if (Model.CanAssign)
+        {
+            <form method="post" asp-page-handler="Assign">
+                <input asp-for="AssignmentInput.ConcurrencyVersion" type="hidden" value="@Model.Audit.ConcurrencyVersion" />
+                <label asp-for="AssignmentInput.UserId">Auditor zuweisen</label>
+                <select asp-for="AssignmentInput.UserId"><option value="">Zuweisung aufheben</option>@foreach (var auditor in Model.AuditorOptions) { <option value="@auditor.UserId">@auditor.DisplayName</option> }</select>
+                <button type="submit">Zuweisung speichern</button>
+            </form>
+        }
+        @if (Model.CanFinalize) { <form method="post" asp-page-handler="Finalize"><input asp-for="ActionInput.ConcurrencyVersion" type="hidden" value="@Model.Audit.ConcurrencyVersion" /><button type="submit">Audit finalisieren</button></form> }
+        @if (Model.CanCancel)
+        {
+            <form method="post" asp-page-handler="Cancel">
+                <input asp-for="CancelInput.ConcurrencyVersion" type="hidden" value="@Model.Audit.ConcurrencyVersion" />
+                <label asp-for="CancelInput.Reason">Abbruchbegründung</label><input asp-for="CancelInput.Reason" required />
+                <button type="submit">Audit abbrechen</button>
+            </form>
+        }
+        @if (Model.CanReopen)
+        {
+            <form method="post" asp-page-handler="Reopen">
+                <input asp-for="ReopenInput.ConcurrencyVersion" type="hidden" value="@Model.Audit.ConcurrencyVersion" />
+                <label asp-for="ReopenInput.Reason">Begründung für Wiederöffnung</label><input asp-for="ReopenInput.Reason" required />
+                <button type="submit">Audit wieder öffnen</button>
+            </form>
+        }
+    </section>
+    <section>
+        <h2>Auditfragen</h2>
+        @if (Model.Audit.Questions.Count == 0) { <p>Es wurden keine Auditfragen materialisiert.</p> }
+        @foreach (var question in Model.Audit.Questions)
+        {
+            <article>
+                <h3>@question.Text</h3>
+                @if (question.VerificationHint is not null) { <p>Prüfhinweis: @question.VerificationHint</p> }
+                @if (question.EvidenceHint is not null) { <p>Nachweishinweis: @question.EvidenceHint</p> }
+                <p>Antwort: <strong>@(question.Result?.ToString() ?? "unbeantwortet")</strong>@if (question.AnsweredByDisplayName is not null) { <text> – zuletzt bearbeitet von @question.AnsweredByDisplayName</text> }</p>
+                @if (question.Comment is not null) { <p>Kommentar: @question.Comment</p> }
+                @if (question.Evidence is not null) { <p>Nachweis: @question.Evidence</p> }
+                @if (Model.CanAnswer)
+                {
+                    <form method="post" asp-page-handler="Answer" asp-route-questionId="@question.AuditQuestionId">
+                        <input asp-for="AnswerInput.ConcurrencyVersion" type="hidden" value="@question.ConcurrencyVersion" />
+                        <label asp-for="AnswerInput.Result">Antwort</label><select asp-for="AnswerInput.Result" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditQuestionResult>()"></select>
+                        <label asp-for="AnswerInput.Comment">Kommentar</label><textarea asp-for="AnswerInput.Comment"></textarea>
+                        <label asp-for="AnswerInput.Evidence">Nachweis</label><textarea asp-for="AnswerInput.Evidence"></textarea>
+                        <button type="submit">Antwort speichern</button>
+                    </form>
+                    @if (question.Result is not null) { <form method="post" asp-page-handler="ResetAnswer" asp-route-questionId="@question.AuditQuestionId"><input asp-for="ActionInput.ConcurrencyVersion" type="hidden" value="@question.ConcurrencyVersion" /><button type="submit">Antwort zurücksetzen</button></form> }
+                }
+            </article>
+        }
+    </section>
 }

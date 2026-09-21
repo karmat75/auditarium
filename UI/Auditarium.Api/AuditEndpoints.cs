@@ -26,6 +26,15 @@ public static class AuditEndpoints
         audits.MapPut("/{auditId:long}", UpdateAuditDraft).WithName("UpdateAuditDraft").Produces(204).Produces<ProblemDetails>(409);
         audits.MapGet("/{auditId:long}/preview", GetPreview).WithName("GetAuditPreview").Produces<AuditPreview>();
         audits.MapPost("/{auditId:long}/publish", Publish).WithName("PublishAudit").Produces(204).Produces<ProblemDetails>(409);
+        audits.MapGet("/auditor-options", GetAuditorOptions).WithName("GetAuditAuditorOptions").Produces<IReadOnlyList<AuditorOption>>().Produces<ProblemDetails>(403);
+        audits.MapPost("/{auditId:long}/claim", Claim).WithName("ClaimAudit").Produces(204).Produces<ProblemDetails>(409);
+        audits.MapPost("/{auditId:long}/release-own", ReleaseOwn).WithName("ReleaseOwnAudit").Produces(204).Produces<ProblemDetails>(409);
+        audits.MapPost("/{auditId:long}/assignment", Assign).WithName("AssignAuditAuditor").Produces(204).Produces<ProblemDetails>(409);
+        audits.MapPost("/{auditId:long}/finalize", FinalizeAuditAction).WithName("FinalizeAudit").Produces(204).Produces<ProblemDetails>(409);
+        audits.MapPost("/{auditId:long}/cancel", Cancel).WithName("CancelAudit").Produces(204).Produces<ProblemDetails>(400).Produces<ProblemDetails>(409);
+        audits.MapPost("/{auditId:long}/reopen", Reopen).WithName("ReopenAudit").Produces(204).Produces<ProblemDetails>(400).Produces<ProblemDetails>(409);
+        audits.MapPut("/{auditId:long}/questions/{auditQuestionId:long}", AnswerQuestion).WithName("AnswerAuditQuestion").Produces(204).Produces<ProblemDetails>(400).Produces<ProblemDetails>(409);
+        audits.MapPost("/{auditId:long}/questions/{auditQuestionId:long}/reset", ResetQuestion).WithName("ResetAuditQuestion").Produces(204).Produces<ProblemDetails>(409);
         return routes;
     }
 
@@ -66,6 +75,15 @@ public static class AuditEndpoints
     private static Task<IResult> UpdateAuditDraft(IMediator mediator, long auditId, AuditContract contract, CancellationToken ct) => Send(mediator.Send(new UpdateAuditDraftCommand(auditId, contract.ToInput(), contract.ConcurrencyVersion), ct));
     private static Task<IResult> GetPreview(IMediator mediator, long auditId, CancellationToken ct) => Send(mediator.Send(new GetAuditPreviewQuery(auditId), ct));
     private static Task<IResult> Publish(IMediator mediator, long auditId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new PublishAuditCommand(auditId, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> GetAuditorOptions(IMediator mediator, CancellationToken ct) => Send(mediator.Send(new GetAuditorOptionsQuery(), ct));
+    private static Task<IResult> Claim(IMediator mediator, long auditId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new ClaimAuditCommand(auditId, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> ReleaseOwn(IMediator mediator, long auditId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new ReleaseOwnAuditCommand(auditId, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> Assign(IMediator mediator, long auditId, AssignmentContract contract, CancellationToken ct) => Send(mediator.Send(new AssignAuditorCommand(auditId, contract.UserId, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> FinalizeAuditAction(IMediator mediator, long auditId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new FinalizeAuditCommand(auditId, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> Cancel(IMediator mediator, long auditId, ReasonContract contract, CancellationToken ct) => Send(mediator.Send(new CancelAuditCommand(auditId, contract.Reason, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> Reopen(IMediator mediator, long auditId, ReasonContract contract, CancellationToken ct) => Send(mediator.Send(new ReopenAuditCommand(auditId, contract.Reason, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> AnswerQuestion(IMediator mediator, long auditId, long auditQuestionId, AnswerAuditQuestionContract contract, CancellationToken ct) => Send(mediator.Send(new AnswerAuditQuestionCommand(auditId, auditQuestionId, contract.Result, contract.Comment, contract.Evidence, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> ResetQuestion(IMediator mediator, long auditId, long auditQuestionId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new ResetAuditQuestionCommand(auditId, auditQuestionId, contract.ConcurrencyVersion), ct));
     private static async Task<IResult> Send(ValueTask<Auditarium.Common.Results.Result> pending) => ApiProblemDetails.From(await pending);
     private static async Task<IResult> Send<T>(ValueTask<Auditarium.Common.Results.Result<T>> pending) => ApiProblemDetails.From(await pending);
 }
@@ -86,3 +104,6 @@ public sealed record AuditSettingsContract(bool YesCommentRequired = false, bool
 
 public sealed record AuditContract(string Name, string? Description, long AuditUnitId, long CatalogVersionId, AuditSettingsContract? Settings, string? Notes, long ConcurrencyVersion = 0)
 { public AuditInput ToInput() => new(Name, Description, AuditUnitId, CatalogVersionId, Settings?.ToBll(), Notes); }
+public sealed record AssignmentContract(long? UserId, long ConcurrencyVersion);
+public sealed record ReasonContract(string Reason, long ConcurrencyVersion);
+public sealed record AnswerAuditQuestionContract(AuditQuestionResult Result, string? Comment, string? Evidence, long ConcurrencyVersion);

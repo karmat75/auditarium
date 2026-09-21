@@ -43,12 +43,35 @@ public sealed class AuditWorkflowIntegrationTests
         var question = Assert.Single(db.AuditQuestions);
 
         Assert.True((await audits.Handle(new ClaimAuditCommand(audit.Value!, stored.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
-        var missingComment = await audits.Handle(new AnswerAuditQuestionCommand(question.AuditQuestionId, AuditQuestionResult.NotApplicable, null, null, question.ConcurrencyVersion), CancellationToken.None);
+        var missingComment = await audits.Handle(new AnswerAuditQuestionCommand(audit.Value!, question.AuditQuestionId, AuditQuestionResult.NotApplicable, null, null, question.ConcurrencyVersion), CancellationToken.None);
         Assert.Equal("AUDIT_QUESTION.RESPONSE_POLICY_VIOLATION", Assert.Single(missingComment.Errors).Code);
-        Assert.True((await audits.Handle(new AnswerAuditQuestionCommand(question.AuditQuestionId, AuditQuestionResult.NotApplicable, "Nicht installiert", null, question.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        Assert.True((await audits.Handle(new AnswerAuditQuestionCommand(audit.Value!, question.AuditQuestionId, AuditQuestionResult.NotApplicable, "Nicht installiert", null, question.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
         stored = await db.Audits.FindAsync(audit.Value);
         Assert.Equal(AuditState.InProgress, stored!.AuditState);
-        Assert.True((await audits.Handle(new FinalizeAuditCommand(audit.Value!, stored.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        question = (await db.AuditQuestions.FindAsync(question.AuditQuestionId))!;
+        Assert.True((await audits.Handle(new ResetAuditQuestionCommand(audit.Value!, question.AuditQuestionId, question.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        stored = await db.Audits.FindAsync(audit.Value);
+        Assert.Equal(AuditState.Ready, stored!.AuditState);
+        Assert.True((await audits.Handle(new CancelAuditCommand(audit.Value!, "Termin entfällt", stored.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        stored = await db.Audits.FindAsync(audit.Value);
+        Assert.Equal(AuditState.Canceled, stored!.AuditState);
+        Assert.Null(stored.AssignedAuditorUserId);
+        Assert.True((await audits.Handle(new ReopenAuditCommand(audit.Value!, "Termin ist wieder möglich", stored.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        stored = await db.Audits.FindAsync(audit.Value);
+        Assert.Equal(AuditState.Ready, stored!.AuditState);
+        Assert.True((await audits.Handle(new ClaimAuditCommand(audit.Value!, stored.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        question = (await db.AuditQuestions.FindAsync(question.AuditQuestionId))!;
+        Assert.True((await audits.Handle(new AnswerAuditQuestionCommand(audit.Value!, question.AuditQuestionId, AuditQuestionResult.NotApplicable, "Nicht installiert", null, question.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        question = (await db.AuditQuestions.FindAsync(question.AuditQuestionId))!;
+        question.Comment = null;
+        await db.SaveChangesAsync();
+        stored = await db.Audits.FindAsync(audit.Value);
+        var finalizationBlocked = await audits.Handle(new FinalizeAuditCommand(audit.Value!, stored!.ConcurrencyVersion), CancellationToken.None);
+        Assert.Equal("AUDIT_QUESTION.RESPONSE_POLICY_VIOLATION", Assert.Single(finalizationBlocked.Errors).Code);
+        question.Comment = "Nicht installiert";
+        await db.SaveChangesAsync();
+        stored = await db.Audits.FindAsync(audit.Value);
+        Assert.True((await audits.Handle(new FinalizeAuditCommand(audit.Value!, stored!.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
         Assert.Equal(AuditState.Finalized, (await db.Audits.FindAsync(audit.Value))!.AuditState);
         Assert.Null((await db.Audits.FindAsync(audit.Value))!.AssignedAuditorUserId);
 
