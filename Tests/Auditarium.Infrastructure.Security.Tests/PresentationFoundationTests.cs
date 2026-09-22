@@ -2,11 +2,14 @@
 using Auditarium.Api;
 using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Abstractions.Persistence;
+using Auditarium.Bll.Features.Administration.Users;
 using Auditarium.Bll.Features.Identity.LocalCredentials;
+using Auditarium.Bll.Pipeline;
 using Auditarium.Common.Results;
 using Auditarium.Web;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Mediator;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Auditarium.Infrastructure.Security.Tests;
@@ -24,6 +27,36 @@ public sealed class PresentationFoundationTests
             var declarations = requestType.GetCustomAttributes(false).Count(attribute => attribute is Auditarium.Bll.Security.RequiresPermissionAttribute or Auditarium.Bll.Security.AllowAnonymousAttribute or Auditarium.Bll.Security.AllowPasswordChangeAttribute);
             Assert.True(declarations == 1, $"{requestType.FullName} has {declarations} security declarations.");
         }
+    }
+
+    [Fact]
+    public void Local_credential_administration_requires_user_and_authentication_permissions()
+    {
+        var declaration = Assert.Single(typeof(Auditarium.Bll.Features.Administration.Users.ProvisionLocalIdentityCommand)
+            .GetCustomAttributes(false).OfType<Auditarium.Bll.Security.RequiresPermissionAttribute>());
+
+        Assert.Equal(["Users.Manage", "Authentication.Manage"], declaration.Permissions);
+    }
+
+    [Fact]
+    public async Task Local_credential_administration_is_denied_when_only_one_required_permission_is_present()
+    {
+        var events = new RecordingAuditEvents();
+        var behavior = new AuthorizationBehavior<ProvisionLocalIdentityCommand, Result<LocalCredentialIssued>>(
+            new StubCurrentActor(), new StubPermissionEvaluator(new HashSet<string>(["Users.Manage"], StringComparer.Ordinal)), events,
+            NullLogger<AuthorizationBehavior<ProvisionLocalIdentityCommand, Result<LocalCredentialIssued>>>.Instance);
+        var handlerCalled = false;
+
+        var result = await behavior.Handle(new ProvisionLocalIdentityCommand(42), (_, _) =>
+        {
+            handlerCalled = true;
+            return ValueTask.FromResult(Result<LocalCredentialIssued>.Success(new(1, "alice", "temporary", 1)));
+        }, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("AUTHORIZATION.FORBIDDEN", Assert.Single(result.Errors).Code);
+        Assert.False(handlerCalled);
+        Assert.Equal("ACCESS_DENIED", Assert.Single(events.Events).Action);
     }
 
     [Theory]
@@ -122,8 +155,14 @@ public sealed class PresentationFoundationTests
         public Task<AuthenticationSuccess?> AuthenticateAsync(AuthenticationAttempt attempt, CancellationToken cancellationToken = default) =>
             Task.FromResult(success);
 
-        public Task<bool> ChangePasswordAsync(long userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default) =>
-            Task.FromResult(false);
+        public Task<LocalPasswordChangeStatus> ChangePasswordAsync(long userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default) =>
+            Task.FromResult(LocalPasswordChangeStatus.InvalidCredential);
+
+        public Task<TemporaryLocalCredential> CreateTemporaryCredentialAsync(long identityId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TemporaryLocalCredential("temporary", 1));
+
+        public Task<LocalCredentialResetResult> ResetTemporaryCredentialAsync(long identityId, long concurrencyVersion, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LocalCredentialResetResult(LocalCredentialResetStatus.NotFound));
     }
 
     private sealed class StubLdapAuthentication : ILdapAuthenticationService
@@ -132,6 +171,22 @@ public sealed class PresentationFoundationTests
             Task.FromResult<AuthenticationSuccess?>(null);
 
         public Task ValidateConnectionAsync(string providerKey, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class StubCurrentActor : ICurrentActor
+    {
+        public ActorType Type => ActorType.User;
+        public long? UserId => 42;
+        public bool IsAuthenticated => true;
+    }
+
+    private sealed class StubPermissionEvaluator(IReadOnlySet<string> permissions) : IPermissionEvaluator
+    {
+        public Task<bool> HasPermissionAsync(long userId, string permission, CancellationToken cancellationToken = default) =>
+            Task.FromResult(permissions.Contains(permission));
+
+        public Task<IReadOnlySet<string>> GetPermissionsAsync(long userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(permissions);
     }
 
     private sealed class RecordingAuditEvents : IAuditEventWriter

@@ -49,9 +49,12 @@ public sealed class AuthorizationBehavior<TMessage, TResponse>(ICurrentActor cur
             await RecordDeniedAsync(cancellationToken); return ResultFactory.Failure<TResponse>(new AppError("AUTHENTICATION.REQUIRED", ErrorType.Unauthorized));
         }
 
-        if (!await permissionEvaluator.HasPermissionAsync(currentActor.UserId.Value, required.Permission, cancellationToken))
+        foreach (var permission in required.Permissions)
         {
-            await RecordDeniedAsync(cancellationToken); return ResultFactory.Failure<TResponse>(new AppError("AUTHORIZATION.FORBIDDEN", ErrorType.Forbidden));
+            if (!await permissionEvaluator.HasPermissionAsync(currentActor.UserId.Value, permission, cancellationToken))
+            {
+                await RecordDeniedAsync(cancellationToken); return ResultFactory.Failure<TResponse>(new AppError("AUTHORIZATION.FORBIDDEN", ErrorType.Forbidden));
+            }
         }
 
         return await next(message, cancellationToken);

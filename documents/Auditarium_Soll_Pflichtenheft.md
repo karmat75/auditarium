@@ -12349,6 +12349,52 @@ Roles
 
 Systemverwaltete Benutzer, Rollen und Permissions bleiben entsprechend den bestehenden Reconcile-/RBAC-Regeln geschützt.
 
+#### LOCAL-Identitäten und lokale Credentials
+
+Reguläre Benutzer dürfen über die Benutzeradministration eine LOCAL-Identity mit lokalem Credential erhalten. Das Verfahren ist kein Sonderfall des Default-Administrator-Bootstraps und verwendet keinen zweiten Identity- oder Credential-Pfad.
+
+Für einen regulären Benutzer gilt:
+
+```text
+maximal eine LOCAL-Identity
+LOCAL external_id = kanonischer users.username
+Änderung von users.username
+→ LOCAL external_id wird atomar mitgeführt
+```
+
+LOCAL-Identity und initiales Credential werden atomar erzeugt. Eine LOCAL-Identity ohne zugehöriges Credential darf durch diesen Administrationspfad nicht entstehen.
+
+Beim Anlegen und beim administrativen Reset gilt:
+
+```text
+→ kryptographisch zufälliges temporäres Passwort erzeugen
+→ Passwort sicher hashen
+→ password_changed_at = NULL
+→ must_change_password = true
+→ LOCAL-Fehlversuchszähler, Beobachtungsfenster und Lockout zurücksetzen
+→ Klartext ausschließlich in der erfolgreichen Web-/API-Antwort einmalig anzeigen
+```
+
+Das temporäre Passwort wird weder dauerhaft gespeichert noch in Logs, Traces, Metrics, `ProblemDetails` oder `system_audit_log` geschrieben. Die Web-Oberfläche verwendet für die einmalige Anzeige PRG und geschütztes TempData. Ein späterer Abruf des Klartexts ist nicht möglich.
+
+Anlegen und Reset benötigen kumulativ:
+
+```text
+Users.Manage
+AND
+Authentication.Manage
+```
+
+Die kombinierte Berechtigungsprüfung wird serverseitig in der BLL-/Authorization-Pipeline erzwungen. Eine lediglich im Web ausgeblendete Aktion ist nicht ausreichend.
+
+Das Credential des systemverwalteten Default-Administrators darf über diesen Administrationspfad weder erzeugt noch zurückgesetzt werden. Für ihn bleiben ausschließlich der eigene Passwortwechsel und der definierte Recovery-Prozess zulässig.
+
+Ein administrativer Reset verwendet einen Credential-Concurrency-Token. Ein paralleler oder auf einem veralteten Stand basierender Reset liefert einen kontrollierten Concurrency-Konflikt und überschreibt kein zwischenzeitlich gesetztes Credential. Bestehende Browser-Sessions werden entsprechend der allgemeinen Session-Regel durch den Reset nicht pauschal widerrufen.
+
+Die LOCAL-Password-Policy einschließlich einer offline verfügbaren, code-versionierten Common-/Compromised-Password-Blocklist gilt auch für den erzwungenen Passwortwechsel. Die Blocklist benötigt keinen externen Dienst und darf ohne Änderung des Credential-Datenmodells erweitert werden.
+
+Das Trennen oder Löschen einer LOCAL-Identity ist nicht Bestandteil dieses Teilpakets. Es wird nicht implizit über den Credential-Reset nachgebildet.
+
 #### Authentication Provider
 
 Mindestens abzubilden:
@@ -12409,6 +12455,14 @@ Ein Klartext-Secret wird ausschließlich im bereits festgelegten Erzeugungs-/Rot
 
 - Benutzer- und Rollenverwaltung respektiert das bestehende RBAC- und SystemManaged-Modell.
 - deaktivierte Benutzer können sich nicht anmelden.
+- reguläre Benutzer können höchstens eine LOCAL-Identity erhalten; ihr lokaler Anmeldename entspricht immer dem kanonischen `users.username`.
+- LOCAL-Identity und temporäres Credential werden atomar erzeugt; es bleibt keine durch den Administrationspfad erzeugte LOCAL-Identity ohne Credential zurück.
+- das temporäre LOCAL-Passwort ist nur bei erfolgreicher Erzeugung oder erfolgreichem Reset einmal sichtbar und wird in keinem Log-, Trace-, Fehler- oder Audit-Zustand gespeichert.
+- temporäre LOCAL-Credentials erzwingen den bereits definierten Passwortwechsel; die Common-/Compromised-Password-Blocklist wird dabei serverseitig angewendet.
+- Anlegen und Reset eines LOCAL-Credentials werden nur bei gleichzeitigem Besitz von `Users.Manage` und `Authentication.Manage` zugelassen.
+- das Credential des Default-Administrators kann über die Benutzeradministration weder erzeugt noch zurückgesetzt werden.
+- veraltete oder parallele LOCAL-Credential-Resets liefern einen Concurrency-Konflikt und überschreiben kein zwischenzeitlich gesetztes Credential.
+- eine Änderung von `users.username` führt den LOCAL-Anmeldenamen atomar mit; der bisherige Anmeldename ist danach nicht mehr verwendbar.
 - systemverwaltete Rollen/Provider können nicht über UI oder API in unzulässige Zustände versetzt werden.
 - mehrere LDAP-Instanzen können unabhängig konfiguriert werden.
 - LDAP-Verbindungstest erzeugt keine Benutzer, Identities oder Rollen.

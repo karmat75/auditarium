@@ -27,7 +27,8 @@ public sealed class AdministrationWorkflowIntegrationTests
         await services.InitializeAuditariumDatabaseAsync();
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
-        var users = new UserAdministrationHandler(db);
+        var localAuthentication = scope.ServiceProvider.GetRequiredService<ILocalAuthenticationService>();
+        var users = new UserAdministrationHandler(db, localAuthentication);
         var roles = new RoleAdministrationHandler(db);
 
         var createdUser = await users.Handle(new CreateUserCommand("  API.Service  ", "API Service", "api@example.test", true), CancellationToken.None);
@@ -95,9 +96,69 @@ public sealed class AdministrationWorkflowIntegrationTests
         Assert.True(rotated.IsSuccess); Assert.NotEqual(createdCredential.Value.Credential, rotated.Value!.Credential);
         Assert.NotNull((await db.ApiCredentials.AsNoTracking().SingleAsync(x => x.ApiCredentialId == createdCredential.Value.CredentialId)).RevokedAt);
 
+        var local = await users.Handle(new ProvisionLocalIdentityCommand(user.UserId), CancellationToken.None);
+        Assert.True(local.IsSuccess);
+        Assert.Equal(user.Username, local.Value!.LoginName);
+        Assert.True((await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(local.Value.LoginName, local.Value.TemporaryPassword)))!.MustChangePassword);
+        Assert.Equal("LOCAL_CREDENTIAL.IDENTITY_ALREADY_EXISTS", Assert.Single((await users.Handle(new ProvisionLocalIdentityCommand(user.UserId), CancellationToken.None)).Errors).Code);
+        Assert.Equal(LocalPasswordChangeStatus.PolicyViolation, await localAuthentication.ChangePasswordAsync(user.UserId, local.Value.TemporaryPassword, "administrator123"));
+        const string permanentPassword = "A-Long-New-Passphrase-2026!";
+        Assert.Equal(LocalPasswordChangeStatus.Success, await localAuthentication.ChangePasswordAsync(user.UserId, local.Value.TemporaryPassword, permanentPassword));
+        Assert.NotNull(await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(local.Value.LoginName, permanentPassword)));
+
+        var localDetails = (await users.Handle(new GetUserQuery(user.UserId), CancellationToken.None)).Value!.Identities.Single(x => x.ProviderType == "LOCAL");
+        var lockedCredential = await db.LocalCredentials.SingleAsync(x => x.IdentityId == localDetails.IdentityId);
+        lockedCredential.FailedAttemptCount = 4;
+        lockedCredential.FailedAttemptWindowStartedAt = DateTimeOffset.UtcNow;
+        lockedCredential.LockoutUntil = DateTimeOffset.UtcNow.AddMinutes(15);
+        await db.SaveChangesAsync();
+        var reset = await users.Handle(new ResetLocalCredentialCommand(localDetails.IdentityId, localDetails.CredentialConcurrencyVersion!.Value), CancellationToken.None);
+        Assert.True(reset.IsSuccess);
+        await db.Entry(lockedCredential).ReloadAsync();
+        Assert.Equal(0, lockedCredential.FailedAttemptCount);
+        Assert.Null(lockedCredential.FailedAttemptWindowStartedAt);
+        Assert.Null(lockedCredential.LockoutUntil);
+        var staleReset = await users.Handle(new ResetLocalCredentialCommand(localDetails.IdentityId, localDetails.CredentialConcurrencyVersion.Value), CancellationToken.None);
+        Assert.Equal("LOCAL_CREDENTIAL.CONCURRENCY_CONFLICT", Assert.Single(staleReset.Errors).Code);
+
+        await using var parallelScopeOne = services.CreateAsyncScope();
+        await using var parallelScopeTwo = services.CreateAsyncScope();
+        var parallelDbOne = parallelScopeOne.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var parallelDbTwo = parallelScopeTwo.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var parallelOne = new UserAdministrationHandler(parallelDbOne, parallelScopeOne.ServiceProvider.GetRequiredService<ILocalAuthenticationService>());
+        var parallelTwo = new UserAdministrationHandler(parallelDbTwo, parallelScopeTwo.ServiceProvider.GetRequiredService<ILocalAuthenticationService>());
+        var parallelResults = await Task.WhenAll(
+            parallelOne.Handle(new ResetLocalCredentialCommand(localDetails.IdentityId, reset.Value!.ConcurrencyVersion), CancellationToken.None).AsTask(),
+            parallelTwo.Handle(new ResetLocalCredentialCommand(localDetails.IdentityId, reset.Value.ConcurrencyVersion), CancellationToken.None).AsTask());
+        var effectiveReset = Assert.Single(parallelResults, result => result.IsSuccess).Value!;
+        Assert.Equal("LOCAL_CREDENTIAL.CONCURRENCY_CONFLICT", Assert.Single(Assert.Single(parallelResults, result => !result.IsSuccess).Errors).Code);
+
+        db.ChangeTracker.Clear();
+        Assert.Null(await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(local.Value.LoginName, permanentPassword)));
+        Assert.Null(await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(local.Value.LoginName, reset.Value.TemporaryPassword)));
+        Assert.True((await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(local.Value.LoginName, effectiveReset.TemporaryPassword)))!.MustChangePassword);
+        var auditStates = await db.SystemAuditLogs.AsNoTracking().Select(x => (x.BeforeState ?? string.Empty) + (x.AfterState ?? string.Empty)).ToListAsync();
+        Assert.DoesNotContain(auditStates, state => state.Contains(local.Value.TemporaryPassword, StringComparison.Ordinal) || state.Contains(reset.Value.TemporaryPassword, StringComparison.Ordinal) || state.Contains(effectiveReset.TemporaryPassword, StringComparison.Ordinal));
+        Assert.DoesNotContain(auditStates, state => state.Contains("password_hash", StringComparison.OrdinalIgnoreCase));
+
+        var defaultAdminIdentity = await (from candidate in db.UserIdentities.AsNoTracking()
+                                          join owner in db.Users.AsNoTracking() on candidate.UserId equals owner.UserId
+                                          join provider in db.AuthenticationProviders.AsNoTracking() on candidate.AuthenticationProviderId equals provider.AuthenticationProviderId
+                                          join credential in db.LocalCredentials.AsNoTracking() on candidate.IdentityId equals credential.IdentityId
+                                          where owner.UserKey == "DEFAULT_ADMIN" && provider.ProviderKey == "LOCAL"
+                                          select new { candidate.IdentityId, credential.ConcurrencyVersion }).SingleAsync();
+        var protectedLocalReset = await users.Handle(new ResetLocalCredentialCommand(defaultAdminIdentity.IdentityId, defaultAdminIdentity.ConcurrencyVersion), CancellationToken.None);
+        Assert.Equal("LOCAL_CREDENTIAL.SYSTEM_MANAGED", Assert.Single(protectedLocalReset.Errors).Code);
+
+        var beforeRename = (await users.Handle(new GetUserQuery(user.UserId), CancellationToken.None)).Value!;
+        Assert.True((await users.Handle(new UpdateUserCommand(user.UserId, "renamed.api.service", beforeRename.DisplayName, beforeRename.Email, true, beforeRename.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
+        Assert.Null(await localAuthentication.AuthenticateAsync(new AuthenticationAttempt(local.Value.LoginName, effectiveReset.TemporaryPassword)));
+        Assert.NotNull(await localAuthentication.AuthenticateAsync(new AuthenticationAttempt("renamed.api.service", effectiveReset.TemporaryPassword)));
+
         var currentUser = (await users.Handle(new GetUserQuery(user.UserId), CancellationToken.None)).Value!;
         Assert.True((await users.Handle(new UpdateUserCommand(user.UserId, currentUser.Username, currentUser.DisplayName, currentUser.Email, false, currentUser.ConcurrencyVersion), CancellationToken.None)).IsSuccess);
         Assert.Null(await credentialService.AuthenticateAsync(rotated.Value.Credential));
+        Assert.Null(await localAuthentication.AuthenticateAsync(new AuthenticationAttempt("renamed.api.service", effectiveReset.TemporaryPassword)));
 
         var settings = new SettingAdministrationHandler(db, resolver, protector);
         var settingsBefore = (await settings.Handle(new ListSettingsQuery(), CancellationToken.None)).Value!;

@@ -20,7 +20,10 @@ public sealed class DetailsModel(IMediator mediator, IPermissionEvaluator permis
     public IReadOnlyList<IdentityProviderOption> Providers { get; private set; } = [];
     public IReadOnlyList<ApiCredentialMetadata> Credentials { get; private set; } = [];
     public bool CanManageCredentials { get; private set; }
+    public bool CanManageLocalCredentials { get; private set; }
     [TempData] public string? CreatedCredential { get; set; }
+    [TempData] public string? CreatedLocalPassword { get; set; }
+    [TempData] public string? CreatedLocalLogin { get; set; }
 
     public Task<IActionResult> OnGetAsync(long id, CancellationToken ct) => LoadAsync(id, ct);
     public async Task<IActionResult> OnPostUpdateAsync(long id, CancellationToken ct)
@@ -35,6 +38,28 @@ public sealed class DetailsModel(IMediator mediator, IPermissionEvaluator permis
     {
         var result = await mediator.Send(new AddUserIdentityCommand(id, IdentityInput.ProviderId, IdentityInput.ExternalId), ct);
         if (result.IsSuccess) return RedirectToPage(new { id });
+        result.ApplyTo(ModelState); return await LoadAsync(id, ct, false);
+    }
+    public async Task<IActionResult> OnPostProvisionLocalIdentityAsync(long id, CancellationToken ct)
+    {
+        var result = await mediator.Send(new ProvisionLocalIdentityCommand(id), ct);
+        if (result.IsSuccess)
+        {
+            CreatedLocalLogin = result.Value!.LoginName;
+            CreatedLocalPassword = result.Value.TemporaryPassword;
+            return RedirectToPage(new { id });
+        }
+        result.ApplyTo(ModelState); return await LoadAsync(id, ct, false);
+    }
+    public async Task<IActionResult> OnPostResetLocalCredentialAsync(long id, long identityId, long concurrencyVersion, CancellationToken ct)
+    {
+        var result = await mediator.Send(new ResetLocalCredentialCommand(identityId, concurrencyVersion), ct);
+        if (result.IsSuccess)
+        {
+            CreatedLocalLogin = result.Value!.LoginName;
+            CreatedLocalPassword = result.Value.TemporaryPassword;
+            return RedirectToPage(new { id });
+        }
         result.ApplyTo(ModelState); return await LoadAsync(id, ct, false);
     }
     public async Task<IActionResult> OnPostCreateCredentialAsync(long id, CancellationToken ct)
@@ -60,7 +85,10 @@ public sealed class DetailsModel(IMediator mediator, IPermissionEvaluator permis
         if (populateInput) Input = new() { Username = user.Value!.Username, DisplayName = user.Value.DisplayName, Email = user.Value.Email, IsActive = user.Value.IsActive, ConcurrencyVersion = user.Value.ConcurrencyVersion };
         var providers = await mediator.Send(new ListIdentityProviderOptionsQuery(), ct); if (providers.IsSuccess) Providers = providers.Value!; else providers.ApplyTo(ModelState);
         if (long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var currentUserId))
+        {
             CanManageCredentials = await permissionEvaluator.HasPermissionAsync(currentUserId, "Authentication.Manage", ct);
+            CanManageLocalCredentials = CanManageCredentials && await permissionEvaluator.HasPermissionAsync(currentUserId, "Users.Manage", ct);
+        }
         if (CanManageCredentials)
         {
             var credentials = await mediator.Send(new ListApiCredentialsQuery(id), ct); if (credentials.IsSuccess) Credentials = credentials.Value!; else credentials.ApplyTo(ModelState);

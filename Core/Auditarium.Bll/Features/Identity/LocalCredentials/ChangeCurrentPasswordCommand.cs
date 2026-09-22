@@ -17,9 +17,15 @@ public sealed class ChangeCurrentPasswordCommandHandler(ICurrentActor currentAct
         if (string.IsNullOrEmpty(message.CurrentPassword) || string.IsNullOrEmpty(message.NewPassword))
             return Result.Failure(new AppError("AUTHENTICATION.PASSWORD_REQUIRED", ErrorType.Validation));
 
-        if (currentActor.UserId is not { } userId || !await localAuthentication.ChangePasswordAsync(userId, message.CurrentPassword, message.NewPassword, cancellationToken))
+        if (currentActor.UserId is not { } userId)
             return Result.Failure(new AppError("AUTHENTICATION.PASSWORD_CHANGE_FAILED", ErrorType.Forbidden));
 
-        return Result.Success();
+        return await localAuthentication.ChangePasswordAsync(userId, message.CurrentPassword, message.NewPassword, cancellationToken) switch
+        {
+            LocalPasswordChangeStatus.Success => Result.Success(),
+            LocalPasswordChangeStatus.PolicyViolation => Result.Failure(new AppError("AUTHENTICATION.PASSWORD_POLICY_VIOLATION", ErrorType.Validation)),
+            LocalPasswordChangeStatus.Conflict => Result.Failure(new AppError("AUTHENTICATION.PASSWORD_CHANGE_CONFLICT", ErrorType.Conflict)),
+            _ => Result.Failure(new AppError("AUTHENTICATION.PASSWORD_CHANGE_FAILED", ErrorType.Forbidden))
+        };
     }
 }

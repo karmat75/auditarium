@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Abstractions.Persistence;
+using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Security;
 using Auditarium.Common.Results;
 using Auditarium.Models.Identity;
@@ -11,9 +12,11 @@ namespace Auditarium.Bll.Features.Administration.Users;
 public sealed record UserListItem(long UserId, string? UserKey, string Username, string DisplayName, string? Email, bool IsActive, long ConcurrencyVersion);
 public sealed record UserPage(IReadOnlyList<UserListItem> Items, long TotalCount);
 public sealed record UserRoleItem(long RoleId, string? RoleKey, string Name, bool IsActive, bool Assigned);
-public sealed record UserIdentityItem(long IdentityId, long ProviderId, string ProviderKey, string ProviderType, string ProviderDisplayName, string ExternalId);
+public sealed record UserIdentityItem(long IdentityId, long ProviderId, string ProviderKey, string ProviderType, string ProviderDisplayName, string ExternalId,
+    bool HasLocalCredential, DateTimeOffset? PasswordChangedAt, bool? MustChangePassword, DateTimeOffset? LockoutUntil, long? CredentialConcurrencyVersion);
 public sealed record UserDetails(long UserId, string? UserKey, string Username, string DisplayName, string? Email, bool IsActive, IReadOnlyList<UserRoleItem> Roles, IReadOnlyList<UserIdentityItem> Identities, long ConcurrencyVersion);
 public sealed record IdentityProviderOption(long ProviderId, string ProviderKey, string ProviderType, string DisplayName, bool IsEnabled);
+public sealed record LocalCredentialIssued(long IdentityId, string LoginName, string TemporaryPassword, long ConcurrencyVersion);
 
 [RequiresPermission("Users.Manage")]
 public sealed record ListUsersQuery(string? Search, bool? IsActive, int Skip, int Take, string Sort, bool Descending) : IRequest<Result<UserPage>>;
@@ -31,8 +34,12 @@ public sealed record AddUserRoleCommand(long UserId, long RoleId) : IRequest<Res
 public sealed record RemoveUserRoleCommand(long UserId, long RoleId) : IRequest<Result>;
 [RequiresPermission("Users.Manage")]
 public sealed record AddUserIdentityCommand(long UserId, long ProviderId, string ExternalId) : IRequest<Result<long>>;
+[RequiresPermission("Users.Manage", "Authentication.Manage")]
+public sealed record ProvisionLocalIdentityCommand(long UserId) : IRequest<Result<LocalCredentialIssued>>;
+[RequiresPermission("Users.Manage", "Authentication.Manage")]
+public sealed record ResetLocalCredentialCommand(long IdentityId, long ConcurrencyVersion) : IRequest<Result<LocalCredentialIssued>>;
 
-public sealed class UserAdministrationHandler(IAuditariumDbContext db) :
+public sealed class UserAdministrationHandler(IAuditariumDbContext db, ILocalAuthenticationService localAuthentication) :
     IRequestHandler<ListUsersQuery, Result<UserPage>>,
     IRequestHandler<GetUserQuery, Result<UserDetails>>,
     IRequestHandler<ListIdentityProviderOptionsQuery, Result<IReadOnlyList<IdentityProviderOption>>>,
@@ -40,7 +47,9 @@ public sealed class UserAdministrationHandler(IAuditariumDbContext db) :
     IRequestHandler<UpdateUserCommand, Result>,
     IRequestHandler<AddUserRoleCommand, Result>,
     IRequestHandler<RemoveUserRoleCommand, Result>,
-    IRequestHandler<AddUserIdentityCommand, Result<long>>
+    IRequestHandler<AddUserIdentityCommand, Result<long>>,
+    IRequestHandler<ProvisionLocalIdentityCommand, Result<LocalCredentialIssued>>,
+    IRequestHandler<ResetLocalCredentialCommand, Result<LocalCredentialIssued>>
 {
     public async ValueTask<Result<UserPage>> Handle(ListUsersQuery query, CancellationToken ct)
     {
@@ -79,9 +88,13 @@ public sealed class UserAdministrationHandler(IAuditariumDbContext db) :
             .Select(x => new UserRoleItem(x.RoleId, x.RoleKey, x.Name, x.IsActive, assigned.Contains(x.RoleId))).ToListAsync(ct);
         var identities = await (from identity in db.UserIdentities.AsNoTracking()
                                 join provider in db.AuthenticationProviders.AsNoTracking() on identity.AuthenticationProviderId equals provider.AuthenticationProviderId
+                                join credential in db.LocalCredentials.AsNoTracking() on identity.IdentityId equals credential.IdentityId into credentials
+                                from credential in credentials.DefaultIfEmpty()
                                 where identity.UserId == user.UserId
                                 orderby provider.ProviderKey
-                                select new UserIdentityItem(identity.IdentityId, provider.AuthenticationProviderId, provider.ProviderKey, provider.ProviderType, provider.DisplayName, identity.ExternalId)).ToListAsync(ct);
+                                select new UserIdentityItem(identity.IdentityId, provider.AuthenticationProviderId, provider.ProviderKey, provider.ProviderType, provider.DisplayName, identity.ExternalId,
+                                    credential != null, credential == null ? null : credential.PasswordChangedAt, credential == null ? null : credential.MustChangePassword,
+                                    credential == null ? null : credential.LockoutUntil, credential == null ? null : credential.ConcurrencyVersion)).ToListAsync(ct);
         return Result<UserDetails>.Success(new(user.UserId, user.UserKey, user.Username, user.DisplayName, user.Email, user.IsActive, roles, identities, user.ConcurrencyVersion));
     }
 
@@ -114,6 +127,16 @@ public sealed class UserAdministrationHandler(IAuditariumDbContext db) :
         var username = NormalizeUsername(command.Username);
         if (user.UserKey is not null && !string.Equals(user.Username, username, StringComparison.Ordinal)) return Failure("USER.SYSTEM_MANAGED_USERNAME", ErrorType.Forbidden);
         if (await db.Users.AnyAsync(x => x.UserId != user.UserId && x.Username == username, ct)) return Failure("USER.USERNAME_EXISTS", ErrorType.Conflict);
+        var localIdentity = await (from identity in db.UserIdentities
+                                   join provider in db.AuthenticationProviders on identity.AuthenticationProviderId equals provider.AuthenticationProviderId
+                                   where identity.UserId == user.UserId && provider.ProviderKey == "LOCAL"
+                                   select identity).SingleOrDefaultAsync(ct);
+        if (localIdentity is not null && !string.Equals(localIdentity.ExternalId, username, StringComparison.Ordinal))
+        {
+            if (await db.UserIdentities.AnyAsync(x => x.IdentityId != localIdentity.IdentityId && x.AuthenticationProviderId == localIdentity.AuthenticationProviderId && x.ExternalId == username, ct))
+                return Failure("USER_IDENTITY.ALREADY_EXISTS", ErrorType.Conflict);
+            localIdentity.ExternalId = username;
+        }
         user.Username = username; user.DisplayName = command.DisplayName.Trim(); user.Email = Null(command.Email); user.IsActive = command.IsActive;
         return await SaveAsync("USER.CONCURRENCY_CONFLICT", ct);
     }
@@ -149,12 +172,59 @@ public sealed class UserAdministrationHandler(IAuditariumDbContext db) :
         if (user is null) return Failure<long>("USER.NOT_FOUND", ErrorType.NotFound);
         var provider = await db.AuthenticationProviders.AsNoTracking().SingleOrDefaultAsync(x => x.AuthenticationProviderId == command.ProviderId, ct);
         if (provider is null) return Failure<long>("AUTH_PROVIDER.NOT_FOUND", ErrorType.NotFound);
-        if (provider.ProviderKey == "LOCAL") return Failure<long>("USER_IDENTITY.LOCAL_NOT_ADMINISTRABLE", ErrorType.Forbidden);
+        if (provider.ProviderKey == "LOCAL") return Failure<long>("USER_IDENTITY.LOCAL_REQUIRES_CREDENTIAL", ErrorType.Validation);
         var externalId = command.ExternalId.Trim();
         if (await db.UserIdentities.AnyAsync(x => x.AuthenticationProviderId == command.ProviderId && x.ExternalId == externalId, ct)) return Failure<long>("USER_IDENTITY.ALREADY_EXISTS", ErrorType.Conflict);
         var identity = new UserIdentity { UserId = command.UserId, AuthenticationProviderId = command.ProviderId, ExternalId = externalId };
         db.UserIdentities.Add(identity); await db.SaveChangesAsync(ct);
         return Result<long>.Success(identity.IdentityId);
+    }
+
+    public async ValueTask<Result<LocalCredentialIssued>> Handle(ProvisionLocalIdentityCommand command, CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == command.UserId && x.UserKey == null, ct);
+        if (user is null) return Failure<LocalCredentialIssued>("USER.NOT_FOUND", ErrorType.NotFound);
+        var provider = await db.AuthenticationProviders.AsNoTracking().SingleOrDefaultAsync(x => x.ProviderKey == "LOCAL", ct);
+        if (provider is null) return Failure<LocalCredentialIssued>("AUTH_PROVIDER.NOT_FOUND", ErrorType.NotFound);
+        if (await db.UserIdentities.AnyAsync(x => x.UserId == user.UserId && x.AuthenticationProviderId == provider.AuthenticationProviderId, ct))
+            return Failure<LocalCredentialIssued>("LOCAL_CREDENTIAL.IDENTITY_ALREADY_EXISTS", ErrorType.Conflict);
+
+        await using var transaction = await db.BeginTransactionAsync(ct);
+        try
+        {
+            var identity = new UserIdentity { UserId = user.UserId, AuthenticationProviderId = provider.AuthenticationProviderId, ExternalId = NormalizeUsername(user.Username) };
+            db.UserIdentities.Add(identity);
+            await db.SaveChangesAsync(ct);
+            var temporary = await localAuthentication.CreateTemporaryCredentialAsync(identity.IdentityId, ct);
+            await transaction.CommitAsync(ct);
+            return Result<LocalCredentialIssued>.Success(new(identity.IdentityId, identity.ExternalId, temporary.Password, temporary.ConcurrencyVersion));
+        }
+        catch (DbUpdateException)
+        {
+            await transaction.RollbackAsync(ct);
+            if (await db.UserIdentities.AsNoTracking().AnyAsync(x => x.UserId == user.UserId && x.AuthenticationProviderId == provider.AuthenticationProviderId, ct))
+                return Failure<LocalCredentialIssued>("LOCAL_CREDENTIAL.IDENTITY_ALREADY_EXISTS", ErrorType.Conflict);
+            throw;
+        }
+    }
+
+    public async ValueTask<Result<LocalCredentialIssued>> Handle(ResetLocalCredentialCommand command, CancellationToken ct)
+    {
+        var identity = await (from candidate in db.UserIdentities.AsNoTracking()
+                              join provider in db.AuthenticationProviders.AsNoTracking() on candidate.AuthenticationProviderId equals provider.AuthenticationProviderId
+                              join user in db.Users.AsNoTracking() on candidate.UserId equals user.UserId
+                              where candidate.IdentityId == command.IdentityId && provider.ProviderKey == "LOCAL"
+                              select new { Identity = candidate, User = user }).SingleOrDefaultAsync(ct);
+        if (identity is null) return Failure<LocalCredentialIssued>("LOCAL_CREDENTIAL.NOT_FOUND", ErrorType.NotFound);
+        if (identity.User.UserKey is not null) return Failure<LocalCredentialIssued>("LOCAL_CREDENTIAL.SYSTEM_MANAGED", ErrorType.Forbidden);
+
+        var reset = await localAuthentication.ResetTemporaryCredentialAsync(command.IdentityId, command.ConcurrencyVersion, ct);
+        return reset.Status switch
+        {
+            LocalCredentialResetStatus.Success => Result<LocalCredentialIssued>.Success(new(command.IdentityId, identity.Identity.ExternalId, reset.Credential!.Password, reset.Credential.ConcurrencyVersion)),
+            LocalCredentialResetStatus.NotFound => Failure<LocalCredentialIssued>("LOCAL_CREDENTIAL.NOT_FOUND", ErrorType.NotFound),
+            _ => Failure<LocalCredentialIssued>("LOCAL_CREDENTIAL.CONCURRENCY_CONFLICT", ErrorType.Conflict)
+        };
     }
 
     private async Task<Result> SaveAsync(string code, CancellationToken ct)

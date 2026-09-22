@@ -3,6 +3,7 @@
 @{ ViewData["Title"] = "Benutzer"; var user = Model.UserDetails; }
 <h1>Benutzer</h1><div asp-validation-summary="All"></div>
 @if (!string.IsNullOrEmpty(Model.CreatedCredential)) { <section class="secret-reveal"><h2>API-Credential – einmalige Anzeige</h2><p>Kopieren Sie das Credential jetzt. Es kann später nicht erneut angezeigt werden.</p><code>@Model.CreatedCredential</code></section> }
+@if (!string.IsNullOrEmpty(Model.CreatedLocalPassword)) { <section class="secret-reveal"><h2>Temporäres LOCAL-Passwort – einmalige Anzeige</h2><p>Geben Sie diese Zugangsdaten sicher an den Benutzer weiter. Das Passwort kann später nicht erneut angezeigt werden und muss bei der ersten Anmeldung geändert werden.</p><p>Login: <code>@Model.CreatedLocalLogin</code></p><p>Temporäres Passwort: <code>@Model.CreatedLocalPassword</code></p></section> }
 @if (user is not null) {
 <form method="post" asp-page-handler="Update" class="form-grid">
     <input type="hidden" asp-for="Input.ConcurrencyVersion" />
@@ -16,8 +17,14 @@
 @if (user.UserKey is null) { if (role.Assigned) { <form method="post" asp-page-handler="RemoveRole"><input type="hidden" name="roleId" value="@role.RoleId" /><button>Entziehen</button></form> } else { <form method="post" asp-page-handler="AddRole"><input type="hidden" name="roleId" value="@role.RoleId" /><button>Zuweisen</button></form> } }
 </td></tr> }
 </tbody></table>
-<h2>Identitäten</h2><ul>@foreach (var identity in user.Identities) { <li>@identity.ProviderKey / @identity.ExternalId</li> }</ul>
-@if (user.UserKey is null) { <form method="post" asp-page-handler="AddIdentity" class="form-grid"><label asp-for="IdentityInput.ProviderId">Provider</label><select asp-for="IdentityInput.ProviderId">@foreach (var provider in Model.Providers) { <option value="@provider.ProviderId">@provider.DisplayName (@provider.ProviderType)</option> }</select><label asp-for="IdentityInput.ExternalId">Externe ID</label><input asp-for="IdentityInput.ExternalId" /><button>Identität hinzufügen</button></form> }
+	<h2>Identitäten</h2><ul>@foreach (var identity in user.Identities) { <li>@identity.ProviderKey / @identity.ExternalId</li> }</ul>
+	var localIdentity = user.Identities.FirstOrDefault(x => x.ProviderType == "LOCAL");
+	@if (localIdentity is not null) {
+	<section><h3>Lokale Identität</h3><p>Login: <code>@localIdentity.ExternalId</code></p><p>Status: @(localIdentity.MustChangePassword == true ? "Temporäres Passwort – Änderung erforderlich" : "Passwort gesetzt")</p>@if (localIdentity.PasswordChangedAt is not null) { <p>Zuletzt geändert: @localIdentity.PasswordChangedAt</p> }@if (localIdentity.LockoutUntil is not null) { <p>Gesperrt bis: @localIdentity.LockoutUntil</p> }
+	@if (Model.CanManageLocalCredentials && user.UserKey is null && localIdentity.CredentialConcurrencyVersion is not null) { <form method="post" asp-page-handler="ResetLocalCredential"><input type="hidden" name="identityId" value="@localIdentity.IdentityId" /><input type="hidden" name="concurrencyVersion" value="@localIdentity.CredentialConcurrencyVersion" /><button type="submit">Temporäres Passwort neu erzeugen</button></form> }
+	</section>
+	} else if (Model.CanManageLocalCredentials && user.UserKey is null) { <form method="post" asp-page-handler="ProvisionLocalIdentity"><button type="submit">Lokale Identität mit temporärem Passwort anlegen</button></form> }
+	@if (user.UserKey is null) { <form method="post" asp-page-handler="AddIdentity" class="form-grid"><label asp-for="IdentityInput.ProviderId">Provider</label><select asp-for="IdentityInput.ProviderId">@foreach (var provider in Model.Providers) { <option value="@provider.ProviderId">@provider.DisplayName (@provider.ProviderType)</option> }</select><label asp-for="IdentityInput.ExternalId">Externe ID</label><input asp-for="IdentityInput.ExternalId" /><button>Identität hinzufügen</button></form> }
 @if (Model.CanManageCredentials) {
 <h2>API-Credentials</h2>
 var apiIdentities = user.Identities.Where(x => x.ProviderType == "API").ToArray();

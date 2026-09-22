@@ -21,7 +21,9 @@ public static class AdministrationEndpoints
         users.MapPost("/{userId:long}/roles/{roleId:long}", AddUserRole).Produces(204);
         users.MapDelete("/{userId:long}/roles/{roleId:long}", RemoveUserRole).Produces(204);
         users.MapPost("/{userId:long}/identities", AddIdentity).Produces<long>(201);
+        users.MapPost("/{userId:long}/local-identity", ProvisionLocalIdentity).Produces<LocalCredentialIssued>(201).Produces<ProblemDetails>(409);
         users.MapGet("/{userId:long}/api-credentials", ListCredentials).Produces<IReadOnlyList<ApiCredentialMetadata>>();
+        routes.MapPost("/api/v1/local-identities/{identityId:long}/credential/reset", ResetLocalCredential).RequireAuthorization().WithTags("Administration - Local Credentials").Produces<LocalCredentialIssued>().Produces<ProblemDetails>(409);
         routes.MapPost("/api/v1/api-identities/{identityId:long}/credentials", CreateCredential).RequireAuthorization().WithTags("Administration - API Credentials").Produces<ApiCredentialCreated>(201);
 
         var credentials = routes.MapGroup("/api/v1/api-credentials").RequireAuthorization().WithTags("Administration - API Credentials");
@@ -66,6 +68,13 @@ public static class AdministrationEndpoints
     private static async Task<IResult> AddUserRole(IMediator mediator, long userId, long roleId, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new AddUserRoleCommand(userId, roleId), ct));
     private static async Task<IResult> RemoveUserRole(IMediator mediator, long userId, long roleId, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new RemoveUserRoleCommand(userId, roleId), ct));
     private static async Task<IResult> AddIdentity(IMediator mediator, long userId, IdentityContract contract, CancellationToken ct) { var result = await mediator.Send(new AddUserIdentityCommand(userId, contract.ProviderId, contract.ExternalId), ct); return result.IsSuccess ? Results.Created($"/api/v1/users/{userId}", result.Value) : ApiProblemDetails.From(result); }
+    private static async Task<IResult> ProvisionLocalIdentity(IMediator mediator, long userId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new ProvisionLocalIdentityCommand(userId), ct);
+        return result.IsSuccess ? Results.Created($"/api/v1/users/{userId}", result.Value) : ApiProblemDetails.From(result);
+    }
+    private static async Task<IResult> ResetLocalCredential(IMediator mediator, long identityId, LocalCredentialResetContract contract, CancellationToken ct) =>
+        ApiProblemDetails.From(await mediator.Send(new ResetLocalCredentialCommand(identityId, contract.ConcurrencyVersion), ct));
     private static async Task<IResult> ListCredentials(IMediator mediator, long userId, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new ListApiCredentialsQuery(userId), ct));
     private static async Task<IResult> CreateCredential(IMediator mediator, long identityId, ApiCredentialContract contract, CancellationToken ct)
     {
@@ -97,6 +106,7 @@ public static class AdministrationEndpoints
 
 public sealed record UserContract(string Username, string DisplayName, string? Email, bool IsActive, long ConcurrencyVersion = 0);
 public sealed record IdentityContract(long ProviderId, string ExternalId);
+public sealed record LocalCredentialResetContract(long ConcurrencyVersion);
 public sealed record ApiCredentialContract(string Name, DateTimeOffset? ExpiresAt);
 public sealed record RotateApiCredentialContract(string Name, DateTimeOffset? ExpiresAt);
 public sealed record RoleContract(string Name, string? Description, bool IsActive, long ConcurrencyVersion = 0);

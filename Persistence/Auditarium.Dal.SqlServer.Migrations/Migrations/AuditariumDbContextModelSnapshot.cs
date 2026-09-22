@@ -845,6 +845,13 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("identity_id");
 
+                    b.Property<long>("ConcurrencyVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("concurrency_version");
+
                     b.Property<int>("FailedAttemptCount")
                         .HasColumnType("int")
                         .HasColumnName("failed_attempt_count");
@@ -1214,19 +1221,23 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", null)
+                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", "ParentElement")
                         .WithMany()
                         .HasForeignKey("ParentElementId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentElement");
                 });
 
             modelBuilder.Entity("Auditarium.Models.Catalog.DocumentElementWeight", b =>
                 {
-                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", null)
+                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", "Element")
                         .WithMany()
                         .HasForeignKey("ElementId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Element");
                 });
 
             modelBuilder.Entity("Auditarium.Models.Catalog.FileItem", b =>
@@ -1240,26 +1251,32 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 
             modelBuilder.Entity("Auditarium.Models.Catalog.Question", b =>
                 {
-                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", null)
+                    b.HasOne("Auditarium.Models.Catalog.DocumentElement", "Element")
                         .WithMany()
                         .HasForeignKey("ElementId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Element");
                 });
 
             modelBuilder.Entity("Auditarium.Models.Catalog.QuestionScopeType", b =>
                 {
-                    b.HasOne("Auditarium.Models.Catalog.Question", null)
+                    b.HasOne("Auditarium.Models.Catalog.Question", "Question")
                         .WithMany()
                         .HasForeignKey("QuestionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Auditarium.Models.Catalog.ScopeType", null)
+                    b.HasOne("Auditarium.Models.Catalog.ScopeType", "ScopeType")
                         .WithMany()
                         .HasForeignKey("ScopeTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Question");
+
+                    b.Navigation("ScopeType");
                 });
 
             modelBuilder.Entity("Auditarium.Models.Identity.ApiCredential", b =>

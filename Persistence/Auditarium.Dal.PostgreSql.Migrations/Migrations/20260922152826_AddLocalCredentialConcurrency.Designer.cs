@@ -3,6 +3,7 @@ using System;
 using Auditarium.Dal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Auditarium.Dal.PostgreSql.Migrations.Migrations
 {
     [DbContext(typeof(AuditariumDbContext))]
-    partial class AuditariumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260922152826_AddLocalCredentialConcurrency")]
+    partial class AddLocalCredentialConcurrency
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

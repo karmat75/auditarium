@@ -40,6 +40,7 @@ public sealed class LocalCredential
     public int FailedAttemptCount { get; set; }
     public DateTimeOffset? FailedAttemptWindowStartedAt { get; set; }
     public DateTimeOffset? LockoutUntil { get; set; }
+    public long ConcurrencyVersion { get; set; } = 1;
     public UserIdentity? Identity { get; set; }
 }
 public sealed class ApiCredential
