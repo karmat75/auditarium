@@ -4,6 +4,8 @@ using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Bll.Features.Administration.Users;
 using Auditarium.Bll.Features.Identity.LocalCredentials;
+using Auditarium.Bll.Features.Jobs;
+using Auditarium.Bll.Jobs;
 using Auditarium.Bll.Pipeline;
 using Auditarium.Common.Results;
 using Auditarium.Web;
@@ -144,6 +146,38 @@ public sealed class PresentationFoundationTests
         Assert.Equal("API.SORT.FIELD_NOT_ALLOWED", rejected.Errors[0].Code);
     }
 
+    [Fact]
+    public async Task Manual_job_trigger_uses_the_coordinator_and_records_the_requesting_actor()
+    {
+        var coordinator = new RecordingJobCoordinator(Result.Success());
+        var events = new RecordingAuditEvents();
+        var handler = new JobOperationsHandler(new StubJobRegistry(), null!, null!, null!, coordinator, events);
+
+        var result = await handler.Handle(new TriggerJobCommand(JobKeys.Retention), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal((JobKeys.Retention, JobTrigger.Manual), Assert.Single(coordinator.Requests));
+        var auditEvent = Assert.Single(events.Events);
+        Assert.Equal("JOB_TRIGGERED", auditEvent.Action);
+        Assert.Equal("MaintenanceJob", auditEvent.ObjectType);
+        Assert.Equal("Retention", auditEvent.AfterState!["job_key"]);
+        Assert.Equal("MANUAL", auditEvent.AfterState["trigger"]);
+    }
+
+    [Fact]
+    public async Task Rejected_manual_job_trigger_does_not_write_a_trigger_audit_event()
+    {
+        var coordinator = new RecordingJobCoordinator(Result.Failure(new AppError("JOB.ALREADY_RUNNING", ErrorType.Conflict)));
+        var events = new RecordingAuditEvents();
+        var handler = new JobOperationsHandler(new StubJobRegistry(), null!, null!, null!, coordinator, events);
+
+        var result = await handler.Handle(new TriggerJobCommand(JobKeys.Retention), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("JOB.ALREADY_RUNNING", Assert.Single(result.Errors).Code);
+        Assert.Empty(events.Events);
+    }
+
     private sealed class StubRouter(string? provider) : IAuthenticationRouter
     {
         public Task<string?> RouteAsync(string login, string? explicitlySelectedProvider, CancellationToken cancellationToken = default) =>
@@ -197,6 +231,26 @@ public sealed class PresentationFoundationTests
         {
             Events.Add(eventData);
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubJobRegistry : IJobRegistry
+    {
+        public IReadOnlyList<JobDefinition> Definitions { get; } = [new(JobKeys.Retention, JobTrigger.Scheduled | JobTrigger.Manual)];
+        public bool TryGet(string jobKey, out JobDefinition? definition)
+        {
+            definition = Definitions.SingleOrDefault(x => x.JobKey == jobKey);
+            return definition is not null;
+        }
+    }
+
+    private sealed class RecordingJobCoordinator(Result result) : IJobCoordinator
+    {
+        public List<(string JobKey, JobTrigger Trigger)> Requests { get; } = [];
+        public Task<Result> RunAsync(string jobKey, JobTrigger trigger, CancellationToken cancellationToken = default)
+        {
+            Requests.Add((jobKey, trigger));
+            return Task.FromResult(result);
         }
     }
 }

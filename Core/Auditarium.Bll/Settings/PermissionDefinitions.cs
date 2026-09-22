@@ -11,6 +11,7 @@ public static class PermissionDefinitions
         new("Roles.Manage", "Rollen verwalten"),
         new("Authentication.Manage", "Authentifizierung konfigurieren"),
         new("Settings.Manage", "Systemeinstellungen verwalten"),
+        new("Maintenance.Jobs.Execute", "Wartungsjobs ausführen"),
         new("Documents.Manage", "Dokumente und Kataloge verwalten"),
         new("AuditUnits.Manage", "Prüfeinheiten verwalten"),
         new("Audits.Create", "Audits anlegen"),

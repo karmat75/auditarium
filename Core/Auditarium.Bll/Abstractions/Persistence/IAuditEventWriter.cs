@@ -11,4 +11,5 @@ public sealed record AuditEvent(
     string Action,
     string ObjectType,
     long? ObjectId = null,
-    long? ActorUserId = null);
+    long? ActorUserId = null,
+    IReadOnlyDictionary<string, object?>? AfterState = null);

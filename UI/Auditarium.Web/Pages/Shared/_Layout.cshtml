@@ -24,13 +24,14 @@
                     @if (permissions.Contains("Audits.Read")) { <a asp-page="/Audits/Index">Audits</a> }
                     @if (permissions.Contains("AuditUnits.Manage")) { <a asp-page="/AuditUnits/Index">Audit Units</a> }
                     @if (permissions.Contains("Documents.Manage")) { <a asp-page="/Documents/Index">Regelwerke</a> }
-                    @if (permissions.Any(permission => permission is "Users.Manage" or "Roles.Manage" or "Authentication.Manage" or "Settings.Manage"))
+                    @if (permissions.Any(permission => permission is "Users.Manage" or "Roles.Manage" or "Authentication.Manage" or "Settings.Manage" or "Maintenance.Jobs.Execute"))
                     {
                         <span class="navigation-heading">Administration</span>
                         @if (permissions.Contains("Users.Manage")) { <a asp-page="/Administration/Users/Index">Benutzer</a> }
                         @if (permissions.Contains("Roles.Manage")) { <a asp-page="/Administration/Roles/Index">Rollen</a> }
                         @if (permissions.Contains("Authentication.Manage")) { <a asp-page="/Administration/AuthenticationProviders/Index">Authentication Provider</a> }
                         @if (permissions.Contains("Settings.Manage")) { <a asp-page="/Administration/Settings/Index">Einstellungen</a> }
+                        @if (permissions.Contains("Maintenance.Jobs.Execute")) { <a asp-page="/Administration/Jobs/Index">Jobs</a> }
                     }
                 </nav>
             }

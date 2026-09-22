@@ -1,0 +1,17 @@
+@page "/administration/jobs"
+@model Auditarium.Web.Pages.Administration.Jobs.IndexModel
+@{ ViewData["Title"] = "Jobs"; }
+<h1>Jobs</h1>
+<div asp-validation-summary="All"></div>
+<div class="table-scroll"><table>
+<thead><tr><th>Job</th><th>Aktiv</th><th>Erlaubte Trigger</th><th>Zeitplan</th><th>Status</th><th>Letzter Start</th><th>Letzter Abschluss</th><th>Letztes Ergebnis</th><th>Laufende Instanz</th><th>Nächster Lauf</th><th>Aktion</th></tr></thead>
+<tbody>
+@foreach (var job in Model.Jobs) {
+    <tr>
+        <td>@job.JobKey</td><td>@(job.Enabled ? "Ja" : "Nein")</td><td>@job.AllowedTriggers</td>
+        <td>@(job.Schedule ?? "—")<br /><small>@job.TimeZone</small></td><td>@(job.IsRunning ? "Läuft" : "Inaktiv")</td>
+        <td>@job.LastStartedAt</td><td>@job.LastCompletedAt</td><td>@job.LastResult</td><td>@job.RunningInstanceId</td><td>@job.NextRun</td>
+        <td>@if (job.Enabled && job.AllowedTriggers.HasFlag(Auditarium.Bll.Jobs.JobTrigger.Manual)) { <form method="post" asp-page-handler="Trigger"><input type="hidden" name="jobKey" value="@job.JobKey" /><button type="submit">Jetzt starten</button></form> }</td>
+    </tr>
+}
+</tbody></table></div>

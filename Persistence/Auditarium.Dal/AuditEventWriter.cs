@@ -2,6 +2,7 @@
 using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Models.Identity;
+using System.Text.Json;
 
 namespace Auditarium.Dal;
 
@@ -20,7 +21,7 @@ internal sealed class AuditEventWriter(AuditariumDbContext db, ICurrentActor act
             ObjectType = eventData.ObjectType,
             ObjectId = eventData.ObjectId,
             BeforeState = null,
-            AfterState = null
+            AfterState = eventData.AfterState is { Count: > 0 } ? JsonSerializer.Serialize(eventData.AfterState) : null
         });
         await db.SaveChangesAsync(cancellationToken);
     }

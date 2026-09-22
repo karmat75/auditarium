@@ -4,6 +4,7 @@ using Auditarium.Bll.Features.Administration.Settings;
 using Auditarium.Bll.Features.Administration.Users;
 using Auditarium.Bll.Features.Identity.ApiCredentials;
 using Auditarium.Bll.Features.Identity.AuthenticationProviders;
+using Auditarium.Bll.Features.Jobs;
 using Mediator;
 using Microsoft.AspNetCore.Mvc;
 
@@ -51,6 +52,10 @@ public static class AdministrationEndpoints
         var settings = routes.MapGroup("/api/v1/settings").RequireAuthorization().WithTags("Administration - Settings");
         settings.MapGet("/", ListSettings).Produces<IReadOnlyList<SettingDetails>>();
         settings.MapPut("/{key}", UpdateSetting).Produces(204).Produces<ProblemDetails>(409);
+
+        var jobs = routes.MapGroup("/api/v1/jobs").RequireAuthorization().WithTags("Administration - Jobs");
+        jobs.MapGet("/", ListJobs).WithName("ListJobs").WithSummary("Lists operational state for known jobs.").Produces<IReadOnlyList<JobOperationsItem>>().Produces<ProblemDetails>(403);
+        jobs.MapPost("/{jobKey}/trigger", TriggerJob).WithName("TriggerJob").WithSummary("Requests a permitted manual job trigger.").Produces(202).Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(404).Produces<ProblemDetails>(409);
         return routes;
     }
 
@@ -102,6 +107,12 @@ public static class AdministrationEndpoints
 
     private static async Task<IResult> ListSettings(IMediator mediator, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new ListSettingsQuery(), ct));
     private static async Task<IResult> UpdateSetting(IMediator mediator, string key, SettingContract contract, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new UpdateSettingCommand(key, contract.Value, contract.ConcurrencyVersion), ct));
+    private static async Task<IResult> ListJobs(IMediator mediator, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new ListJobOperationsQuery(), ct));
+    private static async Task<IResult> TriggerJob(IMediator mediator, string jobKey, CancellationToken ct)
+    {
+        var result = await mediator.Send(new TriggerJobCommand(jobKey), ct);
+        return result.IsSuccess ? Results.Accepted($"/api/v1/jobs/{Uri.EscapeDataString(jobKey)}") : ApiProblemDetails.From(result);
+    }
 }
 
 public sealed record UserContract(string Username, string DisplayName, string? Email, bool IsActive, long ConcurrencyVersion = 0);
