@@ -6,6 +6,7 @@ using Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Auditarium.Web.Pages;
 
 namespace Auditarium.Web.Pages.Audits;
 
@@ -19,6 +20,7 @@ public sealed class DetailsModel(IMediator mediator, ICurrentActor actor, IPermi
     [BindProperty] public ReasonInputModel CancelInput { get; set; } = new();
     [BindProperty] public ReasonInputModel ReopenInput { get; set; } = new();
     [BindProperty] public AnswerAuditQuestionInputModel AnswerInput { get; set; } = new();
+    [BindProperty] public SoftDeleteInputModel DeleteInput { get; set; } = new();
     public AuditDetails Audit { get; private set; } = default!;
     public AuditConfigurationOptions Options { get; private set; } = new([], [], []);
     public AuditPreview? Preview { get; private set; }
@@ -30,6 +32,7 @@ public sealed class DetailsModel(IMediator mediator, ICurrentActor actor, IPermi
     public bool CanFinalize { get; private set; }
     public bool CanCancel { get; private set; }
     public bool CanReopen { get; private set; }
+    public bool CanDelete { get; private set; }
     public async Task<IActionResult> OnGetAsync(long id, CancellationToken ct) => await LoadAsync(id, ct);
     public async Task<IActionResult> OnPostAsync(long id, CancellationToken ct)
     {
@@ -51,6 +54,13 @@ public sealed class DetailsModel(IMediator mediator, ICurrentActor actor, IPermi
     public async Task<IActionResult> OnPostReopenAsync(long id, CancellationToken ct) => await ExecuteAsync(id, mediator.Send(new ReopenAuditCommand(id, ReopenInput.Reason, ReopenInput.ConcurrencyVersion), ct), ct);
     public async Task<IActionResult> OnPostAnswerAsync(long id, long questionId, CancellationToken ct) => await ExecuteAsync(id, mediator.Send(new AnswerAuditQuestionCommand(id, questionId, AnswerInput.Result, AnswerInput.Comment, AnswerInput.Evidence, AnswerInput.ConcurrencyVersion), ct), ct);
     public async Task<IActionResult> OnPostResetAnswerAsync(long id, long questionId, CancellationToken ct) => await ExecuteAsync(id, mediator.Send(new ResetAuditQuestionCommand(id, questionId, ActionInput.ConcurrencyVersion), ct), ct);
+    public async Task<IActionResult> OnPostDeleteAsync(long id, CancellationToken ct)
+    {
+        var result = await mediator.Send(new DeleteAuditCommand(id, DeleteInput.Reason, DeleteInput.ConcurrencyVersion), ct);
+        if (result.IsSuccess) return RedirectToPage("Index");
+        result.ApplyTo(ModelState);
+        return await LoadAsync(id, ct);
+    }
 
     private async Task<IActionResult> ExecuteAsync(long id, ValueTask<Auditarium.Common.Results.Result> pending, CancellationToken ct)
     {
@@ -68,6 +78,7 @@ public sealed class DetailsModel(IMediator mediator, ICurrentActor actor, IPermi
         await LoadPermissionsAsync(ct);
         if (reloadInput || !Request.Method.Equals("POST", StringComparison.OrdinalIgnoreCase)) Input = AuditInputModel.From(Audit);
         PublishInput.ConcurrencyVersion = Audit.ConcurrencyVersion;
+        DeleteInput.ConcurrencyVersion = Audit.ConcurrencyVersion;
         if (Audit.AuditState == AuditState.Draft)
         {
             var options = await mediator.Send(new GetAuditConfigurationOptionsQuery(), ct);
@@ -95,5 +106,6 @@ public sealed class DetailsModel(IMediator mediator, ICurrentActor actor, IPermi
         CanFinalize = permissions.Contains("Audits.Finalize") && activeAssignment && Audit.AuditState == AuditState.InProgress;
         CanCancel = permissions.Contains("Audits.Cancel") && Audit.AuditState is (AuditState.Ready or AuditState.InProgress);
         CanReopen = permissions.Contains("Audits.Reopen") && Audit.AuditState == AuditState.Canceled;
+        CanDelete = permissions.Contains("Audits.Delete");
     }
 }

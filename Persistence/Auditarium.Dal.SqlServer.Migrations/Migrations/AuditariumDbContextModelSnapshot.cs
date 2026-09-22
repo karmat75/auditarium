@@ -70,6 +70,18 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<long?>("DeletedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("DeletionReason")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("deletion_reason");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
@@ -100,10 +112,16 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 
                     b.HasIndex("CatalogVersionId");
 
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("DeletedBy");
+
                     b.HasIndex("OriginAuditId");
 
                     b.ToTable("audits", "auditarium", t =>
                         {
+                            t.HasCheckConstraint("ck_audits_soft_delete", "(deleted_at IS NULL AND deleted_by IS NULL AND deletion_reason IS NULL) OR (deleted_at IS NOT NULL AND deleted_by IS NOT NULL)");
+
                             t.HasCheckConstraint("ck_audits_values", "origin_audit_id <> audit_id AND audit_state IN ('Draft', 'Ready', 'InProgress', 'Finalized', 'Canceled') AND ((audit_state = 'Draft' AND audit_unit_context IS NULL AND assigned_auditor_user_id IS NULL) OR audit_state <> 'Draft') AND (audit_state = 'Draft' OR audit_unit_context IS NOT NULL) AND (audit_state <> 'Finalized' OR assigned_auditor_user_id IS NULL) AND (audit_state <> 'Canceled' OR state_reason IS NOT NULL)");
                         });
                 });
@@ -218,6 +236,18 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .HasDefaultValue(1L)
                         .HasColumnName("concurrency_version");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<long?>("DeletedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("DeletionReason")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("deletion_reason");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
@@ -252,12 +282,18 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 
                     b.HasKey("AuditUnitId");
 
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("DeletedBy");
+
                     b.HasIndex("ParentAuditUnitId");
 
                     b.HasIndex("ScopeTypeId");
 
                     b.ToTable("audit_units", "auditarium", t =>
                         {
+                            t.HasCheckConstraint("ck_audit_units_soft_delete", "(deleted_at IS NULL AND deleted_by IS NULL AND deletion_reason IS NULL) OR (deleted_at IS NOT NULL AND deleted_by IS NOT NULL)");
+
                             t.HasCheckConstraint("ck_audit_units_values", "parent_audit_unit_id <> audit_unit_id AND usage_state IN ('Active', 'Inactive') AND (usage_state <> 'Inactive' OR usage_state_reason IS NOT NULL)");
                         });
                 });
@@ -345,6 +381,18 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .HasDefaultValue(1L)
                         .HasColumnName("concurrency_version");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<long?>("DeletedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("DeletionReason")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("deletion_reason");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
@@ -386,9 +434,15 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 
                     b.HasKey("DocumentId");
 
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("DeletedBy");
+
                     b.ToTable("documents", "auditarium", t =>
                         {
                             t.HasCheckConstraint("ck_documents_deprecated_reason", "usage_state <> 'Deprecated' OR usage_state_reason IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_documents_soft_delete", "(deleted_at IS NULL AND deleted_by IS NULL AND deletion_reason IS NULL) OR (deleted_at IS NOT NULL AND deleted_by IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_documents_usage_state", "usage_state IN ('Active', 'Deprecated')");
                         });
@@ -1184,6 +1238,11 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Auditarium.Models.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Auditarium.Models.Catalog.Audit", null)
                         .WithMany()
                         .HasForeignKey("OriginAuditId")
@@ -1227,6 +1286,11 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
 
             modelBuilder.Entity("Auditarium.Models.Catalog.AuditUnit", b =>
                 {
+                    b.HasOne("Auditarium.Models.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Auditarium.Models.Catalog.AuditUnit", null)
                         .WithMany()
                         .HasForeignKey("ParentAuditUnitId")
@@ -1256,6 +1320,14 @@ namespace Auditarium.Dal.SqlServer.Migrations.Migrations
                     b.HasOne("Auditarium.Models.Catalog.FileItem", null)
                         .WithMany()
                         .HasForeignKey("SourceFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Auditarium.Models.Catalog.Document", b =>
+                {
+                    b.HasOne("Auditarium.Models.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedBy")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

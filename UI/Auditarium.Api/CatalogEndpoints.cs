@@ -15,6 +15,7 @@ public static class CatalogEndpoints
         documents.MapPost("/", CreateDocument).WithName("CreateDocument").Produces<long>(201).Produces<ProblemDetails>(400);
         documents.MapGet("/{documentId:long}", GetDocument).WithName("GetDocument").Produces<DocumentDetails>().Produces<ProblemDetails>(404);
         documents.MapPut("/{documentId:long}", UpdateDocument).WithName("UpdateDocument").Produces(204).Produces<ProblemDetails>(409);
+        documents.MapDelete("/{documentId:long}", DeleteDocument).WithName("DeleteDocument").Produces(204).Produces<ProblemDetails>(404).Produces<ProblemDetails>(409);
         documents.MapPost("/{documentId:long}/catalog-versions", CreateCatalogVersion).WithName("CreateCatalogVersion").Produces<long>(201);
         documents.MapGet("/{documentId:long}/catalog-versions", ListCatalogVersions).WithName("ListCatalogVersions").Produces<IReadOnlyList<CatalogVersionListItem>>();
         var catalogs = routes.MapGroup("/api/v1/catalog-versions").RequireAuthorization();
@@ -56,6 +57,7 @@ public static class CatalogEndpoints
         return result.IsSuccess ? Results.Created($"/api/v1/documents/{result.Value}", result.Value) : ApiProblemDetails.From(result);
     }
     private static async Task<IResult> UpdateDocument(IMediator mediator, long documentId, DocumentContract contract, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new UpdateDocumentCommand(documentId, contract.ToInput(), contract.ConcurrencyVersion), ct));
+    private static async Task<IResult> DeleteDocument(IMediator mediator, long documentId, SoftDeleteContract contract, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new DeleteDocumentCommand(documentId, contract.Reason, contract.ConcurrencyVersion), ct));
     private static async Task<IResult> CreateCatalogVersion(IMediator mediator, long documentId, CreateCatalogVersionContract contract, CancellationToken ct)
     {
         var result = await mediator.Send(new CreateCatalogVersionCommand(documentId, contract.Notes), ct);
@@ -111,5 +113,6 @@ public sealed record QuestionContract(string Text, string? VerificationHint, str
 public sealed record MoveQuestionContract(int SortOrder);
 public sealed record WeightContract(int Weight);
 public sealed record ConfirmContract(bool Confirmed);
+public sealed record SoftDeleteContract(string? Reason, long ConcurrencyVersion);
 public sealed record ImportValidateContract(string PackageJson);
 public sealed record ImportApplyContract(string PackageJson, ImportApplyMode Mode, IReadOnlyCollection<string> SelectedRootElementIds);

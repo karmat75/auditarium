@@ -69,7 +69,10 @@ public sealed class CatalogQueryHandler(IAuditariumDbContext db) :
 
     public async ValueTask<Result<CatalogVersionDetails>> Handle(GetCatalogVersionQuery query, CancellationToken ct)
     {
-        var item = await db.CatalogVersions.AsNoTracking().Where(x => x.CatalogVersionId == query.CatalogVersionId).Select(x => new CatalogVersionDetails(x.CatalogVersionId, x.DocumentId, x.VersionNumber, x.CatalogState, x.DraftRevision, x.Notes, x.SourceFileId != null, x.ConcurrencyVersion)).SingleOrDefaultAsync(ct);
+        var item = await (from catalog in db.CatalogVersions.AsNoTracking()
+                          join document in db.Documents.AsNoTracking() on catalog.DocumentId equals document.DocumentId
+                          where catalog.CatalogVersionId == query.CatalogVersionId
+                          select new CatalogVersionDetails(catalog.CatalogVersionId, catalog.DocumentId, catalog.VersionNumber, catalog.CatalogState, catalog.DraftRevision, catalog.Notes, catalog.SourceFileId != null, catalog.ConcurrencyVersion)).SingleOrDefaultAsync(ct);
         return item is null ? Result<CatalogVersionDetails>.Failure(new AppError("CATALOG.NOT_FOUND", ErrorType.NotFound)) : Result<CatalogVersionDetails>.Success(item);
     }
 

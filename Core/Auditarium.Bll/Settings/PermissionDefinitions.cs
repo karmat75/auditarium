@@ -12,8 +12,11 @@ public static class PermissionDefinitions
         new("Authentication.Manage", "Authentifizierung konfigurieren"),
         new("Settings.Manage", "Systemeinstellungen verwalten"),
         new("Maintenance.Jobs.Execute", "Wartungsjobs ausführen"),
+        new("Maintenance.Retention.Execute", "Retention ausführen"),
         new("Documents.Manage", "Dokumente und Kataloge verwalten"),
+        new("Documents.Delete", "Dokumente löschen"),
         new("AuditUnits.Manage", "Prüfeinheiten verwalten"),
+        new("AuditUnits.Delete", "Prüfeinheiten löschen"),
         new("Audits.Create", "Audits anlegen"),
         new("Audits.UpdateDraft", "Audit-Entwürfe bearbeiten"),
         new("Audits.Publish", "Audits veröffentlichen"),
@@ -27,6 +30,7 @@ public static class PermissionDefinitions
         new("Audits.Read", "Laufende Audits lesen"),
         new("Audits.ReadFinalized", "Finalisierte Audits lesen"),
         new("Audits.Evaluate", "Audit-Ergebnisse auswerten"),
+        new("Audits.Delete", "Löschbare Audits löschen"),
         new("Reports.Export", "Reports erstellen und exportieren"),
         new("AuditHistory.Read", "System- und Audit-Historie lesen")
     ];

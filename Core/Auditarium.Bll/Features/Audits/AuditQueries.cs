@@ -100,9 +100,9 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
         if (query.State is { } state) audits = audits.Where(x => x.AuditState == state);
         var total = await audits.LongCountAsync(ct);
         var joined = from audit in audits
-                     join unit in db.AuditUnits.AsNoTracking() on audit.AuditUnitId equals unit.AuditUnitId
+                     join unit in db.AuditUnits.IgnoreQueryFilters().AsNoTracking() on audit.AuditUnitId equals unit.AuditUnitId
                      join catalog in db.CatalogVersions.AsNoTracking() on audit.CatalogVersionId equals catalog.CatalogVersionId
-                     join document in db.Documents.AsNoTracking() on catalog.DocumentId equals document.DocumentId
+                     join document in db.Documents.IgnoreQueryFilters().AsNoTracking() on catalog.DocumentId equals document.DocumentId
                      join auditor in db.Users.AsNoTracking() on audit.AssignedAuditorUserId equals auditor.UserId into auditors
                      from auditor in auditors.DefaultIfEmpty()
                      select new AuditListItem(audit.AuditId, audit.Name, audit.AuditUnitId, unit.Name, audit.CatalogVersionId, document.Title, catalog.VersionNumber, audit.AuditState, audit.CreatedAt, audit.AssignedAuditorUserId, auditor == null ? null : auditor.DisplayName, audit.ConcurrencyVersion);

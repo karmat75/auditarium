@@ -47,7 +47,7 @@ public sealed class CatalogImportHandler(IAuditariumDbContext db) :
         if (selected.Count == 0 || selected.Distinct(StringComparer.Ordinal).Count() != selected.Count || selected.Any(x => !candidates.ContainsKey(x)))
             return Result<CatalogImportReport>.Failure(new AppError("IMPORT.APPLY_SELECTION_INVALID", ErrorType.Validation));
 
-        var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == package.CatalogVersionId, ct);
+        var catalog = await ActiveCatalogAsync(package.CatalogVersionId, false, ct);
         if (catalog is null || catalog.CatalogState != CatalogState.Draft)
             return Result<CatalogImportReport>.Failure(new AppError("IMPORT.TARGET_NOT_DRAFT", ErrorType.Conflict));
         if (catalog.DraftRevision != package.DraftRevision)
@@ -112,7 +112,7 @@ public sealed class CatalogImportHandler(IAuditariumDbContext db) :
         if (package.DraftRevision < 1) errors.Add(Error("IMPORT.DRAFT_REVISION_INVALID", "$.draft_revision", "draft_revision must be positive."));
         if (errors.Count > 0) return Plan.Rejected(errors, warnings);
 
-        var catalog = await db.CatalogVersions.AsNoTracking().SingleOrDefaultAsync(x => x.CatalogVersionId == package.CatalogVersionId, ct);
+        var catalog = await ActiveCatalogAsync(package.CatalogVersionId, true, ct);
         if (catalog is null) errors.Add(Error("IMPORT.CATALOG_NOT_FOUND", "$.catalog_version_id", "The target catalog version does not exist."));
         else if (catalog.CatalogState != CatalogState.Draft) errors.Add(Error("IMPORT.TARGET_NOT_DRAFT", "$.catalog_version_id", "The target catalog version is not a DRAFT."));
         else if (catalog.DraftRevision != package.DraftRevision) errors.Add(Error("IMPORT.BASE_REVISION_MISMATCH", "$.draft_revision", "The package is based on an older DRAFT revision."));
@@ -148,6 +148,15 @@ public sealed class CatalogImportHandler(IAuditariumDbContext db) :
         }
         catch (JsonException) { errors.Add(Error("IMPORT.JSON_INVALID", "$", "The package is not valid JSON.")); return null; }
         catch (InvalidOperationException) { errors.Add(Error("IMPORT.SCHEMA_INVALID", "$", "A required value has an invalid JSON type.")); return null; }
+    }
+
+    private async Task<CatalogVersion?> ActiveCatalogAsync(long id, bool noTracking, CancellationToken ct)
+    {
+        var catalogs = noTracking ? db.CatalogVersions.AsNoTracking() : db.CatalogVersions;
+        return await (from catalog in catalogs
+                      join document in db.Documents on catalog.DocumentId equals document.DocumentId
+                      where catalog.CatalogVersionId == id
+                      select catalog).SingleOrDefaultAsync(ct);
     }
 
     private static List<Element> ParseElements(JsonElement value, string path, List<ImportIssue> errors)

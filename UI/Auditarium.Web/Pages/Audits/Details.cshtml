@@ -3,6 +3,15 @@
 @{ ViewData["Title"] = Model.Audit.Name; ViewBag.AuditUnits = Model.Options.AuditUnits; ViewBag.Catalogs = Model.Options.CatalogVersions; }
 <h1>@Model.Audit.Name</h1>
 <p>Zustand: <strong>@Model.Audit.AuditState</strong></p>
+@if (Model.CanDelete)
+{
+    <form method="post" asp-page-handler="Delete">
+        <input asp-for="DeleteInput.ConcurrencyVersion" type="hidden" />
+        <label asp-for="DeleteInput.Reason">Optionale Löschbegründung</label>
+        <input asp-for="DeleteInput.Reason" />
+        <button type="submit">Audit löschen</button>
+    </form>
+}
 @if (Model.Audit.AuditState == Auditarium.Models.Catalog.AuditState.Draft)
 {
     @if (Model.Preview is not null) { <section><h2>Vorschau</h2><p>Die aktuelle DRAFT-Konfiguration würde @Model.Preview.DocumentElementCount prüfbare Dokumentelemente und @Model.Preview.QuestionCount Auditfragen erzeugen. Es wurden keine Inhalte materialisiert.</p></section> }

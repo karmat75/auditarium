@@ -18,6 +18,7 @@ public sealed record AuditPreview(int DocumentElementCount, int QuestionCount);
 
 [RequiresPermission("AuditUnits.Manage")] public sealed record CreateAuditUnitCommand(AuditUnitInput Input) : IRequest<Result<long>>;
 [RequiresPermission("AuditUnits.Manage")] public sealed record UpdateAuditUnitCommand(long AuditUnitId, AuditUnitInput Input, long ConcurrencyVersion) : IRequest<Result>;
+[RequiresPermission("AuditUnits.Delete")] public sealed record DeleteAuditUnitCommand(long AuditUnitId, string? Reason, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.Create")] public sealed record CreateAuditCommand(AuditInput Input) : IRequest<Result<long>>;
 [RequiresPermission("Audits.UpdateDraft")] public sealed record UpdateAuditDraftCommand(long AuditId, AuditInput Input, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.Read")] public sealed record GetAuditPreviewQuery(long AuditId) : IRequest<Result<AuditPreview>>;
@@ -31,9 +32,10 @@ public sealed record AuditPreview(int DocumentElementCount, int QuestionCount);
 [RequiresPermission("Audits.Cancel")] public sealed record CancelAuditCommand(long AuditId, string Reason, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.Reopen")] public sealed record ReopenAuditCommand(long AuditId, string Reason, long ConcurrencyVersion) : IRequest<Result>;
 [RequiresPermission("Audits.Create")] public sealed record CreateAuditRepeatCommand(long SourceAuditId, AuditInput Input) : IRequest<Result<long>>;
+[RequiresPermission("Audits.Delete")] public sealed record DeleteAuditCommand(long AuditId, string? Reason, long ConcurrencyVersion) : IRequest<Result>;
 
 public sealed class AuditCommandHandler(IAuditariumDbContext db, ICurrentActor actor) :
-    IRequestHandler<CreateAuditUnitCommand, Result<long>>, IRequestHandler<UpdateAuditUnitCommand, Result>, IRequestHandler<CreateAuditCommand, Result<long>>, IRequestHandler<UpdateAuditDraftCommand, Result>, IRequestHandler<GetAuditPreviewQuery, Result<AuditPreview>>, IRequestHandler<PublishAuditCommand, Result>, IRequestHandler<ClaimAuditCommand, Result>, IRequestHandler<ReleaseOwnAuditCommand, Result>, IRequestHandler<AssignAuditorCommand, Result>, IRequestHandler<AnswerAuditQuestionCommand, Result>, IRequestHandler<ResetAuditQuestionCommand, Result>, IRequestHandler<FinalizeAuditCommand, Result>, IRequestHandler<CancelAuditCommand, Result>, IRequestHandler<ReopenAuditCommand, Result>, IRequestHandler<CreateAuditRepeatCommand, Result<long>>
+    IRequestHandler<CreateAuditUnitCommand, Result<long>>, IRequestHandler<UpdateAuditUnitCommand, Result>, IRequestHandler<DeleteAuditUnitCommand, Result>, IRequestHandler<CreateAuditCommand, Result<long>>, IRequestHandler<UpdateAuditDraftCommand, Result>, IRequestHandler<GetAuditPreviewQuery, Result<AuditPreview>>, IRequestHandler<PublishAuditCommand, Result>, IRequestHandler<ClaimAuditCommand, Result>, IRequestHandler<ReleaseOwnAuditCommand, Result>, IRequestHandler<AssignAuditorCommand, Result>, IRequestHandler<AnswerAuditQuestionCommand, Result>, IRequestHandler<ResetAuditQuestionCommand, Result>, IRequestHandler<FinalizeAuditCommand, Result>, IRequestHandler<CancelAuditCommand, Result>, IRequestHandler<ReopenAuditCommand, Result>, IRequestHandler<CreateAuditRepeatCommand, Result<long>>, IRequestHandler<DeleteAuditCommand, Result>
 {
     private static readonly AuditSettings DefaultSettings = new(new Dictionary<AuditQuestionResult, ResponseRule> { [AuditQuestionResult.Yes] = new(false, false), [AuditQuestionResult.No] = new(false, false), [AuditQuestionResult.NotApplicable] = new(true, false), [AuditQuestionResult.NotDeterminable] = new(true, false) });
 
@@ -52,12 +54,40 @@ public sealed class AuditCommandHandler(IAuditariumDbContext db, ICurrentActor a
         await db.SaveChangesAsync(ct); return Result.Success();
     }
 
+    public async ValueTask<Result> Handle(DeleteAuditUnitCommand m, CancellationToken ct)
+    {
+        if (actor.UserId is not { } userId) return Fail("AUDIT_UNIT.ACTOR_REQUIRED", ErrorType.Forbidden);
+        var unit = await db.AuditUnits.SingleOrDefaultAsync(x => x.AuditUnitId == m.AuditUnitId, ct);
+        if (unit is null) return NotFound("AUDIT_UNIT.NOT_FOUND");
+        if (unit.ConcurrencyVersion != m.ConcurrencyVersion) return Conflict("AUDIT_UNIT.CONCURRENCY_CONFLICT");
+        if (await db.AuditUnits.AnyAsync(x => x.ParentAuditUnitId == unit.AuditUnitId, ct)) return Conflict("AUDIT_UNIT.HAS_DEPENDENCIES");
+        unit.DeletedAt = DateTimeOffset.UtcNow;
+        unit.DeletedBy = userId;
+        unit.DeletionReason = Null(m.Reason);
+        return await SaveConcurrencyAsync("AUDIT_UNIT.CONCURRENCY_CONFLICT", ct);
+    }
+
     public async ValueTask<Result<long>> Handle(CreateAuditCommand m, CancellationToken ct) => await CreateDraftAsync(m.Input, null, ct);
 
     public async ValueTask<Result<long>> Handle(CreateAuditRepeatCommand m, CancellationToken ct)
     {
         var source = await db.Audits.AsNoTracking().SingleOrDefaultAsync(x => x.AuditId == m.SourceAuditId, ct); if (source is null) return Fail<long>("AUDIT.NOT_FOUND", ErrorType.NotFound);
         return await CreateDraftAsync(m.Input, source.OriginAuditId ?? source.AuditId, ct);
+    }
+
+    public async ValueTask<Result> Handle(DeleteAuditCommand m, CancellationToken ct)
+    {
+        if (actor.UserId is not { } userId) return Fail("AUDIT.ACTOR_REQUIRED", ErrorType.Forbidden);
+        var audit = await db.Audits.SingleOrDefaultAsync(x => x.AuditId == m.AuditId, ct);
+        if (audit is null) return NotFound("AUDIT.NOT_FOUND");
+        if (audit.ConcurrencyVersion != m.ConcurrencyVersion) return Conflict("AUDIT.CONCURRENCY_CONFLICT");
+        if (audit.AuditState is not (AuditState.Draft or AuditState.Ready)) return Conflict("AUDIT.NOT_DELETABLE");
+        if (audit.AuditState == AuditState.Ready && (await QuestionsForAuditAsync(audit.AuditId, ct)).Any(x => x.Result is not null)) return Conflict("AUDIT.NOT_DELETABLE");
+        audit.DeletedAt = DateTimeOffset.UtcNow;
+        audit.DeletedBy = userId;
+        audit.DeletionReason = Null(m.Reason);
+        audit.AssignedAuditorUserId = null;
+        return await SaveConcurrencyAsync("AUDIT.CONCURRENCY_CONFLICT", ct);
     }
 
     public async ValueTask<Result> Handle(UpdateAuditDraftCommand m, CancellationToken ct)
@@ -122,13 +152,13 @@ public sealed class AuditCommandHandler(IAuditariumDbContext db, ICurrentActor a
 
     public async ValueTask<Result> Handle(AnswerAuditQuestionCommand m, CancellationToken ct)
     {
-        var q = await db.AuditQuestions.SingleOrDefaultAsync(x => x.AuditQuestionId == m.AuditQuestionId, ct); if (q is null) return NotFound("AUDIT_QUESTION.NOT_FOUND"); if (q.ConcurrencyVersion != m.ConcurrencyVersion) return Conflict("AUDIT_QUESTION.CONCURRENCY_CONFLICT"); var audit = await AuditForQuestionAsync(q.AuditDocumentElementId, ct); if (audit.AuditId != m.AuditId) return NotFound("AUDIT_QUESTION.NOT_FOUND"); var access = await CanEditAsync(audit, ct); if (access is not null) return Fail(access, ErrorType.Forbidden);
+        var q = await ActiveQuestionAsync(m.AuditId, m.AuditQuestionId, ct); if (q is null) return NotFound("AUDIT_QUESTION.NOT_FOUND"); if (q.ConcurrencyVersion != m.ConcurrencyVersion) return Conflict("AUDIT_QUESTION.CONCURRENCY_CONFLICT"); var audit = await AuditForQuestionAsync(q.AuditDocumentElementId, ct); var access = await CanEditAsync(audit, ct); if (access is not null) return Fail(access, ErrorType.Forbidden);
         var settings = Deserialize(audit.AuditSettings); var rule = settings.ResponsePolicy[m.Result]; if ((rule.CommentRequired && Empty(m.Comment)) || (rule.EvidenceRequired && Empty(m.Evidence))) return Fail("AUDIT_QUESTION.RESPONSE_POLICY_VIOLATION"); q.Result = m.Result; q.Comment = Null(m.Comment); q.Evidence = Null(m.Evidence); q.AnsweredAt = DateTimeOffset.UtcNow; q.AnsweredBy = actor.UserId; if (audit.AuditState == AuditState.Ready) audit.AuditState = AuditState.InProgress; await db.SaveChangesAsync(ct); return Result.Success();
     }
 
     public async ValueTask<Result> Handle(ResetAuditQuestionCommand m, CancellationToken ct)
     {
-        var q = await db.AuditQuestions.SingleOrDefaultAsync(x => x.AuditQuestionId == m.AuditQuestionId, ct); if (q is null) return NotFound("AUDIT_QUESTION.NOT_FOUND"); if (q.ConcurrencyVersion != m.ConcurrencyVersion) return Conflict("AUDIT_QUESTION.CONCURRENCY_CONFLICT"); var audit = await AuditForQuestionAsync(q.AuditDocumentElementId, ct); if (audit.AuditId != m.AuditId) return NotFound("AUDIT_QUESTION.NOT_FOUND"); var access = await CanEditAsync(audit, ct); if (access is not null) return Fail(access, ErrorType.Forbidden); q.Result = null; q.Comment = null; q.Evidence = null; q.AnsweredAt = null; q.AnsweredBy = null; if (audit.AuditState == AuditState.InProgress && !await db.AuditQuestions.Where(x => db.AuditDocumentElements.Where(e => e.AuditId == audit.AuditId).Select(e => e.AuditDocumentElementId).Contains(x.AuditDocumentElementId) && x.AuditQuestionId != q.AuditQuestionId).AnyAsync(x => x.Result != null, ct)) audit.AuditState = AuditState.Ready; await db.SaveChangesAsync(ct); return Result.Success();
+        var q = await ActiveQuestionAsync(m.AuditId, m.AuditQuestionId, ct); if (q is null) return NotFound("AUDIT_QUESTION.NOT_FOUND"); if (q.ConcurrencyVersion != m.ConcurrencyVersion) return Conflict("AUDIT_QUESTION.CONCURRENCY_CONFLICT"); var audit = await AuditForQuestionAsync(q.AuditDocumentElementId, ct); var access = await CanEditAsync(audit, ct); if (access is not null) return Fail(access, ErrorType.Forbidden); q.Result = null; q.Comment = null; q.Evidence = null; q.AnsweredAt = null; q.AnsweredBy = null; if (audit.AuditState == AuditState.InProgress && !await db.AuditQuestions.Where(x => db.AuditDocumentElements.Where(e => e.AuditId == audit.AuditId).Select(e => e.AuditDocumentElementId).Contains(x.AuditDocumentElementId) && x.AuditQuestionId != q.AuditQuestionId).AnyAsync(x => x.Result != null, ct)) audit.AuditState = AuditState.Ready; await db.SaveChangesAsync(ct); return Result.Success();
     }
 
     public async ValueTask<Result> Handle(FinalizeAuditCommand m, CancellationToken ct)
@@ -143,13 +173,14 @@ public sealed class AuditCommandHandler(IAuditariumDbContext db, ICurrentActor a
     }
 
     private async Task<Result<long>> CreateDraftAsync(AuditInput input, long? origin, CancellationToken ct) { var error = await ValidateDraftInputAsync(input, ct); if (error is not null) return Fail<long>(error); var audit = new Audit { OriginAuditId = origin, Name = input.Name.Trim(), Description = Null(input.Description), AuditUnitId = input.AuditUnitId, CatalogVersionId = input.CatalogVersionId, AuditSettings = Serialize(input.Settings ?? DefaultSettings), CreatedAt = DateTimeOffset.UtcNow, Notes = Null(input.Notes) }; db.Audits.Add(audit); await db.SaveChangesAsync(ct); return Result<long>.Success(audit.AuditId); }
-    private async Task<string?> ValidateDraftInputAsync(AuditInput input, CancellationToken ct) { if (Empty(input.Name)) return "AUDIT.NAME_REQUIRED"; if (!await db.AuditUnits.AnyAsync(x => x.AuditUnitId == input.AuditUnitId, ct) || !await db.CatalogVersions.AnyAsync(x => x.CatalogVersionId == input.CatalogVersionId, ct)) return "AUDIT.CONFIGURATION_REFERENCE_INVALID"; return ValidSettings(input.Settings ?? DefaultSettings) ? null : "AUDIT.SETTINGS_INVALID"; }
+    private async Task<string?> ValidateDraftInputAsync(AuditInput input, CancellationToken ct) { if (Empty(input.Name)) return "AUDIT.NAME_REQUIRED"; var catalogExists = await (from catalog in db.CatalogVersions join document in db.Documents on catalog.DocumentId equals document.DocumentId where catalog.CatalogVersionId == input.CatalogVersionId select catalog.CatalogVersionId).AnyAsync(ct); if (!await db.AuditUnits.AnyAsync(x => x.AuditUnitId == input.AuditUnitId, ct) || !catalogExists) return "AUDIT.CONFIGURATION_REFERENCE_INVALID"; return ValidSettings(input.Settings ?? DefaultSettings) ? null : "AUDIT.SETTINGS_INVALID"; }
     private async Task<string?> ValidateUnitAsync(AuditUnitInput input, long? id, CancellationToken ct) { if (Empty(input.Name) || input.UsageState == AuditUnitUsageState.Inactive && Empty(input.UsageStateReason)) return "AUDIT_UNIT.INVALID"; if (input.ScopeTypeId == 13 && Empty(input.Description)) return "AUDIT_UNIT.OTHER_DESCRIPTION_REQUIRED"; if (!await db.ScopeTypes.AnyAsync(x => x.ScopeTypeId == input.ScopeTypeId, ct)) return "AUDIT_UNIT.SCOPE_TYPE_INVALID"; if (input.ParentAuditUnitId is not { } parent) return null; if (parent == id || !await db.AuditUnits.AnyAsync(x => x.AuditUnitId == parent, ct)) return "AUDIT_UNIT.PARENT_INVALID"; var parentUnit = await db.AuditUnits.SingleAsync(x => x.AuditUnitId == parent, ct); if (!ParentAllowed(input.ScopeTypeId, parentUnit.ScopeTypeId)) return "AUDIT_UNIT.PARENT_SCOPE_INVALID"; for (var current = parentUnit; current.ParentAuditUnitId is { } next;) { if (next == id) return "AUDIT_UNIT.PARENT_CYCLE"; current = await db.AuditUnits.SingleAsync(x => x.AuditUnitId == next, ct); } return null; }
     private static bool ParentAllowed(long child, long parent) => child switch { 1 => parent == 1, 2 => parent == 1, 3 => parent is 1 or 2, 4 => parent is 1 or 2 or 3 or 4, 5 => parent is 2 or 3 or 4, 6 => parent is 2 or 3 or 4, 7 => parent is 1 or 2 or 4 or 6, 8 => parent is 1 or 2 or 4 or 6 or 7, 9 => parent is 1 or 4 or 8 or 11, 10 or 11 => parent is 1 or 4, 12 => parent == 1, _ => false };
     private async Task<List<Question>> MatchingQuestionsAsync(long unitId, long catalogId, CancellationToken ct) { var unit = await db.AuditUnits.SingleOrDefaultAsync(x => x.AuditUnitId == unitId, ct); if (unit is null) return []; return await (from q in db.Questions join e in db.DocumentElements on q.ElementId equals e.ElementId join s in db.QuestionScopeTypes on q.QuestionId equals s.QuestionId where e.CatalogVersionId == catalogId && s.ScopeTypeId == unit.ScopeTypeId select q).Distinct().ToListAsync(ct); }
     private async Task<string> ContextAsync(AuditUnit unit, CancellationToken ct) { var scopeTypeId = unit.ScopeTypeId; var names = new List<string> { unit.Name }; while (unit.ParentAuditUnitId is { } parent) { unit = await db.AuditUnits.SingleAsync(x => x.AuditUnitId == parent, ct); names.Add(unit.Name); } return JsonSerializer.Serialize(new { name = names[0], scope_type_id = scopeTypeId, hierarchy_path = string.Join(" / ", names.AsEnumerable().Reverse()) }); }
     private async Task<bool> IsAuditorAsync(long userId, CancellationToken ct) => await (from u in db.Users join ur in db.UserRoles on u.UserId equals ur.UserId join rp in db.RolePermissions on ur.RoleId equals rp.RoleId where u.UserId == userId && u.IsActive && rp.PermissionKey == "Audits.Answer" select u.UserId).AnyAsync(ct);
     private async Task<Audit> AuditForQuestionAsync(long auditElementId, CancellationToken ct) { var auditId = await db.AuditDocumentElements.Where(x => x.AuditDocumentElementId == auditElementId).Select(x => x.AuditId).SingleAsync(ct); return await db.Audits.SingleAsync(x => x.AuditId == auditId, ct); }
+    private async Task<AuditQuestion?> ActiveQuestionAsync(long auditId, long questionId, CancellationToken ct) => await (from question in db.AuditQuestions join element in db.AuditDocumentElements on question.AuditDocumentElementId equals element.AuditDocumentElementId join audit in db.Audits on element.AuditId equals audit.AuditId where audit.AuditId == auditId && question.AuditQuestionId == questionId select question).SingleOrDefaultAsync(ct);
     private async Task<string?> CanEditAsync(Audit audit, CancellationToken ct) => actor.UserId is null || audit.AssignedAuditorUserId != actor.UserId || audit.AuditState is not (AuditState.Ready or AuditState.InProgress) ? "AUDIT.NOT_ASSIGNED_TO_ACTOR" : null;
     private async Task<List<AuditQuestion>> QuestionsForAuditAsync(long auditId, CancellationToken ct) => await db.AuditQuestions.Where(x => db.AuditDocumentElements.Where(e => e.AuditId == auditId).Select(e => e.AuditDocumentElementId).Contains(x.AuditDocumentElementId)).ToListAsync(ct);
     private async Task<Result> ChangeCanceledAsync(long id, string reason, long version, CancellationToken ct) { if (Empty(reason)) return Fail("AUDIT.CANCEL_REASON_REQUIRED"); var audit = await db.Audits.SingleOrDefaultAsync(x => x.AuditId == id, ct); if (audit is null) return NotFound("AUDIT.NOT_FOUND"); if (audit.ConcurrencyVersion != version) return Conflict("AUDIT.CONCURRENCY_CONFLICT"); if (audit.AuditState is not (AuditState.Ready or AuditState.InProgress)) return Conflict("AUDIT.NOT_CANCELABLE"); audit.AuditState = AuditState.Canceled; audit.StateReason = reason.Trim(); audit.AssignedAuditorUserId = null; await db.SaveChangesAsync(ct); return Result.Success(); }

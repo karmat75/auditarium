@@ -35,6 +35,10 @@ services:
       AUDITARIUM__DataProtection__KeyRingPath: /var/lib/auditarium/keys
       AUDITARIUM__DataProtection__ApplicationName: Auditarium
       AUDITARIUM__Storage__RootPath: /var/lib/auditarium/storage
+      AUDITARIUM__Retention__DeletionDays: "90"
+      AUDITARIUM__Retention__DeletionPurgeEnabled: "true"
+      AUDITARIUM__Retention__AuditLogDays: "365"
+      AUDITARIUM__Retention__AuditLogPurgeEnabled: "false"
     volumes:
       - data-protection-keys:/var/lib/auditarium/keys
       - storage-data:/var/lib/auditarium/storage
@@ -59,6 +63,10 @@ services:
       AUDITARIUM__DataProtection__KeyRingPath: /var/lib/auditarium/keys
       AUDITARIUM__DataProtection__ApplicationName: Auditarium
       AUDITARIUM__Storage__RootPath: /var/lib/auditarium/storage
+      AUDITARIUM__Retention__DeletionDays: "90"
+      AUDITARIUM__Retention__DeletionPurgeEnabled: "true"
+      AUDITARIUM__Retention__AuditLogDays: "365"
+      AUDITARIUM__Retention__AuditLogPurgeEnabled: "false"
     volumes:
       - data-protection-keys:/var/lib/auditarium/keys
       - storage-data:/var/lib/auditarium/storage

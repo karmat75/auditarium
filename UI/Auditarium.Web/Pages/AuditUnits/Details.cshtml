@@ -3,3 +3,13 @@
 @{ ViewData["Title"] = Model.Input.Name; ViewBag.AuditUnits = Model.Options.AuditUnits.Where(x => x.AuditUnitId != Model.Input.AuditUnitId).ToArray(); ViewBag.ScopeTypes = Model.Options.ScopeTypes; }
 <h1>@Model.Input.Name</h1>
 <partial name="_AuditUnitForm" model="Model.Input" />
+@if (Model.CanDelete)
+{
+    <h2>Audit Unit löschen</h2>
+    <form method="post" asp-page-handler="Delete">
+        <input asp-for="DeleteInput.ConcurrencyVersion" type="hidden" />
+        <label asp-for="DeleteInput.Reason">Optionale Begründung</label>
+        <input asp-for="DeleteInput.Reason" />
+        <button type="submit">Audit Unit löschen</button>
+    </form>
+}

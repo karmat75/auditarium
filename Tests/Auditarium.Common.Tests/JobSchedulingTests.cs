@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Jobs;
+using Auditarium.Bll.Features.Jobs;
 using Auditarium.Bll.Settings;
 using Xunit;
 
@@ -52,4 +53,16 @@ public sealed class JobSchedulingTests
         Assert.True(schedule.IsValid("0 3 * * *"));
         Assert.False(schedule.IsValid("0 0 3 * * *"));
     }
+
+    [Fact]
+    public void Retention_factory_maps_only_the_retention_job_to_its_bll_command()
+    {
+        var factory = new RetentionJobExecutionRequestFactory();
+
+        Assert.True(factory.TryCreate(JobKeys.Retention, out var request));
+        Assert.IsType<RunRetentionCommand>(request);
+        Assert.False(factory.TryCreate("FileIntegrity", out request));
+        Assert.Null(request);
+    }
+
 }

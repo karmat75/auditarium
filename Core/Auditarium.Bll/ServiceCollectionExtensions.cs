@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Jobs;
+using Auditarium.Bll.Features.Jobs;
 using Auditarium.Bll.Pipeline;
 using Auditarium.Common.Time;
 using FluentValidation;
 using Mediator;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 
 namespace Auditarium.Bll;
 
@@ -23,7 +25,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAuditariumJobScheduling(this IServiceCollection services)
+    public static IServiceCollection AddAuditariumJobScheduling(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IJobRegistry, JobRegistry>();
         services.AddSingleton<IJobInstanceIdentity, JobInstanceIdentity>();
@@ -31,6 +33,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<JobConfigurationProvider>();
         services.AddScoped<JobRuntimeStateStore>();
         services.AddSingleton<IJobCoordinator, JobCoordinator>();
+        services.AddSingleton(RetentionOptions.FromConfiguration(configuration));
+        services.AddScoped<IJobExecutionRequestFactory, RetentionJobExecutionRequestFactory>();
         services.AddHostedService<JobScheduleBackgroundService>();
         return services;
     }

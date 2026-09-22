@@ -25,7 +25,7 @@ public sealed class CatalogOriginalFileHandler(IAuditariumDbContext db, IFileSto
     public async ValueTask<Result> Handle(ReplaceCatalogOriginalFileCommand message, CancellationToken ct)
     {
         if (!IsPdfMetadata(message.OriginalFileName, message.ContentType) || !message.Content.CanRead) return Failure("CATALOG.ORIGINAL_FILE_INVALID", ErrorType.Validation);
-        var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct);
+        var catalog = await ActiveCatalogAsync(message.CatalogVersionId, ct);
         if (catalog is null) return Failure("CATALOG.NOT_FOUND", ErrorType.NotFound);
         if (catalog.ConcurrencyVersion != message.ConcurrencyVersion) return Failure("CATALOG.CONCURRENCY_CONFLICT", ErrorType.Conflict);
         if (catalog.CatalogState != CatalogState.Draft) return Failure("CATALOG.NOT_DRAFT", ErrorType.Conflict);
@@ -53,7 +53,7 @@ public sealed class CatalogOriginalFileHandler(IAuditariumDbContext db, IFileSto
 
     public async ValueTask<Result> Handle(RemoveCatalogOriginalFileCommand message, CancellationToken ct)
     {
-        var catalog = await db.CatalogVersions.SingleOrDefaultAsync(x => x.CatalogVersionId == message.CatalogVersionId, ct);
+        var catalog = await ActiveCatalogAsync(message.CatalogVersionId, ct);
         if (catalog is null) return Failure("CATALOG.NOT_FOUND", ErrorType.NotFound);
         if (catalog.ConcurrencyVersion != message.ConcurrencyVersion) return Failure("CATALOG.CONCURRENCY_CONFLICT", ErrorType.Conflict);
         if (catalog.CatalogState != CatalogState.Draft) return Failure("CATALOG.NOT_DRAFT", ErrorType.Conflict);
@@ -63,7 +63,11 @@ public sealed class CatalogOriginalFileHandler(IAuditariumDbContext db, IFileSto
 
     public async ValueTask<Result<CatalogOriginalFile>> Handle(GetCatalogOriginalFileQuery message, CancellationToken ct)
     {
-        var file = await (from catalog in db.CatalogVersions where catalog.CatalogVersionId == message.CatalogVersionId && catalog.SourceFileId != null join item in db.FileItems on catalog.SourceFileId equals item.FileId select item).SingleOrDefaultAsync(ct);
+        var file = await (from catalog in db.CatalogVersions
+                          join document in db.Documents on catalog.DocumentId equals document.DocumentId
+                          join item in db.FileItems on catalog.SourceFileId equals item.FileId
+                          where catalog.CatalogVersionId == message.CatalogVersionId && catalog.SourceFileId != null
+                          select item).SingleOrDefaultAsync(ct);
         if (file is null) return Failure<CatalogOriginalFile>("CATALOG.ORIGINAL_FILE_NOT_FOUND", ErrorType.NotFound);
         if (file.Size > await LimitAsync("Files:OriginalDocuments:MaxDownloadSize", ct)) return Failure<CatalogOriginalFile>("CATALOG.ORIGINAL_FILE_TOO_LARGE", ErrorType.Validation);
         if (!await storage.ExistsAsync(file.SaveFilePath, file.SaveFileName, ct)) return Failure<CatalogOriginalFile>("CATALOG.ORIGINAL_FILE_INTEGRITY_ERROR", ErrorType.Failure);
@@ -76,6 +80,7 @@ public sealed class CatalogOriginalFileHandler(IAuditariumDbContext db, IFileSto
         var file = await db.FileItems.SingleOrDefaultAsync(x => x.FileId == fileId, ct); if (file is null) return;
         await storage.DeleteAsync(file.SaveFilePath, file.SaveFileName, ct); db.FileItems.Remove(file); await db.SaveChangesAsync(ct);
     }
+    private async Task<CatalogVersion?> ActiveCatalogAsync(long id, CancellationToken ct) => await (from catalog in db.CatalogVersions where catalog.CatalogVersionId == id join document in db.Documents on catalog.DocumentId equals document.DocumentId select catalog).SingleOrDefaultAsync(ct);
     private async Task<long> LimitAsync(string key, CancellationToken ct) => long.Parse((await settings.GetAsync(key, ct)).Value, global::System.Globalization.CultureInfo.InvariantCulture);
     private static bool IsPdfMetadata(string name, string type) => string.Equals(Path.GetExtension(name), ".pdf", StringComparison.OrdinalIgnoreCase) && string.Equals(type, "application/pdf", StringComparison.OrdinalIgnoreCase);
     private static async Task<byte[]> ReadPrefixAsync(Stream content, CancellationToken ct) { var prefix = new byte[5]; var offset = 0; while (offset < prefix.Length) { var read = await content.ReadAsync(prefix.AsMemory(offset), ct); if (read == 0) throw new InvalidDataException("File is too short."); offset += read; } return prefix; }
