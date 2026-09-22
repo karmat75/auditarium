@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup><ProjectReference Include="../../Core/Auditarium.Common/Auditarium.Common.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Core/Auditarium.Common/Auditarium.Common.csproj" />
+    <ProjectReference Include="../../Core/Auditarium.Bll/Auditarium.Bll.csproj" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />

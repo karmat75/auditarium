@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuditariumBll();
 builder.Services.AddAuditariumPersistence(builder.Configuration);
+builder.Services.AddAuditariumJobScheduling();
 builder.Services.AddAuditariumFileStorage(builder.Configuration);
 builder.Services.AddAuditariumDataProtection(builder.Configuration);
 builder.Services.AddAuditariumLdap();

@@ -261,6 +261,14 @@
           "Microsoft.Extensions.Options": "10.0.12"
         }
       },
+      "Microsoft.Extensions.FileProviders.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.12",
+        "contentHash": "iQseV6HixWzEYQH4i++84ToIroXnM5jC1TJF4EqBz3lWNG1HBTMYDLkRb6Wm3wk5V6WqSfl7NukO/LYsloGyfg==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "10.0.12"
+        }
+      },
       "Microsoft.Extensions.Logging": {
         "type": "Transitive",
         "resolved": "10.0.12",
@@ -510,10 +518,13 @@
         "dependencies": {
           "Auditarium.Common": "[1.0.0, )",
           "Auditarium.Models": "[1.0.0, )",
+          "Cronos": "[0.11.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
           "Microsoft.EntityFrameworkCore": "[10.0.12, )",
+          "Microsoft.Extensions.Configuration.Abstractions": "[10.0.12, )",
+          "Microsoft.Extensions.Hosting.Abstractions": "[10.0.12, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.12, )",
           "OpenTelemetry.Api": "[1.18.0, )"
         }
@@ -534,6 +545,12 @@
       },
       "auditarium.models": {
         "type": "Project"
+      },
+      "Cronos": {
+        "type": "CentralTransitive",
+        "requested": "[0.11.0, )",
+        "resolved": "0.11.0",
+        "contentHash": "ovNrFIuKTbeNYx+1Tne8DkY/nJ+bRoS0/bTrCBzeAuMvLbX2nJprwcdRqZIwwLRsaghqBU932QvJ6mryTycc/A=="
       },
       "FluentValidation": {
         "type": "CentralTransitive",
@@ -599,6 +616,19 @@
         "requested": "[10.0.12, )",
         "resolved": "10.0.12",
         "contentHash": "9/qymSh7hVDMGTGwrLz8MRp5zRyXy9adGDOs4HwRdnLil3oZGYuWeZjbmHgCQ9BL1qBroVfgUK3U/nb61617Cw=="
+      },
+      "Microsoft.Extensions.Hosting.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "ZlIxIJtWmrph0Ikj0svSaTkZ+d+ZYpTAhazpf1b3aoFRmlNnNWwkcvqnqT9yKHjKvfBRthvUrkq11OxfItOhpg==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.12",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.12",
+          "Microsoft.Extensions.FileProviders.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.12"
+        }
       },
       "Microsoft.Extensions.Identity.Core": {
         "type": "CentralTransitive",

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 namespace Auditarium.Bll.Settings;
 
+using Auditarium.Bll.Jobs;
+
 public sealed record SettingDefinition(
     string Key,
     string DataType,
@@ -25,7 +27,8 @@ public static class SettingDefinitions
         new("Security:ApiCredentials:DefaultLifetimeDays", "int", "180", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 3650, Category: "API-Credentials", DisplayName: "Standardlaufzeit (Tage)", DisplayOrder: 60),
         new("Security:ApiCredentials:MaximumActiveCredentials", "int", "5", true, v => int.TryParse(v, out var n) && n is >= 1 and <= 50, Category: "API-Credentials", DisplayName: "Maximal aktive Credentials", DisplayOrder: 70),
         new("Files:OriginalDocuments:MaxUploadSize", "int", "104857600", false, v => int.TryParse(v, out var n) && n is >= 1_048_576 and <= 1_073_741_824, RestartRequired: true, Category: "Dateien", DisplayName: "Maximale Uploadgröße", DisplayOrder: 80),
-        new("Files:OriginalDocuments:MaxDownloadSize", "int", "104857600", false, v => int.TryParse(v, out var n) && n is >= 1_048_576 and <= 1_073_741_824, RestartRequired: true, Category: "Dateien", DisplayName: "Maximale Downloadgröße", DisplayOrder: 90)
+        new("Files:OriginalDocuments:MaxDownloadSize", "int", "104857600", false, v => int.TryParse(v, out var n) && n is >= 1_048_576 and <= 1_073_741_824, RestartRequired: true, Category: "Dateien", DisplayName: "Maximale Downloadgröße", DisplayOrder: 90),
+        .. JobSettingDefinitions.All
     ];
 }
 

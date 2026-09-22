@@ -326,6 +326,7 @@
         "dependencies": {
           "Auditarium.Common": "[1.0.0, )",
           "Auditarium.Models": "[1.0.0, )",
+          "Cronos": "[0.11.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Mediator.Abstractions": "[3.0.2, )",
@@ -399,6 +400,12 @@
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.18.0, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.18.0, )"
         }
+      },
+      "Cronos": {
+        "type": "CentralTransitive",
+        "requested": "[0.11.0, )",
+        "resolved": "0.11.0",
+        "contentHash": "ovNrFIuKTbeNYx+1Tne8DkY/nJ+bRoS0/bTrCBzeAuMvLbX2nJprwcdRqZIwwLRsaghqBU932QvJ6mryTycc/A=="
       },
       "FluentValidation": {
         "type": "CentralTransitive",
