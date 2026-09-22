@@ -57,7 +57,7 @@ public static class CatalogEndpoints
         return result.IsSuccess ? Results.Created($"/api/v1/documents/{result.Value}", result.Value) : ApiProblemDetails.From(result);
     }
     private static async Task<IResult> UpdateDocument(IMediator mediator, long documentId, DocumentContract contract, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new UpdateDocumentCommand(documentId, contract.ToInput(), contract.ConcurrencyVersion), ct));
-    private static async Task<IResult> DeleteDocument(IMediator mediator, long documentId, SoftDeleteContract contract, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new DeleteDocumentCommand(documentId, contract.Reason, contract.ConcurrencyVersion), ct));
+    private static async Task<IResult> DeleteDocument(IMediator mediator, long documentId, [FromBody] SoftDeleteContract contract, CancellationToken ct) => ApiProblemDetails.From(await mediator.Send(new DeleteDocumentCommand(documentId, contract.Reason, contract.ConcurrencyVersion), ct));
     private static async Task<IResult> CreateCatalogVersion(IMediator mediator, long documentId, CreateCatalogVersionContract contract, CancellationToken ct)
     {
         var result = await mediator.Send(new CreateCatalogVersionCommand(documentId, contract.Notes), ct);

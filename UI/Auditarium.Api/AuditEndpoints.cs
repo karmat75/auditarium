@@ -58,7 +58,7 @@ public static class AuditEndpoints
         return result.IsSuccess ? Results.Created($"/api/v1/audit-units/{result.Value}", result.Value) : ApiProblemDetails.From(result);
     }
     private static Task<IResult> UpdateAuditUnit(IMediator mediator, long auditUnitId, AuditUnitContract contract, CancellationToken ct) => Send(mediator.Send(new UpdateAuditUnitCommand(auditUnitId, contract.ToInput(), contract.ConcurrencyVersion), ct));
-    private static Task<IResult> DeleteAuditUnit(IMediator mediator, long auditUnitId, SoftDeleteContract contract, CancellationToken ct) => Send(mediator.Send(new DeleteAuditUnitCommand(auditUnitId, contract.Reason, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> DeleteAuditUnit(IMediator mediator, long auditUnitId, [FromBody] SoftDeleteContract contract, CancellationToken ct) => Send(mediator.Send(new DeleteAuditUnitCommand(auditUnitId, contract.Reason, contract.ConcurrencyVersion), ct));
 
     private static async Task<IResult> ListAudits(IMediator mediator, string? search, AuditState? state, int page = 1, int pageSize = 50, string? sort = null, CancellationToken ct = default)
     {
@@ -85,7 +85,7 @@ public static class AuditEndpoints
     private static Task<IResult> FinalizeAuditAction(IMediator mediator, long auditId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new FinalizeAuditCommand(auditId, contract.ConcurrencyVersion), ct));
     private static Task<IResult> Cancel(IMediator mediator, long auditId, ReasonContract contract, CancellationToken ct) => Send(mediator.Send(new CancelAuditCommand(auditId, contract.Reason, contract.ConcurrencyVersion), ct));
     private static Task<IResult> Reopen(IMediator mediator, long auditId, ReasonContract contract, CancellationToken ct) => Send(mediator.Send(new ReopenAuditCommand(auditId, contract.Reason, contract.ConcurrencyVersion), ct));
-    private static Task<IResult> DeleteAudit(IMediator mediator, long auditId, SoftDeleteContract contract, CancellationToken ct) => Send(mediator.Send(new DeleteAuditCommand(auditId, contract.Reason, contract.ConcurrencyVersion), ct));
+    private static Task<IResult> DeleteAudit(IMediator mediator, long auditId, [FromBody] SoftDeleteContract contract, CancellationToken ct) => Send(mediator.Send(new DeleteAuditCommand(auditId, contract.Reason, contract.ConcurrencyVersion), ct));
     private static Task<IResult> AnswerQuestion(IMediator mediator, long auditId, long auditQuestionId, AnswerAuditQuestionContract contract, CancellationToken ct) => Send(mediator.Send(new AnswerAuditQuestionCommand(auditId, auditQuestionId, contract.Result, contract.Comment, contract.Evidence, contract.ConcurrencyVersion), ct));
     private static Task<IResult> ResetQuestion(IMediator mediator, long auditId, long auditQuestionId, ConcurrencyContract contract, CancellationToken ct) => Send(mediator.Send(new ResetAuditQuestionCommand(auditId, auditQuestionId, contract.ConcurrencyVersion), ct));
     private static async Task<IResult> Send(ValueTask<Auditarium.Common.Results.Result> pending) => ApiProblemDetails.From(await pending);
