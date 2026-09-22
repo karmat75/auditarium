@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Models.Identity;
 using Auditarium.Models.Catalog;
+using Auditarium.Models.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 namespace Auditarium.Bll.Abstractions.Persistence;
@@ -30,6 +31,7 @@ public interface IAuditariumDbContext
     DbSet<Audit> Audits { get; }
     DbSet<AuditDocumentElement> AuditDocumentElements { get; }
     DbSet<AuditQuestion> AuditQuestions { get; }
+    DbSet<JobRuntimeState> JobRuntimeStates { get; }
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -19,13 +19,18 @@ public static class ServiceCollectionExtensions
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<ISystemExecutionContext, SystemExecutionContext>();
         return services;
     }
 
     public static IServiceCollection AddAuditariumJobScheduling(this IServiceCollection services)
     {
         services.AddSingleton<IJobRegistry, JobRegistry>();
+        services.AddSingleton<IJobInstanceIdentity, JobInstanceIdentity>();
+        services.AddSingleton<IApplicationVersion, ApplicationVersion>();
         services.AddScoped<JobConfigurationProvider>();
+        services.AddScoped<JobRuntimeStateStore>();
+        services.AddSingleton<IJobCoordinator, JobCoordinator>();
         services.AddHostedService<JobScheduleBackgroundService>();
         return services;
     }

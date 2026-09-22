@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Auditarium.Bll.Abstractions.Identity;
 using Auditarium.Bll.Abstractions.Persistence;
+using Auditarium.Bll.Jobs;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
@@ -51,12 +52,12 @@ public static class HttpAuthenticationServiceCollectionExtensions
     }
 }
 
-public sealed class HttpCurrentActor(IHttpContextAccessor accessor) : ICurrentActor
+public sealed class HttpCurrentActor(IHttpContextAccessor accessor, ISystemExecutionContext systemExecutionContext) : ICurrentActor
 {
     private ClaimsPrincipal? Principal => accessor.HttpContext?.User;
-    public ActorType Type => IsAuthenticated ? ActorType.User : ActorType.Anonymous;
-    public long? UserId => long.TryParse(Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId) && userId > 0 ? userId : null;
-    public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated == true && UserId is not null;
+    public ActorType Type => systemExecutionContext.IsActive ? ActorType.System : IsAuthenticated ? ActorType.User : ActorType.Anonymous;
+    public long? UserId => systemExecutionContext.IsActive ? 0 : long.TryParse(Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId) && userId > 0 ? userId : null;
+    public bool IsAuthenticated => !systemExecutionContext.IsActive && Principal?.Identity?.IsAuthenticated == true && UserId is not null;
     public bool MustChangePassword => string.Equals(Principal?.FindFirstValue(AuditariumAuthenticationSchemes.MustChangePasswordClaim), "true", StringComparison.Ordinal);
 }
 

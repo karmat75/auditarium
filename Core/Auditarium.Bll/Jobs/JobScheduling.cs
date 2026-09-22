@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Abstractions.Settings;
+using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Bll.Settings;
+using Auditarium.Common.Results;
 using Auditarium.Common.Time;
+using Auditarium.Models.Jobs;
 using Cronos;
+using Mediator;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -23,6 +29,49 @@ public enum MisfirePolicy { Skip }
 public enum JobConcurrencyPolicy { SkipIfRunning }
 
 public sealed record JobDefinition(string JobKey, JobTrigger AllowedTriggers);
+
+/// <summary>Marker for the normal BLL command of a concrete job.</summary>
+public interface IJobExecutionRequest : IRequest<Result> { }
+
+public interface IJobExecutionRequestFactory
+{
+    bool TryCreate(string jobKey, out IJobExecutionRequest? request);
+}
+
+public interface IJobCoordinator
+{
+    Task<Result> RunAsync(string jobKey, JobTrigger trigger, CancellationToken cancellationToken = default);
+}
+
+public interface IJobInstanceIdentity { string Value { get; } }
+public sealed class JobInstanceIdentity : IJobInstanceIdentity { public string Value { get; } = Guid.NewGuid().ToString("N"); }
+
+public interface IApplicationVersion { string Value { get; } }
+public sealed class ApplicationVersion : IApplicationVersion { public string Value { get; } = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "0.0.0"; }
+
+public interface ISystemExecutionContext { bool IsActive { get; } IDisposable Enter(); }
+
+public sealed class SystemExecutionContext : ISystemExecutionContext
+{
+    private readonly AsyncLocal<int> _depth = new();
+    public bool IsActive => _depth.Value > 0;
+    public IDisposable Enter()
+    {
+        _depth.Value++;
+        return new Scope(this);
+    }
+
+    private sealed class Scope(SystemExecutionContext context) : IDisposable
+    {
+        private SystemExecutionContext? _context = context;
+        public void Dispose()
+        {
+            if (_context is not { } context) return;
+            context._depth.Value--;
+            _context = null;
+        }
+    }
+}
 
 public static class JobKeys
 {
@@ -150,10 +199,182 @@ public static class JobScheduleCalculator
     }
 }
 
-public sealed class JobScheduleBackgroundService(IServiceScopeFactory scopeFactory, IClock clock, ILogger<JobScheduleBackgroundService> logger) : BackgroundService
+public sealed class JobRuntimeStateStore(IAuditariumDbContext db, IClock clock)
+{
+    public static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromMinutes(1);
+
+    public async Task<bool> TryAcquireAsync(string jobKey, string instanceId, JobTrigger trigger, string applicationVersion, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var leaseUntil = now.Add(LeaseDuration);
+        var states = db.JobRuntimeStates.Where(state => state.JobKey == jobKey &&
+            (state.RunningInstanceId == null || state.LeaseUntil == null || state.LeaseUntil <= now) &&
+            (trigger != JobTrigger.Startup || state.LastStartupVersion == null || state.LastStartupVersion != applicationVersion));
+        var updated = await states.ExecuteUpdateAsync(setters => setters
+            .SetProperty(state => state.RunningInstanceId, instanceId)
+            .SetProperty(state => state.LeaseUntil, leaseUntil)
+            .SetProperty(state => state.LastStartedAt, now)
+            .SetProperty(state => state.ConcurrencyVersion, state => state.ConcurrencyVersion + 1), ct);
+        if (updated != 0) return true;
+
+        if (await db.JobRuntimeStates.AnyAsync(state => state.JobKey == jobKey, ct)) return false;
+        db.JobRuntimeStates.Add(new JobRuntimeState { JobKey = jobKey, RunningInstanceId = instanceId, LeaseUntil = leaseUntil, LastStartedAt = now });
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            // A competing instance created the same key with a valid lease. Do not retry or overwrite it.
+            return false;
+        }
+    }
+
+    public async Task<bool> HeartbeatAsync(string jobKey, string instanceId, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var updated = await db.JobRuntimeStates.Where(state => state.JobKey == jobKey && state.RunningInstanceId == instanceId && state.LeaseUntil != null && state.LeaseUntil > now)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(state => state.LeaseUntil, now.Add(LeaseDuration))
+                .SetProperty(state => state.ConcurrencyVersion, state => state.ConcurrencyVersion + 1), ct);
+        return updated != 0;
+    }
+
+    public async Task CompleteAsync(string jobKey, string instanceId, JobTrigger trigger, string applicationVersion, bool succeeded, string result, CancellationToken ct)
+    {
+        var completedAt = clock.UtcNow;
+        await db.JobRuntimeStates.Where(state => state.JobKey == jobKey && state.RunningInstanceId == instanceId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(state => state.LastCompletedAt, completedAt)
+                .SetProperty(state => state.LastResult, result)
+                .SetProperty(state => state.RunningInstanceId, (string?)null)
+                .SetProperty(state => state.LeaseUntil, (DateTimeOffset?)null)
+                .SetProperty(state => state.LastStartupVersion, state => trigger == JobTrigger.Startup && succeeded ? applicationVersion : state.LastStartupVersion)
+                .SetProperty(state => state.ConcurrencyVersion, state => state.ConcurrencyVersion + 1), ct);
+    }
+}
+
+public sealed class JobCoordinator(
+    IServiceScopeFactory scopeFactory,
+    IJobRegistry registry,
+    IJobInstanceIdentity instanceIdentity,
+    IApplicationVersion applicationVersion,
+    ISystemExecutionContext systemExecutionContext,
+    ILogger<JobCoordinator> logger) : IJobCoordinator
+{
+    public async Task<Result> RunAsync(string jobKey, JobTrigger trigger, CancellationToken cancellationToken = default)
+    {
+        if (!registry.TryGet(jobKey, out var definition) || definition is null) return Failure("JOB.NOT_FOUND", ErrorType.NotFound);
+        if (trigger is JobTrigger.None or not (JobTrigger.Scheduled or JobTrigger.Startup or JobTrigger.Manual) || !definition.AllowedTriggers.HasFlag(trigger)) return Failure("JOB.TRIGGER_NOT_ALLOWED", ErrorType.Validation);
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var configuration = await scope.ServiceProvider.GetRequiredService<JobConfigurationProvider>().GetAsync(jobKey, cancellationToken);
+        if (!configuration.Enabled) return Failure("JOB.DISABLED", ErrorType.Conflict);
+        if (trigger == JobTrigger.Startup && !configuration.RunOnStartup) return Failure("JOB.TRIGGER_NOT_ALLOWED", ErrorType.Validation);
+
+        var state = scope.ServiceProvider.GetRequiredService<JobRuntimeStateStore>();
+        if (!await state.TryAcquireAsync(jobKey, instanceIdentity.Value, trigger, applicationVersion.Value, cancellationToken)) return Failure("JOB.ALREADY_RUNNING", ErrorType.Conflict);
+        _ = ExecuteAsync(jobKey, trigger, cancellationToken);
+        return Result.Success();
+    }
+
+    private async Task ExecuteAsync(string jobKey, JobTrigger trigger, CancellationToken cancellationToken)
+    {
+        using var activity = JobTelemetry.ActivitySource.StartActivity("job.run");
+        activity?.SetTag("job.key", jobKey);
+        activity?.SetTag("job.trigger", trigger.ToString());
+        JobTelemetry.RunsStarted.Add(1, new KeyValuePair<string, object?>("job.key", jobKey));
+        var succeeded = false;
+        var result = "Failed";
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var factory = scope.ServiceProvider.GetService<IJobExecutionRequestFactory>();
+            if (factory is null || !factory.TryCreate(jobKey, out var request) || request is null)
+            {
+                result = "NoExecutionRegistered";
+                logger.LogWarning("Job {JobKey} has no registered BLL execution request.", jobKey);
+                return;
+            }
+
+            using var systemScope = systemExecutionContext.Enter();
+            await using var heartbeat = KeepLeaseAliveAsync(jobKey, cancellationToken);
+            var response = await scope.ServiceProvider.GetRequiredService<IMediator>().Send(request, cancellationToken);
+            succeeded = response.IsSuccess;
+            result = succeeded ? "Succeeded" : response.Errors.FirstOrDefault()?.Code ?? "Failed";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            result = "Cancelled";
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Job {JobKey} failed unexpectedly.", jobKey);
+            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, exception.Message);
+        }
+        finally
+        {
+            try
+            {
+                await using var completionScope = scopeFactory.CreateAsyncScope();
+                await completionScope.ServiceProvider.GetRequiredService<JobRuntimeStateStore>().CompleteAsync(jobKey, instanceIdentity.Value, trigger, applicationVersion.Value, succeeded, result, CancellationToken.None);
+                JobTelemetry.RunsCompleted.Add(1, new KeyValuePair<string, object?>("job.key", jobKey), new KeyValuePair<string, object?>("job.result", result));
+            }
+            catch (Exception exception) { logger.LogError(exception, "Job {JobKey} could not persist its completion state; the lease will recover after expiry.", jobKey); }
+        }
+    }
+
+    private IAsyncDisposable KeepLeaseAliveAsync(string jobKey, CancellationToken cancellationToken)
+    {
+        var heartbeatCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var task = Task.Run(async () =>
+        {
+            try
+            {
+                using var timer = new PeriodicTimer(JobRuntimeStateStore.HeartbeatInterval);
+                while (await timer.WaitForNextTickAsync(heartbeatCancellation.Token))
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    if (!await scope.ServiceProvider.GetRequiredService<JobRuntimeStateStore>().HeartbeatAsync(jobKey, instanceIdentity.Value, heartbeatCancellation.Token))
+                    {
+                        logger.LogWarning("Job {JobKey} lost its lease; its completion state will not overwrite another instance.", jobKey);
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (heartbeatCancellation.IsCancellationRequested) { }
+        }, CancellationToken.None);
+        return new HeartbeatLifetime(heartbeatCancellation, task);
+    }
+
+    private static Result Failure(string code, ErrorType type) => Result.Failure(new AppError(code, type));
+
+    private sealed class HeartbeatLifetime(CancellationTokenSource cancellation, Task task) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await cancellation.CancelAsync();
+            try { await task; }
+            finally { cancellation.Dispose(); }
+        }
+    }
+}
+
+internal static class JobTelemetry
+{
+    internal static readonly System.Diagnostics.ActivitySource ActivitySource = new("Auditarium");
+    internal static readonly System.Diagnostics.Metrics.Meter Meter = new("Auditarium");
+    internal static readonly System.Diagnostics.Metrics.Counter<long> RunsStarted = Meter.CreateCounter<long>("auditarium.jobs.started");
+    internal static readonly System.Diagnostics.Metrics.Counter<long> RunsCompleted = Meter.CreateCounter<long>("auditarium.jobs.completed");
+}
+
+public sealed class JobScheduleBackgroundService(IServiceScopeFactory scopeFactory, IJobCoordinator coordinator, IClock clock, ILogger<JobScheduleBackgroundService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await TriggerStartupJobsAsync(stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
             var nextRuns = await GetNextRunsAsync(stoppingToken);
@@ -161,7 +382,22 @@ public sealed class JobScheduleBackgroundService(IServiceScopeFactory scopeFacto
             var delay = nextRun - clock.UtcNow;
             if (delay <= TimeSpan.Zero) delay = TimeSpan.FromSeconds(1);
             await Task.Delay(delay, stoppingToken);
-            // Execution is deliberately introduced by JobCoordinator in work package 20.9.2.
+            foreach (var scheduled in nextRuns.Where(x => x.NextRun == nextRun))
+            {
+                var result = await coordinator.RunAsync(scheduled.JobKey, JobTrigger.Scheduled, stoppingToken);
+                if (!result.IsSuccess) logger.LogInformation("Scheduled trigger for job {JobKey} was not accepted: {Code}.", scheduled.JobKey, result.Errors.FirstOrDefault()?.Code);
+            }
+        }
+    }
+
+    private async Task TriggerStartupJobsAsync(CancellationToken ct)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var configurations = await scope.ServiceProvider.GetRequiredService<JobConfigurationProvider>().GetAllAsync(ct);
+        foreach (var configuration in configurations.Where(x => x.Enabled && x.RunOnStartup && x.Definition.AllowedTriggers.HasFlag(JobTrigger.Startup)))
+        {
+            var result = await coordinator.RunAsync(configuration.Definition.JobKey, JobTrigger.Startup, ct);
+            if (!result.IsSuccess) logger.LogInformation("Startup trigger for job {JobKey} was not accepted: {Code}.", configuration.Definition.JobKey, result.Errors.FirstOrDefault()?.Code);
         }
     }
 
