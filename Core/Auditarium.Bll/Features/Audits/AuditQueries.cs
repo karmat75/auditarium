@@ -50,17 +50,20 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
                      join scope in db.ScopeTypes.AsNoTracking() on unit.ScopeTypeId equals scope.ScopeTypeId
                      join parent in db.AuditUnits.AsNoTracking() on unit.ParentAuditUnitId equals parent.AuditUnitId into parents
                      from parent in parents.DefaultIfEmpty()
-                     select new AuditUnitListItem(unit.AuditUnitId, unit.ParentAuditUnitId, parent == null ? null : parent.Name, unit.ScopeTypeId, scope.Key, scope.Name, unit.Name, unit.UsageState, unit.ConcurrencyVersion);
+                     select new { unit, scope, ParentName = parent == null ? null : parent.Name };
         var ordered = (query.Sort, query.Descending) switch
         {
-            ("scopeType", false) => joined.OrderBy(x => x.ScopeTypeName).ThenBy(x => x.Name),
-            ("scopeType", true) => joined.OrderByDescending(x => x.ScopeTypeName).ThenBy(x => x.Name),
-            ("usageState", false) => joined.OrderBy(x => x.UsageState).ThenBy(x => x.Name),
-            ("usageState", true) => joined.OrderByDescending(x => x.UsageState).ThenBy(x => x.Name),
-            ("name", true) => joined.OrderByDescending(x => x.Name),
-            _ => joined.OrderBy(x => x.Name)
+            ("scopeType", false) => joined.OrderBy(x => x.scope.Name).ThenBy(x => x.unit.Name),
+            ("scopeType", true) => joined.OrderByDescending(x => x.scope.Name).ThenBy(x => x.unit.Name),
+            ("usageState", false) => joined.OrderBy(x => x.unit.UsageState).ThenBy(x => x.unit.Name),
+            ("usageState", true) => joined.OrderByDescending(x => x.unit.UsageState).ThenBy(x => x.unit.Name),
+            ("name", true) => joined.OrderByDescending(x => x.unit.Name),
+            _ => joined.OrderBy(x => x.unit.Name)
         };
-        return Result<AuditUnitPage>.Success(new(await ordered.Skip(query.Skip).Take(query.Take).ToListAsync(ct), total));
+        var items = await ordered.Skip(query.Skip).Take(query.Take)
+            .Select(x => new AuditUnitListItem(x.unit.AuditUnitId, x.unit.ParentAuditUnitId, x.ParentName, x.unit.ScopeTypeId, x.scope.Key, x.scope.Name, x.unit.Name, x.unit.UsageState, x.unit.ConcurrencyVersion))
+            .ToListAsync(ct);
+        return Result<AuditUnitPage>.Success(new(items, total));
     }
 
     public async ValueTask<Result<AuditUnitDetails>> Handle(GetAuditUnitQuery query, CancellationToken ct)
@@ -74,7 +77,10 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
     {
         var units = await (from unit in db.AuditUnits.AsNoTracking()
                            join scope in db.ScopeTypes.AsNoTracking() on unit.ScopeTypeId equals scope.ScopeTypeId
-                           select new AuditUnitHierarchyItem(unit.AuditUnitId, unit.ParentAuditUnitId, 0, unit.Name, scope.Name, unit.UsageState)).OrderBy(x => x.Name).ToListAsync(ct);
+                           select new { unit, ScopeTypeName = scope.Name })
+            .OrderBy(x => x.unit.Name)
+            .Select(x => new AuditUnitHierarchyItem(x.unit.AuditUnitId, x.unit.ParentAuditUnitId, 0, x.unit.Name, x.ScopeTypeName, x.unit.UsageState))
+            .ToListAsync(ct);
         var byParent = units.ToLookup(x => x.ParentAuditUnitId);
         var result = new List<AuditUnitHierarchyItem>();
         void AddChildren(long? parent, int depth)
@@ -105,17 +111,20 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
                      join document in db.Documents.IgnoreQueryFilters().AsNoTracking() on catalog.DocumentId equals document.DocumentId
                      join auditor in db.Users.AsNoTracking() on audit.AssignedAuditorUserId equals auditor.UserId into auditors
                      from auditor in auditors.DefaultIfEmpty()
-                     select new AuditListItem(audit.AuditId, audit.Name, audit.AuditUnitId, unit.Name, audit.CatalogVersionId, document.Title, catalog.VersionNumber, audit.AuditState, audit.CreatedAt, audit.AssignedAuditorUserId, auditor == null ? null : auditor.DisplayName, audit.ConcurrencyVersion);
+                     select new { audit, AuditUnitName = unit.Name, DocumentTitle = document.Title, catalog.VersionNumber, AssignedAuditorDisplayName = auditor == null ? null : auditor.DisplayName };
         var ordered = (query.Sort, query.Descending) switch
         {
-            ("createdAt", false) => joined.OrderBy(x => x.CreatedAt),
-            ("createdAt", true) => joined.OrderByDescending(x => x.CreatedAt),
-            ("state", false) => joined.OrderBy(x => x.AuditState).ThenBy(x => x.Name),
-            ("state", true) => joined.OrderByDescending(x => x.AuditState).ThenBy(x => x.Name),
-            ("name", true) => joined.OrderByDescending(x => x.Name),
-            _ => joined.OrderBy(x => x.Name)
+            ("createdAt", false) => joined.OrderBy(x => x.audit.CreatedAt),
+            ("createdAt", true) => joined.OrderByDescending(x => x.audit.CreatedAt),
+            ("state", false) => joined.OrderBy(x => x.audit.AuditState).ThenBy(x => x.audit.Name),
+            ("state", true) => joined.OrderByDescending(x => x.audit.AuditState).ThenBy(x => x.audit.Name),
+            ("name", true) => joined.OrderByDescending(x => x.audit.Name),
+            _ => joined.OrderBy(x => x.audit.Name)
         };
-        return Result<AuditPage>.Success(new(await ordered.Skip(query.Skip).Take(query.Take).ToListAsync(ct), total));
+        var items = await ordered.Skip(query.Skip).Take(query.Take)
+            .Select(x => new AuditListItem(x.audit.AuditId, x.audit.Name, x.audit.AuditUnitId, x.AuditUnitName, x.audit.CatalogVersionId, x.DocumentTitle, x.VersionNumber, x.audit.AuditState, x.audit.CreatedAt, x.audit.AssignedAuditorUserId, x.AssignedAuditorDisplayName, x.audit.ConcurrencyVersion))
+            .ToListAsync(ct);
+        return Result<AuditPage>.Success(new(items, total));
     }
 
     public async ValueTask<Result<AuditDetails>> Handle(GetAuditQuery query, CancellationToken ct)

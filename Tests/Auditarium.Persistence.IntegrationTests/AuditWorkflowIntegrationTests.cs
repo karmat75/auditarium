@@ -7,6 +7,7 @@ using Auditarium.Dal;
 using Auditarium.Models.Catalog;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -14,6 +15,42 @@ namespace Auditarium.Persistence.IntegrationTests;
 
 public sealed class AuditWorkflowIntegrationTests
 {
+    [Fact]
+    public async Task PostgreSql_empty_audit_and_audit_unit_lists_are_returned_successfully()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await VerifyEmptyListsAsync("PostgreSQL", container.GetConnectionString());
+    }
+
+    [Fact]
+    public async Task SqlServer_empty_audit_and_audit_unit_lists_are_returned_successfully()
+    {
+        await using var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+        await container.StartAsync();
+        await VerifyEmptyListsAsync("SqlServer", container.GetConnectionString());
+    }
+
+    private static async Task VerifyEmptyListsAsync(string databaseProvider, string connectionString)
+    {
+        await using var provider = CreateProvider(databaseProvider, connectionString);
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var queries = new AuditQueryHandler(db);
+
+        var auditUnits = await queries.Handle(new ListAuditUnitsQuery(null, 0, 200, "name", false), CancellationToken.None);
+        var hierarchy = await queries.Handle(new GetAuditUnitHierarchyQuery(), CancellationToken.None);
+        var audits = await queries.Handle(new ListAuditsQuery(null, null, 0, 200, "createdAt", true), CancellationToken.None);
+
+        Assert.True(auditUnits.IsSuccess);
+        Assert.Empty(auditUnits.Value!.Items);
+        Assert.True(hierarchy.IsSuccess);
+        Assert.Empty(hierarchy.Value!);
+        Assert.True(audits.IsSuccess);
+        Assert.Empty(audits.Value!.Items);
+    }
+
     [Fact]
     public async Task Audit_is_materialized_claimed_answered_finalized_and_keeps_its_catalog_version_immutable()
     {
@@ -227,9 +264,11 @@ public sealed class AuditWorkflowIntegrationTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await failed.Handle(new ExportAuditDataCsvQuery(AuditCsvExportLevel.Audits, new()), CancellationToken.None));
     }
 
-    private static ServiceProvider CreateProvider(string connectionString)
+    private static ServiceProvider CreateProvider(string connectionString) => CreateProvider("PostgreSQL", connectionString);
+
+    private static ServiceProvider CreateProvider(string databaseProvider, string connectionString)
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = "PostgreSQL", ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = databaseProvider, ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();
         var services = new ServiceCollection(); services.AddSingleton<IConfiguration>(configuration); services.AddAuditariumPersistence(configuration); return services.BuildServiceProvider();
     }
 
