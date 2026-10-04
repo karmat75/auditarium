@@ -126,6 +126,61 @@ public sealed class AuditWorkflowIntegrationTests
         Assert.Equal(AuditState.Draft, (await db.Audits.FindAsync(audit.Value))!.AuditState);
     }
 
+    [Fact]
+    public async Task Audit_data_queries_share_explicit_filters_context_and_historical_snapshots()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var actor = new TestActor();
+        var catalog = new CatalogCommandHandler(db, actor);
+        var document = await catalog.Handle(new CreateDocumentCommand(new("Regelwerk v1", null, "1.0", null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var version = await catalog.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+        var element = await catalog.Handle(new AddDocumentElementCommand(version.Value!, null, null, "Anforderung", null), CancellationToken.None);
+        await catalog.Handle(new AddQuestionCommand(element.Value!, "Erfüllt?", "Prüfen", "Nachweis", null, [6]), CancellationToken.None);
+        Assert.True((await catalog.Handle(new SetCatalogReadyCommand(version.Value!, (await db.CatalogVersions.FindAsync(version.Value))!.ConcurrencyVersion, true), CancellationToken.None)).IsSuccess);
+
+        var commands = new AuditCommandHandler(db, actor);
+        var unit = await commands.Handle(new CreateAuditUnitCommand(new(null, 6, "Serverraum", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
+        var audit = await commands.Handle(new CreateAuditCommand(new("Audit", null, unit.Value!, version.Value!, null, null)), CancellationToken.None);
+        Assert.True((await commands.Handle(new PublishAuditCommand(audit.Value!), CancellationToken.None)).IsSuccess);
+        var storedQuestion = Assert.Single(db.AuditQuestions);
+        storedQuestion.Result = AuditQuestionResult.No;
+        storedQuestion.Comment = "Abweichung";
+        storedQuestion.AnsweredAt = DateTimeOffset.UtcNow;
+        storedQuestion.AnsweredBy = 0;
+        var storedDocument = (await db.Documents.FindAsync(document.Value))!;
+        storedDocument.Title = "Regelwerk umbenannt";
+        storedDocument.Version = "1.1";
+        var storedUnit = (await db.AuditUnits.FindAsync(unit.Value))!;
+        storedUnit.Name = "Serverraum umbenannt";
+        await db.SaveChangesAsync();
+
+        var queries = new AuditDataQueryHandler(db);
+        var filter = new AuditDataFilter(ScopeTypeId: 6, AuditUnitId: unit.Value, DocumentId: document.Value, CatalogVersionId: version.Value, AuditState: AuditState.Ready);
+        var audits = await queries.Handle(new ListAuditDataAuditsQuery(filter, 0, 50, AuditDataAuditSort.CreatedAt, true), CancellationToken.None);
+        var elements = await queries.Handle(new ListAuditDataElementsQuery(filter, 0, 50, AuditDataElementSort.ElementTitle, false), CancellationToken.None);
+        var questions = await queries.Handle(new ListAuditDataQuestionsQuery(filter, 0, 50, AuditDataQuestionSort.QuestionText, false), CancellationToken.None);
+
+        Assert.True(audits.IsSuccess);
+        Assert.Equal("Serverraum", Assert.Single(audits.Value!.Items).Audit.AuditUnitName);
+        Assert.Equal("Regelwerk umbenannt", audits.Value.Items[0].Audit.DocumentTitle);
+        Assert.Equal("1.1", audits.Value.Items[0].Audit.DocumentVersion);
+        Assert.Equal(version.Value, audits.Value.Items[0].Audit.CatalogVersionId);
+        Assert.True(elements.IsSuccess);
+        Assert.Equal(AuditDocumentElementResult.NotFulfilled, Assert.Single(elements.Value!.Items).Result);
+        Assert.True(questions.IsSuccess);
+        Assert.Equal(storedQuestion.AuditQuestionId, Assert.Single(questions.Value!.Items).AuditQuestionId);
+        Assert.Equal("Abweichung", questions.Value.Items[0].Comment);
+
+        var invalid = await queries.Handle(new ListAuditDataAuditsQuery(new AuditDataFilter(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1)), 0, 50, AuditDataAuditSort.CreatedAt, true), CancellationToken.None);
+        Assert.False(invalid.IsSuccess);
+        Assert.Equal("AUDIT_DATA.QUERY_ARGUMENT_INVALID", Assert.Single(invalid.Errors).Code);
+    }
+
     private static ServiceProvider CreateProvider(string connectionString)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = "PostgreSQL", ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();
