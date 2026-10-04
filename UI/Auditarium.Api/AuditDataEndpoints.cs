@@ -14,6 +14,7 @@ public static class AuditDataEndpoints
         data.MapGet("/audits", ListAudits).WithName("ListAuditDataAudits").Produces<AuditDataPageResponse<AuditDataAuditContract>>().Produces<ProblemDetails>(400).Produces<ProblemDetails>(403);
         data.MapGet("/document-elements", ListElements).WithName("ListAuditDataElements").Produces<AuditDataPageResponse<AuditDataElementContract>>().Produces<ProblemDetails>(400).Produces<ProblemDetails>(403);
         data.MapGet("/questions", ListQuestions).WithName("ListAuditDataQuestions").Produces<AuditDataPageResponse<AuditDataQuestionContract>>().Produces<ProblemDetails>(400).Produces<ProblemDetails>(403);
+        data.MapGet("/export.csv", ExportCsv).WithName("ExportAuditDataCsv").Produces(StatusCodes.Status200OK, contentType: "text/csv").Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(500);
         return routes;
     }
 
@@ -39,6 +40,14 @@ public static class AuditDataEndpoints
         if (!TrySort(sort, new Dictionary<string, AuditDataQuestionSort>(StringComparer.Ordinal) { ["createdAt"] = AuditDataQuestionSort.CreatedAt, ["questionText"] = AuditDataQuestionSort.QuestionText, ["answeredAt"] = AuditDataQuestionSort.AnsweredAt }, AuditDataQuestionSort.CreatedAt, out var order, out var invalid)) return invalid!;
         var result = await mediator.Send(new ListAuditDataQuestionsQuery(filter.ToBll(), (page - 1) * pageSize, pageSize, order.Value, order.Descending), ct);
         return result.IsSuccess ? Results.Ok(new AuditDataPageResponse<AuditDataQuestionContract>(result.Value!.Items.Select(AuditDataQuestionContract.From).ToList(), page, pageSize, result.Value.TotalCount)) : ApiProblemDetails.From(result);
+    }
+
+    private static async Task<IResult> ExportCsv(IMediator mediator, AuditCsvExportLevel level, [AsParameters] AuditDataFilterContract filter, CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new ExportAuditDataCsvQuery(level, filter.ToBll()), ct);
+        return result.IsSuccess
+            ? Results.File(result.Value!.Content, "text/csv; charset=utf-8", result.Value.FileName)
+            : ApiProblemDetails.From(result);
     }
 
     private static bool TrySort<T>(string? sort, IReadOnlyDictionary<string, T> allowed, T defaultSort, out (T Value, bool Descending) order, out IResult? invalid)

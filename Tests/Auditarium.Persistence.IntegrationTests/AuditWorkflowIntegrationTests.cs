@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Bll.Abstractions.Persistence;
 using Auditarium.Bll.Features.Audits;
 using Auditarium.Bll.Features.Catalog;
 using Auditarium.Dal;
@@ -181,6 +182,51 @@ public sealed class AuditWorkflowIntegrationTests
         Assert.Equal("AUDIT_DATA.QUERY_ARGUMENT_INVALID", Assert.Single(invalid.Errors).Code);
     }
 
+    [Fact]
+    public async Task Csv_export_uses_shared_data_selection_escapes_values_and_requires_audit_logging()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var actor = new TestActor();
+        var catalog = new CatalogCommandHandler(db, actor);
+        var document = await catalog.Handle(new CreateDocumentCommand(new("Regelwerk, \"Export\"", null, "1.0", null, null, DocumentUsageState.Active, null, null)), CancellationToken.None);
+        var version = await catalog.Handle(new CreateCatalogVersionCommand(document.Value!, null), CancellationToken.None);
+        var element = await catalog.Handle(new AddDocumentElementCommand(version.Value!, null, null, "Element", null), CancellationToken.None);
+        await catalog.Handle(new AddQuestionCommand(element.Value!, "Frage", null, null, null, [6]), CancellationToken.None);
+        Assert.True((await catalog.Handle(new SetCatalogReadyCommand(version.Value!, (await db.CatalogVersions.FindAsync(version.Value))!.ConcurrencyVersion, true), CancellationToken.None)).IsSuccess);
+        var commands = new AuditCommandHandler(db, actor);
+        var unit = await commands.Handle(new CreateAuditUnitCommand(new(null, 6, "Serverraum", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
+        var audit = await commands.Handle(new CreateAuditCommand(new("Audit", null, unit.Value!, version.Value!, null, null)), CancellationToken.None);
+        Assert.True((await commands.Handle(new PublishAuditCommand(audit.Value!), CancellationToken.None)).IsSuccess);
+        var storedQuestion = Assert.Single(db.AuditQuestions);
+        storedQuestion.Result = AuditQuestionResult.No;
+        storedQuestion.Comment = "Zeile 1\nZeile, \"2\"";
+        storedQuestion.AnsweredAt = DateTimeOffset.UtcNow;
+        storedQuestion.AnsweredBy = 0;
+        await db.SaveChangesAsync();
+
+        var events = new RecordingAuditEvents();
+        var export = new AuditDataQueryHandler(db, events);
+        foreach (var level in Enum.GetValues<AuditCsvExportLevel>())
+        {
+            var result = await export.Handle(new ExportAuditDataCsvQuery(level, new AuditDataFilter(DocumentId: document.Value)), CancellationToken.None);
+            Assert.True(result.IsSuccess);
+            var csv = System.Text.Encoding.UTF8.GetString(result.Value!.Content);
+            Assert.StartsWith("\uFEFF", csv);
+            Assert.Contains("\"Regelwerk, \"\"Export\"\"\"", csv);
+            if (level == AuditCsvExportLevel.Questions) Assert.Contains("\"Zeile 1\nZeile, \"\"2\"\"\"", csv);
+        }
+        Assert.Equal(3, events.Events.Count);
+        Assert.All(events.Events, auditEvent => Assert.Equal("EXPORTED", auditEvent.Action));
+
+        var failed = new AuditDataQueryHandler(db, new FailingAuditEvents());
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await failed.Handle(new ExportAuditDataCsvQuery(AuditCsvExportLevel.Audits, new()), CancellationToken.None));
+    }
+
     private static ServiceProvider CreateProvider(string connectionString)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Auditarium:Database:Provider"] = "PostgreSQL", ["Auditarium:Database:ConnectionString"] = connectionString, ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180" }).Build();
@@ -188,4 +234,13 @@ public sealed class AuditWorkflowIntegrationTests
     }
 
     private sealed class TestActor : ICurrentActor { public ActorType Type => ActorType.System; public long? UserId => 0; public bool IsAuthenticated => true; }
+    private sealed class RecordingAuditEvents : IAuditEventWriter
+    {
+        public List<AuditEvent> Events { get; } = [];
+        public Task WriteAsync(AuditEvent eventData, CancellationToken cancellationToken = default) { Events.Add(eventData); return Task.CompletedTask; }
+    }
+    private sealed class FailingAuditEvents : IAuditEventWriter
+    {
+        public Task WriteAsync(AuditEvent eventData, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Audit log unavailable");
+    }
 }

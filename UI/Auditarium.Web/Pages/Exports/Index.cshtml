@@ -1,0 +1,23 @@
+@page "/exports"
+@model Auditarium.Web.Pages.Exports.IndexModel
+@{ ViewData["Title"] = "CSV-Export"; }
+<h1>CSV-Export</h1>
+<p>Exportiert die ausgewählte Auditdatenebene als UTF-8-CSV. Alle Filter sind optional.</p>
+<form method="post">
+    <div asp-validation-summary="ModelOnly"></div>
+    <fieldset>
+        <legend>Datenebene</legend>
+        @foreach (var level in Enum.GetValues<Auditarium.Bll.Features.Audits.AuditCsvExportLevel>())
+        {
+            <label><input asp-for="Input.Level" type="radio" value="@level" /> @level</label>
+        }
+    </fieldset>
+    <label asp-for="Input.CreatedFrom">Erstellt ab</label><input asp-for="Input.CreatedFrom" type="datetime-local" />
+    <label asp-for="Input.CreatedTo">Erstellt bis</label><input asp-for="Input.CreatedTo" type="datetime-local" />
+    <label asp-for="Input.ScopeTypeId">Scope-Type-ID</label><input asp-for="Input.ScopeTypeId" />
+    <label asp-for="Input.AuditUnitId">Audit-Unit-ID</label><input asp-for="Input.AuditUnitId" />
+    <label asp-for="Input.DocumentId">Dokument-ID</label><input asp-for="Input.DocumentId" />
+    <label asp-for="Input.CatalogVersionId">Katalogversions-ID</label><input asp-for="Input.CatalogVersionId" />
+    <label asp-for="Input.AuditState">Audit-Zustand</label><select asp-for="Input.AuditState" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditState>()"><option value="">Alle</option></select>
+    <button type="submit">CSV herunterladen</button>
+</form>
