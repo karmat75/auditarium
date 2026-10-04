@@ -28,26 +28,26 @@ public sealed class IndexModel(IMediator mediator) : PageModel
         switch (View)
         {
             case AnalysisView.Audits:
-            {
-                var audits = await mediator.Send(new ListAuditDataAuditsQuery(filter, skip, PageSize, AuditDataAuditSort.CreatedAt, Descending), ct);
-                if (!audits.IsSuccess) { audits.ApplyTo(ModelState); return Page(); }
-                Audits = audits.Value;
-                break;
-            }
+                {
+                    var audits = await mediator.Send(new ListAuditDataAuditsQuery(filter, skip, PageSize, AuditDataAuditSort.CreatedAt, Descending), ct);
+                    if (!audits.IsSuccess) { audits.ApplyTo(ModelState); return Page(); }
+                    Audits = audits.Value;
+                    break;
+                }
             case AnalysisView.DocumentElements:
-            {
-                var elements = await mediator.Send(new ListAuditDataElementsQuery(filter, skip, PageSize, AuditDataElementSort.Weight, Descending), ct);
-                if (!elements.IsSuccess) { elements.ApplyTo(ModelState); return Page(); }
-                Elements = elements.Value;
-                break;
-            }
+                {
+                    var elements = await mediator.Send(new ListAuditDataElementsQuery(filter, skip, PageSize, AuditDataElementSort.Weight, Descending), ct);
+                    if (!elements.IsSuccess) { elements.ApplyTo(ModelState); return Page(); }
+                    Elements = elements.Value;
+                    break;
+                }
             case AnalysisView.Questions:
-            {
-                var questions = await mediator.Send(new ListAuditDataQuestionsQuery(filter, skip, PageSize, AuditDataQuestionSort.CreatedAt, Descending), ct);
-                if (!questions.IsSuccess) { questions.ApplyTo(ModelState); return Page(); }
-                Questions = questions.Value;
-                break;
-            }
+                {
+                    var questions = await mediator.Send(new ListAuditDataQuestionsQuery(filter, skip, PageSize, AuditDataQuestionSort.CreatedAt, Descending), ct);
+                    if (!questions.IsSuccess) { questions.ApplyTo(ModelState); return Page(); }
+                    Questions = questions.Value;
+                    break;
+                }
         }
 
         return Page();
