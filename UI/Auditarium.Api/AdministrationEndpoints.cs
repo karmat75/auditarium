@@ -55,7 +55,7 @@ public static class AdministrationEndpoints
 
         var jobs = routes.MapGroup("/api/v1/jobs").RequireAuthorization().WithTags("Administration - Jobs");
         jobs.MapGet("/", ListJobs).WithName("ListJobs").WithSummary("Lists operational state for known jobs.").Produces<IReadOnlyList<JobOperationsItem>>().Produces<ProblemDetails>(403);
-        jobs.MapPost("/{jobKey}/trigger", TriggerJob).WithName("TriggerJob").WithSummary("Requests a permitted manual job trigger.").Produces(202).Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(404).Produces<ProblemDetails>(409);
+        jobs.MapPost("/{jobKey}/run", TriggerJob).WithName("RunJob").WithSummary("Requests a permitted manual job run.").Produces(202).Produces<ProblemDetails>(400).Produces<ProblemDetails>(403).Produces<ProblemDetails>(404).Produces<ProblemDetails>(409);
         return routes;
     }
 
