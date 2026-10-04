@@ -9,6 +9,7 @@ using Auditarium.Bll.Jobs;
 using Auditarium.Bll.Pipeline;
 using Auditarium.Common.Results;
 using Auditarium.Web;
+using Auditarium.Web.Pages.Analysis;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Mediator;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,6 +19,22 @@ namespace Auditarium.Infrastructure.Security.Tests;
 
 public sealed class PresentationFoundationTests
 {
+    [Fact]
+    public void Analysis_filter_uses_the_shared_bll_filter_contract()
+    {
+        var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var input = new AnalysisFilterInputModel { CreatedFrom = from, ScopeTypeId = 2, AuditUnitId = 3, DocumentId = 4, CatalogVersionId = 5, AuditState = Auditarium.Models.Catalog.AuditState.Finalized };
+
+        var filter = input.ToBllFilter();
+
+        Assert.Equal(from, filter.CreatedFrom);
+        Assert.Equal(2, filter.ScopeTypeId);
+        Assert.Equal(3, filter.AuditUnitId);
+        Assert.Equal(4, filter.DocumentId);
+        Assert.Equal(5, filter.CatalogVersionId);
+        Assert.Equal(Auditarium.Models.Catalog.AuditState.Finalized, filter.AuditState);
+    }
+
     [Fact]
     public void Every_mediator_request_has_exactly_one_security_declaration()
     {

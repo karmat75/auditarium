@@ -1,0 +1,48 @@
+@page "/analysis"
+@model Auditarium.Web.Pages.Analysis.IndexModel
+@{ ViewData["Title"] = "Auswertung"; }
+<h1>Auswertung</h1>
+<p>Gewichtungen dienen der Priorisierung von Dokumentelementen. Es wird kein Gesamtscore gebildet.</p>
+<nav class="subnav" aria-label="Auswertungsansichten">
+    <a asp-page="Index" asp-route-View="Audits">Audits</a>
+    <a asp-page="Index" asp-route-View="DocumentElements">Document Elements</a>
+    <a asp-page="Index" asp-route-View="Questions">Audit Questions</a>
+    <a asp-page="Timeline">Zeitleiste</a>
+</nav>
+<form method="get" class="filter-form">
+    <input asp-for="View" type="hidden" />
+    <label asp-for="Filter.CreatedFrom">Zeitraum ab</label><input asp-for="Filter.CreatedFrom" type="datetime-local" />
+    <label asp-for="Filter.CreatedTo">Zeitraum bis</label><input asp-for="Filter.CreatedTo" type="datetime-local" />
+    <label asp-for="Filter.ScopeTypeId">Scope-Type-ID</label><input asp-for="Filter.ScopeTypeId" />
+    <label asp-for="Filter.AuditUnitId">Audit-Unit-ID</label><input asp-for="Filter.AuditUnitId" />
+    <label asp-for="Filter.DocumentId">Dokument-ID</label><input asp-for="Filter.DocumentId" />
+    <label asp-for="Filter.CatalogVersionId">Katalogversions-ID</label><input asp-for="Filter.CatalogVersionId" />
+    <label asp-for="Filter.AuditState">Audit-Zustand</label><select asp-for="Filter.AuditState" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditState>()"><option value="">Alle</option></select>
+    <label><input asp-for="Descending" type="checkbox" /> Absteigend sortieren</label>
+    <button type="submit">Filtern</button>
+</form>
+<div asp-validation-summary="ModelOnly"></div>
+@if (Model.Audits is not null)
+{
+    <h2>Audits</h2>
+    <table><thead><tr><th>Name</th><th>Audit Unit</th><th>Scope Type</th><th>Dokument</th><th>Katalogversion</th><th>Zustand</th><th>Erstellt</th></tr></thead><tbody>
+    @foreach (var row in Model.Audits.Items) { <tr><td>@row.Audit.AuditName</td><td>@row.Audit.AuditUnitName</td><td>@row.Audit.ScopeTypeName</td><td>@row.Audit.DocumentTitle</td><td>@row.Audit.CatalogVersionNumber</td><td>@row.Audit.AuditState</td><td>@row.Audit.CreatedAt.LocalDateTime</td></tr> }
+    </tbody></table>
+    <partial name="_Pagination" model="new Auditarium.Web.Pages.Analysis.AnalysisPagination(Model.PageNumber, Model.PageSize, Model.Audits.TotalCount, Auditarium.Web.Pages.Analysis.AnalysisRoutes.For(Model.Filter, Model.View, Model.Descending))" />
+}
+@if (Model.Elements is not null)
+{
+    <h2>Prüfbare Document Elements</h2>
+    <table><thead><tr><th>Element</th><th>Gewichtung (Priorität)</th><th>Ergebnis</th><th>Audit</th><th>Audit Unit</th><th>Dokument</th><th>Katalogversion</th></tr></thead><tbody>
+    @foreach (var row in Model.Elements.Items) { <tr><td>@row.ElementTitle</td><td>@row.WeightSnapshot</td><td>@(row.Result?.ToString() ?? "Unbeantwortet")</td><td>@row.Audit.AuditName</td><td>@row.Audit.AuditUnitName</td><td>@row.Audit.DocumentTitle</td><td>@row.Audit.CatalogVersionNumber</td></tr> }
+    </tbody></table>
+    <partial name="_Pagination" model="new Auditarium.Web.Pages.Analysis.AnalysisPagination(Model.PageNumber, Model.PageSize, Model.Elements.TotalCount, Auditarium.Web.Pages.Analysis.AnalysisRoutes.For(Model.Filter, Model.View, Model.Descending))" />
+}
+@if (Model.Questions is not null)
+{
+    <h2>Audit Questions</h2>
+    <table><thead><tr><th>Frage</th><th>Antwort</th><th>Gewichtung (Priorität)</th><th>Audit</th><th>Audit Unit</th><th>Dokument</th><th>Beantwortet</th></tr></thead><tbody>
+    @foreach (var row in Model.Questions.Items) { <tr><td>@row.QuestionText</td><td>@(row.Result?.ToString() ?? "Unbeantwortet")</td><td>@row.WeightSnapshot</td><td>@row.Audit.AuditName</td><td>@row.Audit.AuditUnitName</td><td>@row.Audit.DocumentTitle</td><td>@row.AnsweredAt?.LocalDateTime</td></tr> }
+    </tbody></table>
+    <partial name="_Pagination" model="new Auditarium.Web.Pages.Analysis.AnalysisPagination(Model.PageNumber, Model.PageSize, Model.Questions.TotalCount, Auditarium.Web.Pages.Analysis.AnalysisRoutes.For(Model.Filter, Model.View, Model.Descending))" />
+}

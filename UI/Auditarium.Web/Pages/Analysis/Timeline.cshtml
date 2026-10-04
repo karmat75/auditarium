@@ -1,0 +1,32 @@
+@page "/analysis/timeline"
+@model Auditarium.Web.Pages.Analysis.TimelineModel
+@{ ViewData["Title"] = "Audit-Zeitleiste"; }
+<h1>Audit-Zeitleiste</h1>
+<p>Audits werden nach Erstellungszeitpunkt dargestellt. Die Gruppierung dient der Orientierung und schließt keine Kombinationen aus.</p>
+<nav class="subnav" aria-label="Auswertungsansichten"><a asp-page="Index">Tabellenansichten</a></nav>
+<form method="get" class="filter-form">
+    <label asp-for="Filter.CreatedFrom">Zeitraum ab</label><input asp-for="Filter.CreatedFrom" type="datetime-local" />
+    <label asp-for="Filter.CreatedTo">Zeitraum bis</label><input asp-for="Filter.CreatedTo" type="datetime-local" />
+    <label asp-for="Filter.ScopeTypeId">Scope-Type-ID</label><input asp-for="Filter.ScopeTypeId" />
+    <label asp-for="Filter.AuditUnitId">Audit-Unit-ID</label><input asp-for="Filter.AuditUnitId" />
+    <label asp-for="Filter.DocumentId">Dokument-ID</label><input asp-for="Filter.DocumentId" />
+    <label asp-for="Filter.CatalogVersionId">Katalogversions-ID</label><input asp-for="Filter.CatalogVersionId" />
+    <label asp-for="Filter.AuditState">Audit-Zustand</label><select asp-for="Filter.AuditState" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditState>()"><option value="">Alle</option></select>
+    <label asp-for="GroupBy">Gruppieren nach</label><select asp-for="GroupBy" asp-items="Html.GetEnumSelectList<Auditarium.Web.Pages.Analysis.TimelineGroup>()"></select>
+    <button type="submit">Zeitleiste anzeigen</button>
+</form>
+<div asp-validation-summary="ModelOnly"></div>
+@if (Model.Audits is not null)
+{
+    var lanes = Model.Audits.Items.GroupBy(Model.GroupLabel).OrderBy(group => group.Key);
+    <section class="timeline" aria-label="Audits nach Zeitraum und Gruppierung">
+        @foreach (var lane in lanes)
+        {
+            <section class="timeline-lane"><h2>@lane.Key</h2><ol>
+            @foreach (var row in lane.OrderBy(audit => audit.Audit.CreatedAt))
+            { <li><time datetime="@row.Audit.CreatedAt.ToString("O")">@row.Audit.CreatedAt.LocalDateTime</time><strong>@row.Audit.AuditName</strong><span>@row.Audit.AuditState · @row.Audit.DocumentTitle · Katalogversion @row.Audit.CatalogVersionNumber</span></li> }
+            </ol></section>
+        }
+    </section>
+    <partial name="_Pagination" model="new Auditarium.Web.Pages.Analysis.AnalysisPagination(Model.PageNumber, Model.PageSize, Model.Audits.TotalCount, Auditarium.Web.Pages.Analysis.AnalysisRoutes.For(Model.Filter, groupBy: Model.GroupBy))" />
+}

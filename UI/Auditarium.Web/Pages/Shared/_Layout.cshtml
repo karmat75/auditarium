@@ -22,6 +22,7 @@
             {
                 <nav>
                     @if (permissions.Contains("Audits.Read")) { <a asp-page="/Audits/Index">Audits</a> }
+                    @if (permissions.Contains("Audits.Evaluate")) { <a asp-page="/Analysis/Index">Auswertung</a> }
                     @if (permissions.Contains("Reports.Export")) { <a asp-page="/Exports/Index">CSV-Export</a> }
                     @if (permissions.Contains("AuditUnits.Manage")) { <a asp-page="/AuditUnits/Index">Audit Units</a> }
                     @if (permissions.Contains("Documents.Manage")) { <a asp-page="/Documents/Index">Regelwerke</a> }

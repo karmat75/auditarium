@@ -1,0 +1,11 @@
+@model Auditarium.Web.Pages.Analysis.AnalysisPagination
+@if (Model.TotalCount > Model.PageSize)
+{
+    var previous = Model.PageNumber - 1;
+    var next = Model.PageNumber + 1;
+    <nav class="pagination" aria-label="Seitennavigation">
+        @if (previous > 0) { <a asp-all-route-data="Model.RouteValues" asp-route-PageNumber="@previous">Vorherige Seite</a> }
+        <span>Seite @Model.PageNumber von @Model.PageCount</span>
+        @if (next <= Model.PageCount) { <a asp-all-route-data="Model.RouteValues" asp-route-PageNumber="@next">Nächste Seite</a> }
+    </nav>
+}
