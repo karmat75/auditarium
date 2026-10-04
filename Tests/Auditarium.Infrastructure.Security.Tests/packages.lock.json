@@ -313,6 +313,7 @@
           "Auditarium.Infrastructure.Ldap": "[1.0.0, )",
           "Auditarium.Infrastructure.Security": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.12, )",
+          "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[10.0.12, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.18.0, )",
           "OpenTelemetry.Exporter.Prometheus.AspNetCore": "[1.18.0-beta.1, )",
           "OpenTelemetry.Extensions.Hosting": "[1.18.0, )",
@@ -394,6 +395,7 @@
           "Auditarium.Fal": "[1.0.0, )",
           "Auditarium.Infrastructure.Ldap": "[1.0.0, )",
           "Auditarium.Infrastructure.Security": "[1.0.0, )",
+          "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[10.0.12, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.18.0, )",
           "OpenTelemetry.Exporter.Prometheus.AspNetCore": "[1.18.0-beta.1, )",
           "OpenTelemetry.Extensions.Hosting": "[1.18.0, )",
@@ -454,6 +456,15 @@
         "contentHash": "Wt/JUrctpOPfv3DNcZ6oKeg+FouanIXnrLfB8WN8DdMoqS/bxi9yPrwTKIEFB32qcKTUb5i9AVTCdbQBUid6ZQ==",
         "dependencies": {
           "Microsoft.Data.SqlClient": "6.1.6",
+          "Microsoft.EntityFrameworkCore.Relational": "10.0.12"
+        }
+      },
+      "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "BMG8waDSju79jJGdnOPrFrpqUv9/A+Qbg43WLmqUwMgdN26ozOK5iLXVCdaXgX71TvwEGX3HWCAGy711vGAl2Q==",
+        "dependencies": {
           "Microsoft.EntityFrameworkCore.Relational": "10.0.12"
         }
       },

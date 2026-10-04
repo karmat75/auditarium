@@ -6,6 +6,7 @@ using Auditarium.Infrastructure.Ldap;
 using Auditarium.Fal;
 using Microsoft.AspNetCore.Mvc;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -24,11 +25,17 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.ConfigureFilter(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddAntiforgery();
 builder.Services.AddHealthChecks()
-    .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"]);
+    .AddCheck("startup", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: ["ready"])
+    .AddDbContextCheck<AuditariumDbContext>("database", tags: ["ready"]);
 builder.Services.AddProblemDetails();
 var otlpEndpointText = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];
 var otlpEnabled = builder.Configuration.GetValue<bool>("OpenTelemetry:Enabled") &&
     Uri.TryCreate(otlpEndpointText, UriKind.Absolute, out _);
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.IncludeScopes = true;
+    if (otlpEnabled) logging.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpointText!, UriKind.Absolute));
+});
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(builder.Configuration["OpenTelemetry:ServiceName"] ?? "Auditarium"))
     .WithTracing(tracing =>

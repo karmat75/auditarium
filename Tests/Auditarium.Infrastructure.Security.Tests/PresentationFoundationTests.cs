@@ -78,6 +78,49 @@ public sealed class PresentationFoundationTests
         Assert.Equal("ACCESS_DENIED", Assert.Single(events.Events).Action);
     }
 
+    [Fact]
+    public async Task Runtime_default_deny_rejects_a_request_without_security_declaration()
+    {
+        var events = new RecordingAuditEvents();
+        var behavior = new AuthorizationBehavior<UndeclaredProbeRequest, Result>(
+            new StubCurrentActor(), new StubPermissionEvaluator(new HashSet<string>(StringComparer.Ordinal)), events,
+            NullLogger<AuthorizationBehavior<UndeclaredProbeRequest, Result>>.Instance);
+        var handlerCalled = false;
+
+        var result = await behavior.Handle(new UndeclaredProbeRequest(), (_, _) =>
+        {
+            handlerCalled = true;
+            return ValueTask.FromResult(Result.Success());
+        }, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("AUTHORIZATION.SECURITY_DECLARATION_REQUIRED", Assert.Single(result.Errors).Code);
+        Assert.False(handlerCalled);
+        Assert.Equal("ACCESS_DENIED", Assert.Single(events.Events).Action);
+    }
+
+    [Fact]
+    public async Task Forced_password_change_blocks_normal_requests_even_when_permission_exists()
+    {
+        var events = new RecordingAuditEvents();
+        var behavior = new AuthorizationBehavior<ProtectedProbeRequest, Result>(
+            new StubCurrentActor(mustChangePassword: true),
+            new StubPermissionEvaluator(new HashSet<string>(["Users.Manage"], StringComparer.Ordinal)),
+            events,
+            NullLogger<AuthorizationBehavior<ProtectedProbeRequest, Result>>.Instance);
+        var handlerCalled = false;
+
+        var result = await behavior.Handle(new ProtectedProbeRequest(), (_, _) =>
+        {
+            handlerCalled = true;
+            return ValueTask.FromResult(Result.Success());
+        }, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("AUTHENTICATION.PASSWORD_CHANGE_REQUIRED", Assert.Single(result.Errors).Code);
+        Assert.False(handlerCalled);
+    }
+
     [Theory]
     [InlineData(ErrorType.Validation, 400)]
     [InlineData(ErrorType.Unauthorized, 401)]
@@ -147,6 +190,40 @@ public sealed class PresentationFoundationTests
         Assert.False(result.IsSuccess);
         Assert.Equal(new AppError("AUTHENTICATION.FAILED", ErrorType.Unauthorized), Assert.Single(result.Errors));
         Assert.Equal(new AuditEvent("LOGIN_FAILED", "Authentication"), Assert.Single(events.Events));
+    }
+
+    [Fact]
+    public async Task Successful_login_is_not_returned_when_required_event_logging_fails()
+    {
+        var handler = new AuthenticateInteractiveUserCommandHandler(
+            new StubRouter("LOCAL"),
+            new StubLocalAuthentication(new AuthenticationSuccess(42, false)),
+            new StubLdapAuthentication(),
+            new ThrowingAuditEvents());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await handler.Handle(new AuthenticateInteractiveUserCommand("alice", "secret", null), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Audit_logging_failure_cannot_turn_denied_access_into_success()
+    {
+        var behavior = new AuthorizationBehavior<ProtectedProbeRequest, Result>(
+            new StubCurrentActor(),
+            new StubPermissionEvaluator(new HashSet<string>(StringComparer.Ordinal)),
+            new ThrowingAuditEvents(),
+            NullLogger<AuthorizationBehavior<ProtectedProbeRequest, Result>>.Instance);
+        var handlerCalled = false;
+
+        var result = await behavior.Handle(new ProtectedProbeRequest(), (_, _) =>
+        {
+            handlerCalled = true;
+            return ValueTask.FromResult(Result.Success());
+        }, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("AUTHORIZATION.FORBIDDEN", Assert.Single(result.Errors).Code);
+        Assert.False(handlerCalled);
     }
 
     [Fact]
@@ -224,11 +301,17 @@ public sealed class PresentationFoundationTests
         public Task ValidateConnectionAsync(string providerKey, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class StubCurrentActor : ICurrentActor
+    private sealed record UndeclaredProbeRequest : IRequest<Result>;
+
+    [Auditarium.Bll.Security.RequiresPermission("Users.Manage")]
+    private sealed record ProtectedProbeRequest : IRequest<Result>;
+
+    private sealed class StubCurrentActor(bool mustChangePassword = false) : ICurrentActor
     {
         public ActorType Type => ActorType.User;
         public long? UserId => 42;
         public bool IsAuthenticated => true;
+        public bool MustChangePassword => mustChangePassword;
     }
 
     private sealed class StubPermissionEvaluator(IReadOnlySet<string> permissions) : IPermissionEvaluator
@@ -249,6 +332,12 @@ public sealed class PresentationFoundationTests
             Events.Add(eventData);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class ThrowingAuditEvents : IAuditEventWriter
+    {
+        public Task WriteAsync(AuditEvent eventData, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Injected audit-log write failure.");
     }
 
     private sealed class StubJobRegistry : IJobRegistry

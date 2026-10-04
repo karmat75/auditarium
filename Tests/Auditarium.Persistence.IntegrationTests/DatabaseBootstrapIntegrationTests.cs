@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Dal;
+using Auditarium.Bll.Abstractions.Identity;
+using Auditarium.Bll.Abstractions.Security;
 using Auditarium.Bll.Settings;
 using System.Data.Common;
 using Xunit;
@@ -82,6 +84,22 @@ public sealed class DatabaseBootstrapIntegrationTests
     }
 
     [Fact]
+    public async Task PostgreSql_bootstrap_failure_rolls_back_and_lock_timeout_blocks_startup()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await VerifyBootstrapFailureAndTimeoutAsync("PostgreSQL", container.GetConnectionString());
+    }
+
+    [Fact]
+    public async Task SqlServer_bootstrap_failure_rolls_back_and_lock_timeout_blocks_startup()
+    {
+        await using var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+        await container.StartAsync();
+        await VerifyBootstrapFailureAndTimeoutAsync("SqlServer", container.GetConnectionString());
+    }
+
+    [Fact]
     public async Task PostgreSql_newer_database_schema_blocks_startup()
     {
         await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
@@ -131,6 +149,7 @@ public sealed class DatabaseBootstrapIntegrationTests
             Assert.Null(credential.LockoutUntil);
             Assert.Equal(hash, credential.PasswordHash);
             Assert.True(credential.MustChangePassword);
+            await VerifyRecoveredCredentialLifecycleAsync(scope.ServiceProvider, db, admin, recoveryPassword);
         }
     }
 
@@ -168,7 +187,34 @@ public sealed class DatabaseBootstrapIntegrationTests
             Assert.Null(credential.LockoutUntil);
             Assert.Equal(hash, credential.PasswordHash);
             Assert.True(credential.MustChangePassword);
+            await VerifyRecoveredCredentialLifecycleAsync(scope.ServiceProvider, db, admin, recoveryPassword);
         }
+    }
+
+    private static async Task VerifyRecoveredCredentialLifecycleAsync(
+        IServiceProvider services,
+        AuditariumDbContext db,
+        Auditarium.Models.Identity.User administrator,
+        string recoveryPassword)
+    {
+        var authentication = services.GetRequiredService<ILocalAuthenticationService>();
+        var authenticated = await authentication.AuthenticateAsync(new AuthenticationAttempt(administrator.Username, recoveryPassword));
+        Assert.NotNull(authenticated);
+        Assert.True(authenticated.MustChangePassword);
+
+        const string permanentPassword = "Recovered-Administrator-Passphrase-2026!";
+        Assert.Equal(LocalPasswordChangeStatus.Success,
+            await authentication.ChangePasswordAsync(administrator.UserId, recoveryPassword, permanentPassword));
+        var normalLogin = await authentication.AuthenticateAsync(new AuthenticationAttempt(administrator.Username, permanentPassword));
+        Assert.NotNull(normalLogin);
+        Assert.False(normalLogin.MustChangePassword);
+
+        await db.Entry(administrator).ReloadAsync();
+        administrator.IsActive = false;
+        await db.SaveChangesAsync();
+        Assert.Equal(LocalPasswordChangeStatus.InvalidCredential,
+            await authentication.ChangePasswordAsync(administrator.UserId, permanentPassword, "Another-Administrator-Passphrase-2026!"));
+        Assert.Empty(await services.GetRequiredService<IPermissionEvaluator>().GetPermissionsAsync(administrator.UserId));
     }
 
     private static async Task VerifyFreshInstallationAsync(string provider, string connectionString)
@@ -222,6 +268,35 @@ public sealed class DatabaseBootstrapIntegrationTests
         await waiting.InitializeAuditariumDatabaseAsync();
     }
 
+    private static async Task VerifyBootstrapFailureAndTimeoutAsync(string provider, string connectionString)
+    {
+        await using var services = CreateServiceProvider(provider, connectionString);
+        await services.InitializeAuditariumDatabaseAsync();
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var system = await db.Users.SingleAsync(user => user.UserKey == "SYSTEM");
+        var local = await db.AuthenticationProviders.SingleAsync(authenticationProvider => authenticationProvider.ProviderKey == "LOCAL");
+        system.Username = "tampered-system";
+        local.ProviderType = "BROKEN";
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => services.InitializeAuditariumDatabaseAsync());
+        db.ChangeTracker.Clear();
+        Assert.Equal("tampered-system", (await db.Users.SingleAsync(user => user.UserKey == "SYSTEM")).Username);
+        local = await db.AuthenticationProviders.SingleAsync(authenticationProvider => authenticationProvider.ProviderKey == "LOCAL");
+        Assert.Equal("BROKEN", local.ProviderType);
+
+        local.ProviderType = "LOCAL";
+        await db.SaveChangesAsync();
+        await services.InitializeAuditariumDatabaseAsync();
+
+        var heldLock = await AcquireBootstrapLockAsync(db, provider);
+        await using var waiting = CreateServiceProvider(provider, connectionString, bootstrapTimeoutSeconds: 1);
+        await Assert.ThrowsAsync<TimeoutException>(() => waiting.InitializeAuditariumDatabaseAsync());
+        await heldLock.CloseAsync();
+        await waiting.InitializeAuditariumDatabaseAsync();
+    }
+
     private static async Task<DbConnection> AcquireBootstrapLockAsync(AuditariumDbContext db, string provider)
     {
         var connection = db.Database.GetDbConnection();
@@ -258,13 +333,13 @@ public sealed class DatabaseBootstrapIntegrationTests
         Assert.Equal("DATABASE_SCHEMA_NEWER_THAN_APPLICATION", exception.Message);
     }
 
-    private static ServiceProvider CreateServiceProvider(string provider, string connectionString, string? recoveryPassword = null)
+    private static ServiceProvider CreateServiceProvider(string provider, string connectionString, string? recoveryPassword = null, int bootstrapTimeoutSeconds = 180)
     {
         var values = new Dictionary<string, string?>
         {
             ["Auditarium:Database:Provider"] = provider,
             ["Auditarium:Database:ConnectionString"] = connectionString,
-            ["Auditarium:Database:BootstrapTimeoutSeconds"] = "180"
+            ["Auditarium:Database:BootstrapTimeoutSeconds"] = bootstrapTimeoutSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
         };
         if (recoveryPassword is not null)
         {
@@ -274,7 +349,14 @@ public sealed class DatabaseBootstrapIntegrationTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<ISecretProtector, TestSecretProtector>();
         services.AddAuditariumPersistence(configuration);
         return services.BuildServiceProvider();
+    }
+
+    private sealed class TestSecretProtector : ISecretProtector
+    {
+        public string Protect(string plaintext, string purpose) => plaintext;
+        public string Unprotect(string protectedValue, string purpose) => protectedValue;
     }
 }

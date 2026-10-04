@@ -312,7 +312,7 @@ public sealed class JobCoordinator(
         catch (Exception exception)
         {
             logger.LogError(exception, "Job {JobKey} failed unexpectedly.", jobKey);
-            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, exception.Message);
+            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error);
         }
         finally
         {
