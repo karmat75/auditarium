@@ -1,7 +1,7 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.117
-**Stand:** 21.09.2026
+**Version:** 0.118
+**Stand:** 05.10.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
 **Sub-Titel:** *Structured audits. Traceable results.*
@@ -9960,13 +9960,39 @@ Auditarium soll Nutzer beim strukturierten Audit unterstützen, nicht sie an ein
 
 Auditarium ist ein administratives Arbeitswerkzeug und keine Dashboard-Spielwiese.
 
-Die Oberfläche orientiert sich visuell an klassischen Admin-Templates wie **Notika** und **Adminator**, ohne eines dieser Templates als verpflichtende technische oder architektonische Grundlage festzuschreiben.
+Die Oberfläche orientiert sich visuell an **Adminator** und **Patchmon**. Beide dienen ausschließlich als Referenz für Informationsdichte, Flächenhierarchie, Ruhe, Klarheit und den visuellen Charakter des Dark Mode.
 
 Grundsatz:
 
-> **Notika und Adminator dienen als visuelle Referenz, nicht als Architektur- oder Framework-Abhängigkeit.**
+> **Adminator und Patchmon sind visuelle Referenzen. Sie definieren weder eine technische Abhängigkeit noch eine pixelgenaue Zielvorgabe. Auditarium entwickelt daraus ein eigenständiges Erscheinungsbild.**
 
-Falls später konkrete Assets, Styles, Komponenten oder Quellcode aus Drittanbieter-Templates übernommen werden, müssen Lizenz- und Attribution-Pflichten im bestehenden `THIRD-PARTY-NOTICES.md` berücksichtigt werden.
+Die technische UI-Basis besteht verbindlich aus **Bootstrap 5.3+** und **AdminLTE 4**. Bootstrap und AdminLTE sind bewusste Vendor-Abhängigkeiten; Auditarium verwendet ihre öffentlichen Komponenten, Klassen und Erweiterungspunkte, verändert jedoch niemals deren Quellcode.
+
+Die Schichtung lautet:
+
+```text
+Bootstrap 5.3+
+    ↓
+AdminLTE 4
+    ↓
+Auditarium Theme Layer
+    ↓
+Auditarium Razor Pages
+```
+
+Für diese Schichtung gilt:
+
+- keine .NET-/Razor-Wrapperbibliothek für AdminLTE,
+- keine zusätzliche SPA- oder JavaScript-Framework-Abstraktion,
+- wiederkehrendes Auditarium-Markup darf bei echtem Wiederverwendungsbedarf in eigenen Partials, View Components oder Tag Helpers gekapselt werden,
+- Auditarium-spezifische Styles und Skripte bleiben klar von Vendor-Dateien getrennt,
+- Anpassungen verwenden bevorzugt dokumentierte Bootstrap-/AdminLTE-Erweiterungspunkte, CSS Custom Properties und öffentliche Komponentenklassen,
+- `!important` ist eine begründete Ausnahme und keine reguläre Gestaltungsmethode,
+- Plugins aus AdminLTE-Demos werden nur übernommen, wenn ein konkreter Auditarium-Anwendungsfall sie erfordert.
+
+Zukunftssicherheit bedeutet nicht, Bootstrap oder AdminLTE künstlich hinter einer eigenen vollständigen UI-Abstraktionsschicht austauschbar zu machen. Ziel ist vielmehr, die öffentlichen Vendor-Verträge so sauber zu verwenden, dass Major-Upgrades kontrollierte UI-Arbeit bleiben und kein Reverse Engineering eigener Altanpassungen erfordern.
+
+Falls konkrete Assets, Styles, Komponenten oder Quellcode aus Drittanbieterprojekten übernommen werden, müssen Lizenz- und Attribution-Pflichten im bestehenden `THIRD-PARTY-NOTICES.md` berücksichtigt werden.
 
 ### Grundcharakter
 
@@ -9978,10 +10004,20 @@ funktional
 konsistent
 klar strukturiert
 hinreichend informationsdicht
+luftig, ohne unnötige Leerräume zu erzeugen
+mit zurückhaltenden Borders und Shadows
+mit klarer typografischer Hierarchie
+mit sparsamen Akzentfarben
 ohne unnötige Dekoration
 ```
 
 sein.
+
+Grundsatz:
+
+> **Auditarium ist ein Arbeitswerkzeug, kein Dashboard-Spielzeug.**
+
+AdminLTE liefert Mechanik und wiederverwendbare Komponenten. Der Auditarium Theme Layer bestimmt den visuellen Charakter.
 
 Nicht vorgesehen sind:
 
@@ -9994,6 +10030,43 @@ unnötige Cards
 ```
 
 Die bereits definierte Split-Flap-/Airport-Board-Idee für die öffentliche bzw. initiale Startseite darf als bewusstes Marken-/Charakterelement bestehen bleiben. Innerhalb der eigentlichen Arbeitsoberfläche gilt dagegen funktionale Zurückhaltung.
+
+### Theme und Color Modes
+
+Auditarium unterstützt drei Darstellungsmodi:
+
+```text
+DARK
+LIGHT
+SYSTEM
+```
+
+Dabei gilt:
+
+- `DARK` ist das primäre visuelle Theme und der Default.
+- `LIGHT` wird vollständig unterstützt und verwendet dieselben Komponenten und Seitenstrukturen.
+- `SYSTEM` folgt der Browser-/Betriebssystempräferenz über `prefers-color-scheme`.
+- Die technische Umschaltung verwendet die native Bootstrap-Color-Mode-Mechanik mit `data-bs-theme`; es werden keine zwei voneinander unabhängigen CSS-Systeme gepflegt.
+- Die Auswahl wird für den initialen Stand clientseitig persistiert. Eine serverseitig synchronisierte Benutzerpräferenz ist eine mögliche spätere Erweiterung und nicht Voraussetzung der initialen UI-Modernisierung.
+- Das aktive Theme soll vor dem sichtbaren Seitenaufbau möglichst früh gesetzt werden, damit beim Laden kein vermeidbarer Wechsel vom Default-Theme zum gespeicherten Theme sichtbar aufblitzt.
+
+Dark Mode bedeutet nicht, große Flächen rein schwarz darzustellen. Die visuelle Hierarchie soll durch abgestufte dunkle Flächen, dezente Borders, gut lesbare helle Texte, klar gedämpfte Sekundärtexte und sparsame Akzentfarben entstehen.
+
+Auditarium-spezifische Farben werden semantisch über Theme-Tokens bzw. CSS Custom Properties definiert und nicht seitenweise als unabhängige Farbwerte verteilt.
+
+Mindestens vorzusehen sind semantische Rollen entsprechend:
+
+```text
+--aud-bg-page
+--aud-bg-surface
+--aud-bg-elevated
+--aud-border
+--aud-text
+--aud-text-muted
+--aud-accent
+```
+
+Die konkreten Farbwerte sind Implementierungsdetail des Themes und keine fachliche Produktsemantik.
 
 ### Grundlayout
 
@@ -10118,7 +10191,9 @@ DEPRECATED
 
 Status-Badges dürfen Farbe verwenden, aber Farbe ist niemals die einzige Information.
 
-Text, Symbol oder Label muss die Bedeutung zusätzlich eindeutig ausdrücken.
+Text, Symbol oder Label muss die Bedeutung zusätzlich eindeutig ausdrücken. Dies gilt gleichermaßen für Dark und Light Mode. Eine Darstellung nach dem Muster `Icon + Text + optionales Badge` ist gegenüber rein farbcodierten Zuständen zu bevorzugen.
+
+Statusfarben werden semantisch und zentral im Auditarium Theme Layer gepflegt. Einzelne Pages definieren keine voneinander abweichenden Farben für fachlich identische Zustände.
 
 ### Audit-spezifische Bearbeitung
 
@@ -10191,9 +10266,32 @@ Accessibility ist Bestandteil der normalen UI-Qualität und kein separates optio
 
 Auditarium Web bleibt bei ASP.NET Core Razor Pages.
 
-Die UI soll keine unnötige SPA-/Blazor-/SignalR-Abhängigkeit einführen.
+Die UI verwendet **Bootstrap 5.3+** und **AdminLTE 4** direkt über deren öffentliche HTML-, CSS- und JavaScript-Verträge. Eine spezielle .NET-/Razor-Wrapperbibliothek für AdminLTE wird nicht eingeführt.
 
-Lokales JavaScript ist für kleine UX-Verbesserungen erlaubt, sofern die fachliche Funktion ohne clientseitigen Sonderzustand nachvollziehbar bleibt.
+Die UI soll keine unnötige SPA-/Blazor-/SignalR-Abhängigkeit einführen. Bootstrap-/AdminLTE-JavaScript und kleines eigenes Vanilla JavaScript genügen für den initialen Stand.
+
+#### Lokale Vendor-Assets
+
+Frontend-Vendor-Abhängigkeiten werden als **unveränderte, versionierte offizielle Distributionsartefakte lokal mit Auditarium ausgeliefert**.
+
+Dafür gilt:
+
+- keine CDN-Abhängigkeit,
+- keine Internet-Abhängigkeit zur Laufzeit,
+- keine Internet-Abhängigkeit für einen normalen Deployment-Start,
+- Vendor-Dateien liegen klar getrennt von Auditarium-eigenen Assets, beispielsweise unter einem dedizierten `wwwroot/vendor/`-Bereich,
+- Version, Bezugsquelle und Lizenz der übernommenen Vendor-Artefakte werden im Repository dokumentiert,
+- Vendor-Dateien werden nicht lokal gepatcht,
+- Auditarium-spezifische Änderungen erfolgen ausschließlich in eigenen Theme-, CSS- und JavaScript-Dateien,
+- eine Node.js-/npm-/Vite-/Sass-basierte Frontend-Buildpipeline ist für den initialen Stand **keine** Voraussetzung.
+
+Die lokale Aufnahme fertiger Release-Artefakte ist eine bewusste Deployment- und Betriebsentscheidung, kein Fork der jeweiligen Projekte.
+
+Eine spätere Frontend-Buildpipeline darf eingeführt werden, wenn sie einen konkreten Wartungs- oder Entwicklungsnutzen bietet. Die jetzige Struktur darf diesen Wechsel nicht unnötig erschweren.
+
+Vendor-Versionen werden bewusst aktualisiert. Ein Upgrade umfasst mindestens die Prüfung von Application Shell, Navigation, Dark-/Light-/System-Themes, Formularen, Tabellen, Statusdarstellungen und den tatsächlich verwendeten JavaScript-Komponenten.
+
+Lokales eigenes JavaScript ist für kleine UX-Verbesserungen erlaubt, sofern die fachliche Funktion ohne versteckten clientseitigen Sonderzustand nachvollziehbar bleibt.
 
 
 ## Web UI
@@ -13334,8 +13432,305 @@ Die vollständige Abnahme von 20.10 bestätigt zusätzlich:
 - UI, Export und API verwenden dieselbe fachliche Datenauswahl und Filtersemantik.
 - PostgreSQL und Microsoft SQL Server bestehen dieselben fachlichen Kern- und Persistenzprüfungen.
 - der Referenzfall aus Kapitel 19 kann vollständig von der manuellen Katalogpflege bis zur finalisierten Erstprüfung und Wiederholung einschließlich CSV-Export und API-Datenzugriff durchlaufen werden.
-- alle Work Packages 20.1 bis 20.10 bilden gemeinsam den initial implementierten Sollstand.
+- alle Work Packages 20.1 bis 20.10 bilden gemeinsam den funktional und technisch implementierten initialen Sollstand; die nachgelagerte UI-Modernisierung aus 20.11 verändert diesen fachlichen Sollumfang nicht.
 - offene Themen aus Kapitel 21 bleiben offen, bis sie bewusst entschieden und in einer späteren Dokumentversion in den normativen Hauptteil übernommen werden.
+
+---
+
+# 20.11 Work Package 11 – UI Foundation & Visual Modernization
+
+Work Package 20.11 modernisiert die vorhandene Razor-Pages-Oberfläche auf die in Kapitel 16 verbindlich festgelegte UI-Basis.
+
+Es führt **keine neue fachliche Produktfunktion** ein.
+
+Grundsatz:
+
+> **Bootstrap 5.3+ und AdminLTE 4 liefern die technische UI-Basis. Der Auditarium Theme Layer erzeugt daraus ein eigenständiges, ruhiges Arbeitswerkzeug mit Dark Mode als primärem Theme.**
+
+Die vorhandenen fachlichen Use Cases, BLL-Regeln, Permissions, API-Verträge und Lifecycle-Regeln bleiben unverändert.
+
+Work Package 20.11 wird in einzeln implementier- und abnehmbare Teilpakete zerlegt. Ein Codex-/Implementierungslauf soll grundsätzlich genau ein `20.11.x`-Teilpaket bearbeiten und nach dessen Abnahme stoppen.
+
+### Scope-Grenze
+
+Nicht Bestandteil von 20.11 sind:
+
+```text
+neue fachliche Use Cases
+Änderungen der BLL-Semantik
+Änderungen bestehender API-Verträge ohne zwingenden technischen Grund
+neue Authentication- oder Authorization-Logik
+SPA-Umbau
+Blazor
+zusätzliches JavaScript-Framework
+AdminLTE-.NET-/Razor-Wrapperbibliothek
+Nachbau oder Fork von Adminator
+Fork oder Patchen von Bootstrap/AdminLTE
+Übernahme nicht benötigter Demo-Plugins
+serverseitige Benutzerpräferenz nur für Theme-Auswahl
+```
+
+Kleinere technische Anpassungen an Razor-Markup, ViewModels oder gemeinsamen UI-Hilfen sind zulässig, soweit sie ausschließlich der Darstellung bereits vorhandener fachlicher Funktionen dienen.
+
+---
+
+### 20.11.1 Vendor Foundation & Theme Architecture
+
+#### Ziel
+
+Die gemeinsame technische Frontend-Basis und die Auditarium-eigene Theme-Schicht reproduzierbar herstellen.
+
+#### Umsetzung
+
+Mindestens umzusetzen:
+
+```text
+Bootstrap 5.3+
+AdminLTE 4
+ggf. unmittelbar erforderliche AdminLTE-Laufzeitabhängigkeiten
+lokal ausgelieferte Vendor-Assets
+Auditarium Theme Layer
+Dark / Light / System Color Modes
+clientseitige Theme-Persistenz
+frühe Theme-Aktivierung ohne vermeidbaren Theme-Flash
+```
+
+Vendor-Artefakte werden aus offiziellen Releases übernommen und unverändert im Repository versioniert.
+
+Für jede übernommene Vendor-Abhängigkeit werden mindestens dokumentiert:
+
+```text
+Produkt
+Version
+Bezugsquelle
+Lizenz
+lokal verändert: nein
+```
+
+Es besteht keine CDN-Abhängigkeit.
+
+Eine Node.js-/npm-/Vite-/Sass-Buildpipeline ist nicht Voraussetzung dieses Teilpakets.
+
+#### Abnahme
+
+- Bootstrap 5.3+ und AdminLTE 4 sind als klar getrennte lokale Vendor-Abhängigkeiten eingebunden.
+- die Anwendung benötigt für die Frontend-Assets zur Laufzeit keine Internetverbindung.
+- Vendor-Versionen, Quellen und Lizenzen sind im Repository nachvollziehbar dokumentiert.
+- Vendor-Dateien wurden nicht verändert.
+- Auditarium-eigene Styles und Skripte liegen außerhalb des Vendor-Bereichs.
+- Dark, Light und System funktionieren über die gemeinsame Color-Mode-Architektur.
+- Dark ist der Default.
+- eine gespeicherte Auswahl wird clientseitig wiederhergestellt.
+- die Theme-Aktivierung erzeugt keinen vermeidbaren sichtbaren Wechsel vom Default- zum gespeicherten Theme.
+- es wurde keine unnötige Frontend-Buildpipeline oder Wrapperbibliothek eingeführt.
+
+---
+
+### 20.11.2 Application Shell & Navigation
+
+#### Ziel
+
+Das vorhandene gemeinsame Razor-Layout auf einen konsistenten AdminLTE-basierten Application Shell migrieren.
+
+#### Umfang
+
+Mindestens zu modernisieren:
+
+```text
+Application Shell
+Sidebar
+einklappbare Hauptnavigation
+Branding
+Header
+Benutzer-/Session-Bereich
+Permission-gesteuerte Navigation
+Seitentitel
+Breadcrumbs, wo sinnvoll
+Content-Fläche
+responsive Grundstruktur
+```
+
+Die vorhandene Navigationssemantik und serverseitige Autorisierung bleiben unverändert.
+
+Die visuelle Gestaltung orientiert sich an Adminator/Patchmon, ohne deren Markup oder Assets zu kopieren.
+
+#### Abnahme
+
+- die gesamte Web-Anwendung verwendet den gemeinsamen neuen Application Shell.
+- Navigation bleibt permission-gesteuert.
+- ausgeblendete Navigation ersetzt weiterhin keine serverseitige Autorisierung.
+- Desktop und Notebook besitzen die volle Arbeitsoberfläche.
+- Tablet bleibt sinnvoll nutzbar.
+- kleine Viewports bleiben grundlegend bedienbar.
+- Dark, Light und System funktionieren im vollständigen Shell.
+- Sidebar, Header und Content-Hierarchie bleiben in beiden Farbmodi klar unterscheidbar.
+- es wurden keine fachlichen Navigations- oder Permission-Regeln verändert.
+
+---
+
+### 20.11.3 Shared Components & Interaction Patterns
+
+#### Ziel
+
+Wiederkehrende Darstellungs- und Interaktionsmuster auf konsistente Bootstrap-/AdminLTE-Komponenten und Auditarium-eigene Wiederverwendungsmuster überführen.
+
+#### Umfang
+
+Mindestens zu vereinheitlichen:
+
+```text
+Cards / Sections
+Tabellen
+Filterbereiche
+Formulare
+Buttons und Aktionsbereiche
+Validation
+Alerts / Meldungen
+Statusdarstellungen
+Pagination
+Empty States
+Bestätigungen
+Read-only-Zustände
+Focus / Hover / Disabled States
+```
+
+Wiederkehrendes Markup darf in eigenen Partials, View Components oder Tag Helpers gekapselt werden, wenn dadurch reale Duplizierung reduziert wird.
+
+Eine künstliche vollständige Komponentenabstraktion über Bootstrap/AdminLTE wird nicht aufgebaut.
+
+#### Statusdarstellung
+
+Fachliche Zustände werden zentral und semantisch dargestellt.
+
+Mindestens gilt:
+
+- Farbe ist nie die einzige Bedeutung.
+- Text bzw. Label bleibt sichtbar.
+- geeignete Icons dürfen ergänzen.
+- identische Zustände verwenden an allen Stellen dieselbe semantische Darstellung.
+- Statusfarben funktionieren mit ausreichendem Kontrast in Dark und Light.
+
+#### Abnahme
+
+- wiederkehrende Tabellen-, Formular-, Meldungs- und Statusmuster sind visuell und funktional konsistent.
+- bestehende Validation- und Fehlersemantik bleibt erhalten.
+- Tastatur- und Focus-Zustände sind sichtbar.
+- fachliche Statusinformationen sind ohne reine Farberkennung verständlich.
+- keine Page führt einen eigenen konkurrierenden Satz von Statusfarben oder Basiskomponenten ein.
+- `!important` wird nicht als reguläres Layout- oder Theme-Werkzeug verwendet.
+
+---
+
+### 20.11.4 Page Migration
+
+#### Ziel
+
+Alle vorhandenen produktiven Razor Pages auf den neuen Application Shell, die gemeinsame Theme-Schicht und die vereinheitlichten UI-Muster migrieren.
+
+#### Vorgehen
+
+Die Migration erfolgt fachbereichsweise und verändert keine bereits implementierten Use Cases.
+
+Mindestens zu berücksichtigen sind die vorhandenen Bereiche:
+
+```text
+Authentication / Password Change
+Audits
+Analysis
+CSV Export
+Audit Units
+Documents / Catalog Versions / Catalog Editor
+Administration
+Jobs
+Settings
+Error / System Pages
+```
+
+Bestehende ad-hoc Styles werden entfernt oder auf gemeinsame Theme-/Komponentenregeln zurückgeführt, soweit sie durch die neue UI-Basis ersetzt werden.
+
+#### Abnahme
+
+- alle produktiven Razor Pages verwenden den gemeinsamen neuen Shell.
+- keine produktive Page hängt weiterhin von der bisherigen handgestrickten Grundgestaltung ab.
+- bestehende fachliche Funktionen bleiben erreichbar und bedienbar.
+- Formulare, Tabellen und Aktionen verhalten sich konsistent.
+- Dark, Light und System sind auf allen migrierten Pages funktionsfähig.
+- es wurden keine fachlichen Use Cases opportunistisch erweitert oder verändert.
+
+---
+
+### 20.11.5 Theme, Accessibility & UI Quality Gate
+
+#### Ziel
+
+Den vollständig migrierten UI-Stand gegen Theme-, Accessibility-, Wartbarkeits- und Upgrade-Regeln aus Kapitel 16 prüfen.
+
+#### Prüffelder
+
+Mindestens systematisch zu prüfen:
+
+```text
+Dark Mode
+Light Mode
+System Mode
+Kontrast
+Tastaturbedienbarkeit
+sichtbarer Focus
+Labels
+Validation
+Status nicht nur über Farbe
+responsive Verhalten
+Tabellen bei kleinen Viewports
+keine unnötigen Demo-Plugins
+keine Vendor-Patches
+keine CDN-Abhängigkeiten
+keine nicht dokumentierten Vendor-Artefakte
+keine konkurrierenden ad-hoc Theme-Systeme
+```
+
+Zusätzlich wird geprüft, dass verwendete Bootstrap-/AdminLTE-Komponenten ausschließlich über öffentliche, dokumentierte Verträge angesprochen werden, soweit dies praktisch prüfbar ist.
+
+#### Abnahme
+
+- alle drei Color Modes sind vollständig nutzbar.
+- Dark ist der Default und Light keine funktional eingeschränkte Nebenansicht.
+- `SYSTEM` folgt der Systempräferenz.
+- Status, Fehler und wichtige Aktionen sind auch ohne Farbwahrnehmung verständlich.
+- Tastaturbedienung und sichtbare Focus-Zustände sind für die wesentlichen Workflows vorhanden.
+- Kontrast und Lesbarkeit sind in Dark und Light für die wesentlichen Arbeitsoberflächen ausreichend.
+- die Anwendung enthält keine absichtlich gepatchten Bootstrap-/AdminLTE-Vendor-Dateien.
+- alle ausgelieferten Vendor-Abhängigkeiten sind dokumentiert.
+- die Anwendung besitzt keine Frontend-CDN-Abhängigkeit.
+- unnötige AdminLTE-Demo-Plugins wurden nicht übernommen.
+- die UI bleibt Razor-Pages-basiert und verwendet kein zusätzliches JavaScript-Framework.
+- der vollständige bestehende Test-, Build- und Formatierungsstand bleibt erfolgreich.
+
+---
+
+### Abschluss von Work Package 20.11
+
+Work Package 20.11 gilt erst als abgeschlossen, wenn:
+
+```text
+20.11.1 Vendor Foundation & Theme Architecture
+20.11.2 Application Shell & Navigation
+20.11.3 Shared Components & Interaction Patterns
+20.11.4 Page Migration
+20.11.5 Theme, Accessibility & UI Quality Gate
+```
+
+jeweils einzeln implementiert und gegen ihre Abnahmekriterien geprüft wurden.
+
+Die vollständige Abnahme von 20.11 bestätigt zusätzlich:
+
+- Bootstrap 5.3+ und AdminLTE 4 bilden die gemeinsame technische UI-Basis.
+- Adminator und Patchmon bleiben visuelle Referenzen und werden nicht technisch eingebunden oder nachgebaut.
+- Auditarium besitzt einen eigenständigen Theme Layer.
+- Dark ist das primäre Theme und der Default; Light und System bleiben vollständig unterstützt.
+- Vendor-Artefakte werden lokal, versioniert, dokumentiert und unverändert ausgeliefert.
+- es besteht keine Frontend-CDN- oder Runtime-Internetabhängigkeit.
+- eine spätere Frontend-Buildpipeline bleibt möglich, ist aber für den initialen Stand nicht erforderlich.
+- bestehende fachliche Use Cases, BLL-Semantik, API-Verträge und Autorisierungsregeln wurden durch die UI-Modernisierung nicht neu definiert.
 
 ---
 
@@ -13361,6 +13756,28 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.118
+
+Gegenüber Version 0.117 wurde die technische und visuelle UI-Grundlage verbindlich festgelegt und als eigenes Work Package 20.11 in die Implementierungsreihenfolge aufgenommen:
+
+- Bootstrap 5.3+ und AdminLTE 4 bilden die technische UI-Basis.
+- Adminator und Patchmon dienen als visuelle Referenzen für Ruhe, Informationshierarchie, Flächencharakter und Dark-Mode-Gestaltung, ohne technische Abhängigkeit oder pixelgenaue Reproduktion.
+- Bootstrap und AdminLTE werden als bewusste Vendor-Abhängigkeiten über ihre öffentlichen Komponenten und Erweiterungspunkte verwendet; Vendor-Quellcode wird nicht verändert.
+- Eine spezielle .NET-/Razor-Wrapperbibliothek für AdminLTE und ein zusätzliches JavaScript-Framework sind nicht vorgesehen.
+- Auditarium erhält einen klar getrennten eigenen Theme Layer mit semantischen Design-Tokens.
+- `DARK` ist das primäre Theme und der Default; `LIGHT` wird vollständig unterstützt; `SYSTEM` folgt `prefers-color-scheme`.
+- Die Color-Mode-Umschaltung nutzt die native Bootstrap-Mechanik über `data-bs-theme`; die Theme-Auswahl wird initial clientseitig persistiert.
+- Statusdarstellungen verwenden Farbe nie als einzige Bedeutung und werden zentral über Theme- und Komponentenregeln gepflegt.
+- Frontend-Vendor-Abhängigkeiten werden als unveränderte, versionierte offizielle Distributionsartefakte lokal mit Auditarium ausgeliefert.
+- Es bestehen keine Frontend-CDN- oder Runtime-Internetabhängigkeiten.
+- Version, Bezugsquelle und Lizenz der übernommenen Vendor-Artefakte werden im Repository dokumentiert.
+- Eine Node.js-/npm-/Vite-/Sass-basierte Frontend-Buildpipeline ist für den initialen Stand keine Voraussetzung; eine spätere Einführung bleibt möglich.
+- Work Package 20.11 wurde in `20.11.1 Vendor Foundation & Theme Architecture`, `20.11.2 Application Shell & Navigation`, `20.11.3 Shared Components & Interaction Patterns`, `20.11.4 Page Migration` und `20.11.5 Theme, Accessibility & UI Quality Gate` zerlegt.
+- Work Package 20.11 modernisiert ausschließlich die Präsentationsschicht und führt keine neue fachliche Produktfunktion, BLL-Semantik oder Autorisierungsregel ein.
+- Für 20.11 gilt wie für die zuvor zerlegten Work Packages: Ein Codex-/Implementierungslauf soll grundsätzlich genau ein Teilpaket bearbeiten und nach dessen Abnahme stoppen.
+
+Die bisherigen fachlichen und technischen Festlegungen bleiben bestehen.
 
 ## Änderungen in Version 0.117
 
