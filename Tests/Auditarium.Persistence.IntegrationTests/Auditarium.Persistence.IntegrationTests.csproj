@@ -9,6 +9,9 @@
     <PackageReference Include="Testcontainers" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../Persistence/Auditarium.Dal/Auditarium.Dal.csproj" />
     <ProjectReference Include="../../Persistence/Auditarium.Fal/Auditarium.Fal.csproj" />
     <ProjectReference Include="../../Persistence/Auditarium.Dal.PostgreSql.Migrations/Auditarium.Dal.PostgreSql.Migrations.csproj" />

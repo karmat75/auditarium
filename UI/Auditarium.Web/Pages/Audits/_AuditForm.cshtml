@@ -1,12 +1,12 @@
 @model Auditarium.Web.Pages.Audits.AuditInputModel
-<form method="post">
-    <div asp-validation-summary="ModelOnly"></div>
-    <label asp-for="Name">Name</label><input asp-for="Name" /><span asp-validation-for="Name"></span>
-    <label asp-for="Description">Beschreibung</label><textarea asp-for="Description"></textarea>
-    <label asp-for="AuditUnitId">Audit Unit</label><select asp-for="AuditUnitId">@foreach (var unit in ViewBag.AuditUnits as IReadOnlyList<Auditarium.Bll.Features.Audits.AuditUnitListItem> ?? []) { <option value="@unit.AuditUnitId">@unit.Name (@unit.ScopeTypeName, @unit.UsageState)</option> }</select>
-    <label asp-for="CatalogVersionId">Katalogversion</label><select asp-for="CatalogVersionId">@foreach (var catalog in ViewBag.Catalogs as IReadOnlyList<Auditarium.Bll.Features.Audits.CatalogVersionOption> ?? []) { <option value="@catalog.CatalogVersionId">@catalog.DocumentTitle – Version @catalog.VersionNumber (@catalog.CatalogState)</option> }</select>
-    <fieldset><legend>Response Policy</legend><table><thead><tr><th>Ergebnis</th><th>Kommentar erforderlich</th><th>Nachweis erforderlich</th></tr></thead><tbody><tr><td>JA</td><td><input asp-for="YesCommentRequired" /></td><td><input asp-for="YesEvidenceRequired" /></td></tr><tr><td>NEIN</td><td><input asp-for="NoCommentRequired" /></td><td><input asp-for="NoEvidenceRequired" /></td></tr><tr><td>NICHT_ANWENDBAR</td><td><input asp-for="NotApplicableCommentRequired" /></td><td><input asp-for="NotApplicableEvidenceRequired" /></td></tr><tr><td>NICHT_FESTSTELLBAR</td><td><input asp-for="NotDeterminableCommentRequired" /></td><td><input asp-for="NotDeterminableEvidenceRequired" /></td></tr></tbody></table></fieldset>
-    <label asp-for="Notes">Interne Hinweise</label><textarea asp-for="Notes"></textarea>
+<form method="post" class="aud-form">
+    <partial name="~/Pages/Shared/_ValidationSummary.cshtml" />
+    <div class="aud-form-field"><label asp-for="Name">Name</label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+    <div class="aud-form-field"><label asp-for="Description">Beschreibung</label><textarea asp-for="Description" class="form-control"></textarea></div>
+    <div class="aud-form-field"><label asp-for="AuditUnitId">Audit Unit</label><select asp-for="AuditUnitId" class="form-select">@foreach (var unit in ViewBag.AuditUnits as IReadOnlyList<Auditarium.Bll.Features.Audits.AuditUnitListItem> ?? []) { <option value="@unit.AuditUnitId">@unit.Name (@unit.ScopeTypeName, @unit.UsageState)</option> }</select></div>
+    <div class="aud-form-field"><label asp-for="CatalogVersionId">Katalogversion</label><select asp-for="CatalogVersionId" class="form-select">@foreach (var catalog in ViewBag.Catalogs as IReadOnlyList<Auditarium.Bll.Features.Audits.CatalogVersionOption> ?? []) { <option value="@catalog.CatalogVersionId">@catalog.DocumentTitle – Version @catalog.VersionNumber (@catalog.CatalogState)</option> }</select></div>
+    <fieldset class="aud-section"><legend>Response Policy</legend><div class="table-responsive"><table class="table aud-table"><thead><tr><th>Ergebnis</th><th>Kommentar erforderlich</th><th>Nachweis erforderlich</th></tr></thead><tbody><tr><td>JA</td><td><input asp-for="YesCommentRequired" class="form-check-input" /></td><td><input asp-for="YesEvidenceRequired" class="form-check-input" /></td></tr><tr><td>NEIN</td><td><input asp-for="NoCommentRequired" class="form-check-input" /></td><td><input asp-for="NoEvidenceRequired" class="form-check-input" /></td></tr><tr><td>NICHT_ANWENDBAR</td><td><input asp-for="NotApplicableCommentRequired" class="form-check-input" /></td><td><input asp-for="NotApplicableEvidenceRequired" class="form-check-input" /></td></tr><tr><td>NICHT_FESTSTELLBAR</td><td><input asp-for="NotDeterminableCommentRequired" class="form-check-input" /></td><td><input asp-for="NotDeterminableEvidenceRequired" class="form-check-input" /></td></tr></tbody></table></div></fieldset>
+    <div class="aud-form-field"><label asp-for="Notes">Interne Hinweise</label><textarea asp-for="Notes" class="form-control"></textarea></div>
     <input asp-for="ConcurrencyVersion" type="hidden" />
-    <button type="submit">DRAFT speichern</button>
+    <div class="aud-form-actions"><button type="submit" class="btn btn-primary">DRAFT speichern</button></div>
 </form>

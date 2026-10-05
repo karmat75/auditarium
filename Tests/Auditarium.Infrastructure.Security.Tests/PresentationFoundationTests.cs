@@ -9,6 +9,7 @@ using Auditarium.Bll.Jobs;
 using Auditarium.Bll.Pipeline;
 using Auditarium.Common.Results;
 using Auditarium.Web;
+using Auditarium.Web.Components;
 using Auditarium.Web.Pages.Analysis;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Mediator;
@@ -19,6 +20,19 @@ namespace Auditarium.Infrastructure.Security.Tests;
 
 public sealed class PresentationFoundationTests
 {
+    [Theory]
+    [InlineData(Auditarium.Models.Catalog.AuditState.Draft, "Entwurf", "neutral")]
+    [InlineData(Auditarium.Models.Catalog.AuditState.InProgress, "In Bearbeitung", "warning")]
+    [InlineData(Auditarium.Models.Catalog.AuditState.Finalized, "Abgeschlossen", "success")]
+    [InlineData(Auditarium.Models.Catalog.DocumentUsageState.Deprecated, "Veraltet", "warning")]
+    public void Status_presentation_uses_consistent_semantic_labels(object status, string label, string tone)
+    {
+        var presentation = StatusPresentations.Resolve(status);
+
+        Assert.Equal(label, presentation.Label);
+        Assert.Equal(tone, presentation.Tone);
+    }
+
     [Fact]
     public void Analysis_filter_uses_the_shared_bll_filter_contract()
     {

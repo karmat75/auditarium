@@ -1,14 +1,14 @@
 @model Auditarium.Web.Pages.AuditUnits.AuditUnitInputModel
 @inject Microsoft.AspNetCore.Mvc.Rendering.IHtmlHelper Html
-<form method="post">
-    <div asp-validation-summary="ModelOnly"></div>
-    <label asp-for="Name">Name</label><input asp-for="Name" /><span asp-validation-for="Name"></span>
-    <label asp-for="ParentAuditUnitId">Übergeordnete Audit Unit</label><select asp-for="ParentAuditUnitId"><option value="">Kein Parent</option>@foreach (var parent in ViewBag.AuditUnits as IReadOnlyList<Auditarium.Bll.Features.Audits.AuditUnitListItem> ?? []) { <option value="@parent.AuditUnitId">@parent.Name (@parent.ScopeTypeName)</option> }</select>
-    <label asp-for="ScopeTypeId">Scope Type</label><select asp-for="ScopeTypeId">@foreach (var scope in ViewBag.ScopeTypes as IReadOnlyList<Auditarium.Bll.Features.Catalog.ScopeTypeItem> ?? []) { <option value="@scope.ScopeTypeId">@scope.Name</option> }</select>
-    <label asp-for="Description">Beschreibung</label><textarea asp-for="Description"></textarea>
-    <label asp-for="UsageState">Nutzungszustand</label><select asp-for="UsageState" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditUnitUsageState>()"></select>
-    <label asp-for="UsageStateReason">Begründung bei INACTIVE</label><input asp-for="UsageStateReason" />
-    <label asp-for="Notes">Interne Hinweise</label><textarea asp-for="Notes"></textarea>
+<form method="post" class="aud-form">
+    <partial name="~/Pages/Shared/_ValidationSummary.cshtml" />
+    <div class="aud-form-field"><label asp-for="Name">Name</label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+    <div class="aud-form-field"><label asp-for="ParentAuditUnitId">Übergeordnete Audit Unit</label><select asp-for="ParentAuditUnitId" class="form-select"><option value="">Kein Parent</option>@foreach (var parent in ViewBag.AuditUnits as IReadOnlyList<Auditarium.Bll.Features.Audits.AuditUnitListItem> ?? []) { <option value="@parent.AuditUnitId">@parent.Name (@parent.ScopeTypeName)</option> }</select></div>
+    <div class="aud-form-field"><label asp-for="ScopeTypeId">Scope Type</label><select asp-for="ScopeTypeId" class="form-select">@foreach (var scope in ViewBag.ScopeTypes as IReadOnlyList<Auditarium.Bll.Features.Catalog.ScopeTypeItem> ?? []) { <option value="@scope.ScopeTypeId">@scope.Name</option> }</select></div>
+    <div class="aud-form-field"><label asp-for="Description">Beschreibung</label><textarea asp-for="Description" class="form-control"></textarea></div>
+    <div class="aud-form-field"><label asp-for="UsageState">Nutzungszustand</label><select asp-for="UsageState" class="form-select" asp-items="Html.GetEnumSelectList<Auditarium.Models.Catalog.AuditUnitUsageState>()"></select></div>
+    <div class="aud-form-field"><label asp-for="UsageStateReason">Begründung bei INACTIVE</label><input asp-for="UsageStateReason" class="form-control" /></div>
+    <div class="aud-form-field"><label asp-for="Notes">Interne Hinweise</label><textarea asp-for="Notes" class="form-control"></textarea></div>
     <input asp-for="ConcurrencyVersion" type="hidden" />
-    <button type="submit">Speichern</button>
+    <div class="aud-form-actions"><button type="submit" class="btn btn-primary">Speichern</button></div>
 </form>

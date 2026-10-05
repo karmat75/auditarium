@@ -28,7 +28,10 @@ public sealed class OpenLdapFixture : IAsyncLifetime
         .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(389))
         .Build();
 
-    public string Host => _container.Hostname;
+    // The fixture connects through the published host port. Use IPv4 explicitly because
+    // System.DirectoryServices.Protocols does not reliably fall back from localhost's
+    // IPv6 address to the Docker Desktop IPv4 port forwarding endpoint on Windows.
+    public string Host => "127.0.0.1";
     public ushort Port => _container.GetMappedPublicPort(389);
     public string LdapUrl => $"ldap://{Host}:{Port}";
     public LdapProviderConnectionSettings Settings => new(Host, Port, LdapTlsMode.None, TimeSpan.FromSeconds(15), AdminDn, AdminPassword, BaseDn, "uid", "(objectClass=inetOrgPerson)", "uid", "cn", "mail");
@@ -50,8 +53,13 @@ public sealed class OpenLdapFixture : IAsyncLifetime
         var ldif = $"dn: ou=people,{BaseDn}\nobjectClass: organizationalUnit\nou: people\n\n" +
                    $"dn: {TestUserDn}\nobjectClass: inetOrgPerson\ncn: LDAP Auditor\nsn: Auditor\nuid: auditor\nmail: auditor@{Domain}\nuserPassword: {TestUserPassword}\n";
         var escaped = ldif.Replace("'", "'\\\"'\\\"'");
-        var result = await _container.ExecAsync(["/bin/sh", "-c", $"printf '%s' '{escaped}' | ldapadd -x -H ldap://127.0.0.1:389 -D '{AdminDn}' -w '{AdminPassword}'"]);
-        if (result.ExitCode != 0) throw new InvalidOperationException($"The LDAP test fixture could not seed its deterministic directory entries (exit {result.ExitCode}): {result.Stderr}");
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            var result = await _container.ExecAsync(["/bin/sh", "-c", $"printf '%s' '{escaped}' | ldapadd -x -H ldap://127.0.0.1:389 -D '{AdminDn}' -w '{AdminPassword}'"]);
+            if (result.ExitCode == 0 || result.Stderr.Contains("Already exists", StringComparison.Ordinal)) return;
+            if (attempt == 39) throw new InvalidOperationException($"The LDAP test fixture could not seed its deterministic directory entries (exit {result.ExitCode}): {result.Stderr}");
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
     }
 
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
