@@ -4,12 +4,18 @@
     ViewData["Title"] = "Regelwerke";
 }
 <h1>Regelwerke</h1>
-<p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Regelwerk anlegen</a></p>
+@if (Model.Documents.Count > 0) { <p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Regelwerk anlegen</a></p> }
 <form method="get" class="filter-form">
     <div><label asp-for="Search">Suche</label><input asp-for="Search" class="form-control" /></div>
     <div class="align-self-end"><button type="submit" class="btn btn-outline-secondary">Suchen</button></div>
 </form>
-<div class="table-responsive"><table class="table aud-table">
+@if (Model.Documents.Count == 0)
+{
+    <div class="aud-empty-state"><p>Keine Regelwerke gefunden.</p><a asp-page="Create" class="btn btn-primary">Regelwerk anlegen</a></div>
+}
+else
+{
+<div class="table-responsive aud-tabulator-fallback"><table class="table aud-table">
     <thead><tr><th>Titel</th><th>Herausgeber</th><th>Version</th><th>Nutzungszustand</th></tr></thead>
     <tbody>
     @foreach (var document in Model.Documents)
@@ -18,3 +24,5 @@
     }
     </tbody>
 </table></div>
+<div data-aud-tabulator data-aud-table-url="@Url.Page("./Index", "Table")" data-aud-default-sort="title" data-aud-default-direction="asc" data-aud-columns='[{"title":"Titel","field":"title","linkField":"detailsUrl","sortable":true,"minWidth":240},{"title":"Herausgeber","field":"publisher","sortable":true,"minWidth":180},{"title":"Version","field":"version","sortable":true,"minWidth":140},{"title":"Nutzungszustand","field":"usageState","status":true,"sortable":true,"minWidth":180}]'></div>
+}

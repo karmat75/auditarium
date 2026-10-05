@@ -2,16 +2,19 @@
 @model Auditarium.Web.Pages.AuditUnits.IndexModel
 @{ ViewData["Title"] = "Audit Units"; }
 <h1>Audit Units</h1>
-<p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Audit Unit anlegen</a></p>
+@if (Model.Hierarchy.Count > 0) { <p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Audit Unit anlegen</a></p> }
 <form method="get" class="filter-form"><div><label asp-for="Search">Suche</label><input asp-for="Search" class="form-control" /></div><div class="align-self-end"><button type="submit" class="btn btn-outline-secondary">Suchen</button></div></form>
-<h2>Hierarchie</h2>
 @if (Model.Hierarchy.Count == 0)
 {
-    <p class="aud-empty-state">Es sind noch keine Audit Units angelegt. <a asp-page="Create">Jetzt die erste Audit Unit anlegen.</a></p>
+    <div class="aud-empty-state"><p>Keine Audit Units gefunden.</p><a asp-page="Create" class="btn btn-primary">Audit Unit anlegen</a></div>
 }
 else
 {
+    <h2>Hierarchie</h2>
     <ul>@foreach (var unit in Model.Hierarchy) { <li class="aud-tree-item" style="--aud-tree-depth: @unit.Depth"><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a> – @unit.ScopeTypeName (@unit.UsageState)</li> }</ul>
+    @if (Model.AuditUnits.Count == 0) { <div class="aud-empty-state">Keine Audit Units entsprechen der aktuellen Suche.</div> } else { <section class="card aud-data-card"><div class="card-header"><h2 class="card-title">Audit Units</h2></div><div class="card-body p-0"><div class="table-responsive aud-tabulator-fallback"><table class="table aud-table"><thead><tr><th>Name</th><th>Parent</th><th>Scope Type</th><th>Nutzungszustand</th><th>Aktion</th></tr></thead><tbody>@foreach (var unit in Model.AuditUnits) { <tr><td><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a></td><td>@unit.ParentName</td><td>@unit.ScopeTypeName</td><td><aud-status value="@unit.UsageState" /></td><td>@if (Model.CanDelete) { <span class="text-body-secondary">Löschen in der Tabellenansicht</span> }</td></tr> }</tbody></table></div><div class="aud-tabulator" data-aud-tabulator data-aud-delete-modal="#delete-audit-unit-modal" data-aud-table-url="@Url.Page("./Index", "Table")" data-aud-default-sort="name" data-aud-default-direction="asc" data-aud-columns='[{"title":"Name","field":"name","linkField":"detailsUrl","sortable":true,"minWidth":220},{"title":"Parent","field":"parent","minWidth":180},{"title":"Scope Type","field":"scopeType","sortable":true,"minWidth":180},{"title":"Nutzungszustand","field":"usageState","status":true,"sortable":true,"minWidth":180},{"title":"Aktion","field":"actions","actions":true,"width":90,"hozAlign":"center"}]'></div></div></section> }
 }
-<h2>Liste</h2>
-<div class="table-responsive"><table class="table aud-table"><thead><tr><th>Name</th><th>Parent</th><th>Scope Type</th><th>Nutzungszustand</th></tr></thead><tbody>@if (Model.AuditUnits.Count == 0) { <tr><td colspan="4" class="aud-empty-state">Keine Audit Units gefunden.</td></tr> } else { @foreach (var unit in Model.AuditUnits) { <tr><td><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a></td><td>@unit.ParentName</td><td>@unit.ScopeTypeName</td><td><aud-status value="@unit.UsageState" /></td></tr> } }</tbody></table></div>
+
+<div class="modal fade" id="delete-audit-unit-modal" tabindex="-1" aria-labelledby="delete-audit-unit-title" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content"><form method="post" asp-page-handler="Delete"><div class="modal-header"><h2 class="modal-title fs-5" id="delete-audit-unit-title">Audit Unit löschen</h2><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button></div><div class="modal-body"><p>Die Audit Unit <strong data-aud-delete-name></strong> wird gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.</p><label class="form-label" for="delete-audit-unit-reason">Optionale Begründung</label><input class="form-control" id="delete-audit-unit-reason" name="reason" /><input type="hidden" name="id" data-aud-delete-id /><input type="hidden" name="concurrencyVersion" data-aud-delete-version /></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button type="submit" class="btn btn-danger"><i class="bi bi-trash-fill" aria-hidden="true"></i><span class="ms-1">Löschen</span></button></div></form></div></div>
+</div>

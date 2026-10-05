@@ -60,4 +60,12 @@
       select.value = event.detail.mode;
     });
   });
+
+  document.querySelectorAll("[data-aud-theme-mode]").forEach(button => {
+    button.addEventListener("click", () => window.AuditariumTheme.setMode(button.dataset.audThemeMode));
+    document.addEventListener("auditarium:themechange", event => {
+      button.classList.toggle("active", button.dataset.audThemeMode === event.detail.mode);
+    });
+    button.classList.toggle("active", button.dataset.audThemeMode === mode);
+  });
 })();

@@ -1,7 +1,8 @@
 @page "/administration/authentication-providers"
 @model Auditarium.Web.Pages.Administration.AuthenticationProviders.IndexModel
 @{ ViewData["Title"] = "Authentication Provider"; }
-<h1>Authentication Provider</h1><div asp-validation-summary="All"></div><p><a asp-page="Create">LDAP-Instanz anlegen</a></p>
-<table><thead><tr><th>Key</th><th>Name</th><th>Typ</th><th>Status</th><th>Verwaltung</th></tr></thead><tbody>
-@foreach (var provider in Model.Providers) { <tr><td><a asp-page="Details" asp-route-id="@provider.ProviderId">@provider.ProviderKey</a></td><td>@provider.DisplayName</td><td>@provider.ProviderType</td><td>@(provider.IsEnabled ? "Aktiv" : "Inaktiv")</td><td>@(provider.SystemManaged ? "Systemverwaltet" : "Administrierbar")</td></tr> }
-</tbody></table>
+<h1>Authentication Provider</h1><div asp-validation-summary="All"></div><p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">LDAP-Instanz anlegen</a></p>
+<div class="table-responsive"><table class="table aud-table"><thead><tr><th>Key</th><th>Name</th><th>Typ</th><th>Status</th><th>Verwaltung</th></tr></thead><tbody>
+@foreach (var provider in Model.Providers) { <tr><td>@if (provider.SystemManaged) { @provider.ProviderKey } else { <a asp-page="Details" asp-route-id="@provider.ProviderId">@provider.ProviderKey</a> }</td><td>@provider.DisplayName</td><td>@provider.ProviderType</td><td>@(provider.IsEnabled ? "Aktiv" : "Inaktiv")</td><td>@(provider.SystemManaged ? "Systemverwaltet" : "Administrierbar")</td></tr> }
+</tbody></table></div>
+<p class="text-body-secondary small">Systemverwaltete Provider sind Bestandteil der Installation und können nicht über die Oberfläche geändert werden.</p>

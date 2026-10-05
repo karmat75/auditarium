@@ -1,0 +1,115 @@
+(() => {
+    "use strict";
+
+    const statusFormatter = (cell) => {
+        const status = document.createElement("span");
+        const tone = cell.getRow().getData()[`${cell.getField()}Tone`] || "neutral";
+        const badgeTone = { neutral: "secondary", info: "info", warning: "warning", success: "success", danger: "danger" }[tone] || "secondary";
+        status.className = `badge text-bg-${badgeTone}`;
+        status.setAttribute("aria-label", `Status: ${cell.getValue()}`);
+        status.textContent = cell.getValue() || "–";
+        return status;
+    };
+
+    const linkFormatter = (cell, formatterParams) => {
+        const link = document.createElement("a");
+        const target = cell.getRow().getData()[formatterParams.linkField];
+        link.href = target;
+        link.textContent = cell.getValue() || "–";
+        return link;
+    };
+
+    const actionFormatter = (cell, formatterParams) => {
+        const row = cell.getRow().getData();
+        if (!row.canDelete) {
+            return "";
+        }
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-outline-danger btn-sm aud-tabulator-action";
+        button.title = "Audit Unit löschen";
+        button.setAttribute("aria-label", `Audit Unit ${row.name} löschen`);
+        button.innerHTML = '<i class="bi bi-trash-fill" aria-hidden="true"></i>';
+        button.addEventListener("click", () => {
+            const modal = document.querySelector(formatterParams.modalSelector);
+            if (!modal || !window.bootstrap) {
+                return;
+            }
+
+            modal.querySelector("[data-aud-delete-name]").textContent = row.name;
+            modal.querySelector("[data-aud-delete-id]").value = row.id;
+            modal.querySelector("[data-aud-delete-version]").value = row.concurrencyVersion;
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
+        });
+        return button;
+    };
+
+    document.querySelectorAll("[data-aud-tabulator]").forEach((element) => {
+        if (typeof window.Tabulator !== "function") {
+            return;
+        }
+
+        const columns = JSON.parse(element.dataset.audColumns);
+        const sortFields = {};
+        columns.forEach((column) => {
+            column.headerSort = column.sortable === true;
+            if (column.sortable === true) {
+                sortFields[column.field] = column.sortField || column.field;
+            }
+            if (column.linkField) {
+                column.formatter = linkFormatter;
+                column.formatterParams = { linkField: column.linkField };
+            }
+            if (column.status) {
+                column.formatter = statusFormatter;
+            }
+            if (column.actions) {
+                column.formatter = actionFormatter;
+                column.formatterParams = { modalSelector: element.dataset.audDeleteModal };
+                column.headerSort = false;
+            }
+        });
+
+        const fallback = element.previousElementSibling;
+        const table = new window.Tabulator(element, {
+            ajaxURL: element.dataset.audTableUrl,
+            ajaxURLGenerator(_url, _config, params) {
+                const requestUrl = new URL(window.location.href);
+                requestUrl.searchParams.set("handler", "Table");
+                const sorter = params.sorters?.[0];
+                requestUrl.searchParams.set("page", params.page || "1");
+                requestUrl.searchParams.set("size", params.size || "25");
+                requestUrl.searchParams.set("sort", sorter ? sortFields[sorter.field] : element.dataset.audDefaultSort);
+                requestUrl.searchParams.set("direction", sorter?.dir || element.dataset.audDefaultDirection);
+                return requestUrl.toString();
+            },
+            columns,
+            layout: "fitColumns",
+            pagination: true,
+            paginationMode: "remote",
+            paginationSize: 25,
+            paginationSizeSelector: [25, 50, 100, 200],
+            sortMode: "remote",
+            initialSort: [{ column: element.dataset.audDefaultSort, dir: element.dataset.audDefaultDirection }],
+            responsiveLayout: "collapse",
+            responsiveLayoutCollapseStartOpen: false,
+            placeholder: "Keine Einträge gefunden.",
+            langs: {
+                de: {
+                    pagination: {
+                        first: "Erste", first_title: "Erste Seite", last: "Letzte", last_title: "Letzte Seite",
+                        prev: "Zurück", prev_title: "Vorherige Seite", next: "Weiter", next_title: "Nächste Seite",
+                        page_size: "Zeilen pro Seite"
+                    }
+                }
+            },
+            locale: "de"
+        });
+
+        table.on("tableBuilt", () => {
+            element.querySelector('.tabulator-page-size option[value="200"]')?.replaceChildren("Alle");
+            fallback?.setAttribute("hidden", "hidden");
+        });
+    });
+})();

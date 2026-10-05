@@ -1,5 +1,8 @@
 @using Auditarium.Bll.Settings
+@using Auditarium.Bll.Features.Identity.CurrentUser
+@using Auditarium.Web.Components
 @inject Auditarium.Bll.Abstractions.Identity.IPermissionEvaluator PermissionEvaluator
+@inject Mediator.IMediator Mediator
 @{
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var permissions = isAuthenticated && long.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
@@ -9,6 +12,9 @@
     var currentPath = Context.Request.Path.Value ?? string.Empty;
     var pageTitle = ViewData["Title"]?.ToString() ?? "Auditarium";
     var showBreadcrumbs = isAuthenticated && !mustChangePassword && !string.Equals(currentPath, "/", StringComparison.Ordinal);
+    var breadcrumbs = Breadcrumbs.For(currentPath, pageTitle);
+    var currentUserProfile = isAuthenticated ? await Mediator.Send(new GetCurrentUserProfileQuery()) : null;
+    var currentUserName = currentUserProfile?.IsSuccess == true ? currentUserProfile.Value!.DisplayName : "Benutzer";
     bool IsCurrent(string prefix) => currentPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     string NavigationClass(string prefix) => IsCurrent(prefix) ? "nav-link active" : "nav-link";
 }
@@ -18,23 +24,43 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@pageTitle - Auditarium</title>
-    <script src="~/js/theme-init.js"></script>
+    <script src="~/js/theme-init.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="~/vendor/bootstrap/5.3.8/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/vendor/bootstrap-icons/1.13.1/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/vendor/adminlte/4.9.1/css/adminlte.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/vendor/tabulator/6.5.0/tabulator_bootstrap5.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
     <a class="skip-link" href="#main-content">Zum Hauptinhalt springen</a>
     <div class="app-wrapper">
         <header class="app-header navbar navbar-expand bg-body" aria-label="Globale Funktionen">
             <div class="container-fluid">
-                <button class="btn btn-link shell-menu-toggle" type="button" data-lte-toggle="sidebar" aria-controls="application-sidebar" aria-label="Hauptnavigation ein- oder ausblenden"><span aria-hidden="true">☰</span><span class="d-none d-sm-inline ms-1">Menü</span></button>
+                <button class="btn btn-link shell-menu-toggle" type="button" data-lte-toggle="sidebar" aria-controls="application-sidebar" aria-label="Hauptnavigation ein- oder ausblenden"><i class="bi bi-list" aria-hidden="true"></i></button>
                 <div class="ms-auto d-flex align-items-center gap-2">
-                    <label class="visually-hidden" for="color-mode">Darstellungsmodus</label>
-                    <select id="color-mode" class="form-select form-select-sm shell-theme-select" data-aud-theme-select><option value="dark">Dunkel</option><option value="light">Hell</option><option value="system">System</option></select>
                     @if (isAuthenticated)
                     {
-                        <div class="shell-session"><span class="text-body-secondary">Angemeldet</span>@if (!mustChangePassword) { <a asp-page="/ChangePassword" class="link-body-emphasis">Passwort ändern</a> }<form method="post" asp-page="/Logout" class="d-inline"><button class="btn btn-outline-secondary btn-sm" type="submit">Abmelden</button></form></div>
+                        <button class="btn btn-link shell-icon-button" type="button" data-lte-toggle="fullscreen" aria-label="Vollbild ein- oder ausschalten">
+                            <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+                            <i data-lte-icon="minimize" class="bi bi-fullscreen-exit d-none" aria-hidden="true"></i>
+                        </button>
+                        <div class="dropdown">
+                            <button class="btn btn-link shell-icon-button" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Darstellungsmodus"><i class="bi bi-moon-stars-fill" aria-hidden="true"></i></button>
+                            <ul class="dropdown-menu dropdown-menu-end shell-dropdown-menu">
+                                <li><button class="dropdown-item" type="button" data-aud-theme-mode="light"><i class="bi bi-sun-fill" aria-hidden="true"></i><span>Hell</span></button></li>
+                                <li><button class="dropdown-item" type="button" data-aud-theme-mode="dark"><i class="bi bi-moon-stars-fill" aria-hidden="true"></i><span>Dunkel</span></button></li>
+                                <li><button class="dropdown-item" type="button" data-aud-theme-mode="system"><i class="bi bi-circle-half" aria-hidden="true"></i><span>System</span></button></li>
+                            </ul>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-link shell-user-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><span class="shell-user-icon" aria-hidden="true"><i class="bi bi-person-fill"></i></span><span class="shell-user-name">@currentUserName</span></button>
+                            <div class="dropdown-menu dropdown-menu-end shell-user-menu">
+                                <div class="shell-user-menu-header"><span class="shell-user-icon" aria-hidden="true"><i class="bi bi-person-fill"></i></span><strong>@currentUserName</strong></div>
+                                @if (!mustChangePassword) { <a asp-page="/ChangePassword" class="dropdown-item">Passwort ändern</a> }
+                                <div class="dropdown-divider"></div>
+                                <form method="post" asp-page="/Logout"><button class="dropdown-item text-danger" type="submit">Abmelden</button></form>
+                            </div>
+                        </div>
                     }
                     else { <a asp-page="/Login" class="btn btn-outline-secondary btn-sm">Anmelden</a> }
                 </div>
@@ -65,13 +91,15 @@
         <main id="main-content" class="app-main" tabindex="-1">
             @if (showBreadcrumbs)
             {
-                <div class="app-content-header"><div class="container-fluid"><nav aria-label="Breadcrumb"><ol class="breadcrumb mb-0"><li class="breadcrumb-item"><a asp-page="/Index">Auditarium</a></li><li class="breadcrumb-item active" aria-current="page">@pageTitle</li></ol></nav></div></div>
+                <div class="app-content-header"><div class="container-fluid"><nav aria-label="Breadcrumb"><ol class="breadcrumb mb-0">@foreach (var crumb in breadcrumbs.Take(breadcrumbs.Count - 1)) { <li class="breadcrumb-item">@if (crumb.Href is not null) { <a href="@crumb.Href">@crumb.Label</a> } else { @crumb.Label }</li> }<li class="breadcrumb-item active" aria-current="page">@breadcrumbs[^1].Label</li></ol></nav></div></div>
             }
             <div class="app-content"><div class="container-fluid shell-content">@RenderBody()</div></div>
         </main>
     </div>
     <script src="~/vendor/bootstrap/5.3.8/js/bootstrap.bundle.min.js" defer></script>
     <script src="~/vendor/adminlte/4.9.1/js/adminlte.min.js" defer></script>
-    <script src="~/js/theme.js" defer></script>
+    <script src="~/js/theme.js" asp-append-version="true" defer></script>
+    <script src="~/vendor/tabulator/6.5.0/tabulator.min.js" defer></script>
+    <script src="~/js/tables.js" asp-append-version="true" defer></script>
 </body>
 </html>

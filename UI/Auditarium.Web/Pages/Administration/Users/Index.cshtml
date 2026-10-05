@@ -3,13 +3,13 @@
 @{ ViewData["Title"] = "Benutzer"; }
 <h1>Benutzer</h1>
 <div asp-validation-summary="All"></div>
-<form method="get" class="form-grid">
-    <label asp-for="Search">Suche</label><input asp-for="Search" />
-    <label asp-for="IsActive">Status</label>
-    <select asp-for="IsActive"><option value="">Alle</option><option value="true">Aktiv</option><option value="false">Inaktiv</option></select>
-    <button type="submit">Filtern</button>
+<form method="get" class="filter-form">
+    <div><label asp-for="Search">Suche</label><input asp-for="Search" class="form-control" /></div>
+    <div><label asp-for="IsActive">Status</label><select asp-for="IsActive" class="form-select"><option value="">Alle</option><option value="true">Aktiv</option><option value="false">Inaktiv</option></select></div>
+    <div class="align-self-end"><button type="submit" class="btn btn-outline-secondary">Filtern</button></div>
 </form>
-<p><a asp-page="Create">Benutzer anlegen</a></p>
-<div class="table-scroll"><table><thead><tr><th>Benutzername</th><th>Anzeigename</th><th>E-Mail</th><th>Status</th></tr></thead><tbody>
+<p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Benutzer anlegen</a></p>
+<div class="table-responsive aud-tabulator-fallback"><table class="table aud-table"><thead><tr><th>Benutzername</th><th>Anzeigename</th><th>E-Mail</th><th>Status</th></tr></thead><tbody>
 @foreach (var user in Model.Users) { <tr><td><a asp-page="Details" asp-route-id="@user.UserId">@user.Username</a></td><td>@user.DisplayName</td><td>@user.Email</td><td>@(user.IsActive ? "Aktiv" : "Inaktiv")</td></tr> }
 </tbody></table></div>
+<div data-aud-tabulator data-aud-table-url="@Url.Page("./Index", "Table")" data-aud-default-sort="username" data-aud-default-direction="asc" data-aud-columns='[{"title":"Benutzername","field":"username","linkField":"detailsUrl","sortable":true,"minWidth":180},{"title":"Anzeigename","field":"displayName","sortable":true,"minWidth":200},{"title":"E-Mail","field":"email","sortable":true,"minWidth":220},{"title":"Status","field":"status","status":true,"sortField":"isActive","sortable":true,"minWidth":150}]'></div>
