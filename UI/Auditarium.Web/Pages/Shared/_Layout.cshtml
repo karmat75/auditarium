@@ -7,11 +7,14 @@
     var mustChangePassword = User.HasClaim(Auditarium.Infrastructure.Security.AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true");
 }
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-bs-theme="dark" data-aud-color-mode="dark">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Auditarium</title>
+    <script src="~/js/theme-init.js"></script>
+    <link rel="stylesheet" href="~/vendor/bootstrap/5.3.8/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/vendor/adminlte/4.9.1/css/adminlte.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body>
@@ -51,5 +54,8 @@
             </main>
         </div>
     </div>
+    <script src="~/vendor/bootstrap/5.3.8/js/bootstrap.bundle.min.js" defer></script>
+    <script src="~/vendor/adminlte/4.9.1/js/adminlte.min.js" defer></script>
+    <script src="~/js/theme.js" defer></script>
 </body>
 </html>

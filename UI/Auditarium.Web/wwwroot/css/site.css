@@ -1,21 +1,49 @@
-:root { color-scheme: light; font-family: system-ui, sans-serif; color: #172033; background: #f4f6f8; }
-body { margin: 0; }
+:root,
+[data-bs-theme="light"] {
+  color-scheme: light;
+  --aud-bg-page: #f4f6f8;
+  --aud-bg-surface: #ffffff;
+  --aud-bg-elevated: #ffffff;
+  --aud-border: #d9dee7;
+  --aud-text: #172033;
+  --aud-text-muted: #556174;
+  --aud-accent: #456b9e;
+}
+
+[data-bs-theme="dark"] {
+  color-scheme: dark;
+  --aud-bg-page: #151a22;
+  --aud-bg-surface: #1d2430;
+  --aud-bg-elevated: #252e3c;
+  --aud-border: #354154;
+  --aud-text: #edf1f7;
+  --aud-text-muted: #b7c2d1;
+  --aud-accent: #85aee8;
+}
+
+:root {
+  font-family: system-ui, sans-serif;
+  color: var(--aud-text);
+  background: var(--aud-bg-page);
+}
+
+body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
 .app-shell { display: flex; min-height: 100vh; }
-.sidebar { width: 15rem; padding: 1.25rem; background: #172033; color: #fff; }
+.sidebar { width: 15rem; padding: 1.25rem; background: var(--aud-bg-surface); border-right: 1px solid var(--aud-border); color: var(--aud-text); }
 .brand, .sidebar a { display: block; color: inherit; margin: .5rem 0; text-decoration: none; }
 .brand { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
-.navigation-heading { display: block; margin: 1.25rem 0 .5rem; color: #b9c5d8; font-size: .85rem; text-transform: uppercase; }
+.navigation-heading { display: block; margin: 1.25rem 0 .5rem; color: var(--aud-text-muted); font-size: .85rem; text-transform: uppercase; }
 .main-area { flex: 1; min-width: 0; }
-.header { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.5rem; background: #fff; border-bottom: 1px solid #d9dee7; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.5rem; background: var(--aud-bg-surface); border-bottom: 1px solid var(--aud-border); }
 .content { max-width: 72rem; padding: 2rem 1.5rem; }
 label, input, button { display: block; } input { margin: .25rem 0 1rem; max-width: 28rem; width: 100%; } button { padding: .45rem .8rem; }
 .validation-summary-errors, .field-validation-error { color: #a61b1b; }
 .subnav { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
-.filter-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .5rem 1rem; margin: 1.25rem 0; padding: 1rem; background: #fff; border: 1px solid #d9dee7; }
+.filter-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .5rem 1rem; margin: 1.25rem 0; padding: 1rem; background: var(--aud-bg-surface); border: 1px solid var(--aud-border); }
 .filter-form label { align-self: end; } .filter-form input, .filter-form select { box-sizing: border-box; margin: .25rem 0 0; max-width: none; }
-table { width: 100%; border-collapse: collapse; margin: 1rem 0; background: #fff; } th, td { padding: .6rem; border: 1px solid #d9dee7; text-align: left; vertical-align: top; }
-.empty-state { color: #556174; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; background: var(--aud-bg-surface); } th, td { padding: .6rem; border: 1px solid var(--aud-border); text-align: left; vertical-align: top; }
+.empty-state { color: var(--aud-text-muted); }
 .pagination { display: flex; gap: 1rem; align-items: center; margin: 1rem 0; }
-.timeline { display: grid; gap: 1rem; } .timeline-lane { padding: 1rem; background: #fff; border: 1px solid #d9dee7; } .timeline-lane h2 { margin-top: 0; font-size: 1.1rem; }
-.timeline-lane ol { margin: 0; padding-left: 1.5rem; border-left: .25rem solid #456b9e; } .timeline-lane li { display: grid; gap: .2rem; padding: .5rem 0 .5rem .75rem; } .timeline-lane time { font-variant-numeric: tabular-nums; }
+.timeline { display: grid; gap: 1rem; } .timeline-lane { padding: 1rem; background: var(--aud-bg-surface); border: 1px solid var(--aud-border); } .timeline-lane h2 { margin-top: 0; font-size: 1.1rem; }
+.timeline-lane ol { margin: 0; padding-left: 1.5rem; border-left: .25rem solid var(--aud-accent); } .timeline-lane li { display: grid; gap: .2rem; padding: .5rem 0 .5rem .75rem; } .timeline-lane time { font-variant-numeric: tabular-nums; }
 @media (max-width: 48rem) { .sidebar { width: auto; padding: .75rem; } .sidebar nav, .navigation-heading { display: none; } .content { padding: 1.25rem; } }
