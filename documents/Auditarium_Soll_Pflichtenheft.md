@@ -1,6 +1,6 @@
 # Auditarium – Soll- und Pflichtenheft
 
-**Version:** 0.118
+**Version:** 0.119
 **Stand:** 05.10.2026
 **Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
 **Produkt:** Auditarium  
@@ -126,6 +126,7 @@ Die Kapitel sind bereits in einer sinnvollen Bau-Reihenfolge angeordnet. Als gro
 18 Background Jobs und Maintenance
 19 Tests, Qualität und Abnahmekriterien
 20 Empfohlene Implementierungsreihenfolge
+20.12 Development Demo Data
 21 Noch offene Themen
 A  Änderungshistorie
 ```
@@ -13734,6 +13735,241 @@ Die vollständige Abnahme von 20.11 bestätigt zusätzlich:
 
 ---
 
+## 20.12 Work Package 12 – Development Demo Data
+
+Work Package 20.12 stellt einen reproduzierbaren fachlichen Demo-Datenbestand als ausschließliches Development-Tooling bereit. Es ergänzt weder eine Produktfunktion noch einen regulären Betriebsweg.
+
+Work Package 20.12 wird bewusst in einzeln implementier- und abnehmbare Teilpakete zerlegt.
+
+Grundsatz:
+
+> **Die Trennung zwischen Development-Tooling und Produktartefakt wird vor der Erzeugung fachlicher Demo-Daten hergestellt und durch jede Teilimplementierung beibehalten.**
+
+Ein Codex-/Implementierungslauf soll grundsätzlich genau ein `20.12.x`-Teilpaket bearbeiten.
+
+Der erfolgreiche Abschluss eines Teilpakets ist **keine** Anweisung, im selben Lauf automatisch mit dem nächsten Teilpaket fortzufahren.
+
+### Scope-Grenze
+
+Nicht Bestandteil von Work Package 20.12 sind:
+
+```text
+produktiver Datenbank-Seed
+Web- oder API-Verwaltung von Demo-Daten
+automatische Demo-Datenerzeugung beim Start von Auditarium.Web
+Demo-Daten in Produktartefakten
+Release-Pipeline, Registry- oder Artefaktbereitstellung
+allgemeine Datenbank-Reset- oder Löschfunktion
+neue fachliche Audit-, Katalog- oder RBAC-Regeln
+```
+
+Die spätere Release-Pipeline muss die hier definierte Artefaktgrenze durchsetzen und prüfen, wird durch 20.12 jedoch nicht implementiert.
+
+Offene Punkte aus Kapitel 21 werden durch die Umsetzung von 20.12 nicht implizit entschieden.
+
+---
+
+### 20.12.1 DemoData Project Boundary & Development Tooling
+
+#### Ziel
+
+Auditarium stellt für die lokale Entwicklung und kontrollierte Demonstrationsumgebungen einen reproduzierbaren Demo-Datenbestand bereit. Er ermöglicht es, den vollständigen fachlichen Ablauf mit einer bekannten Ausgangslage zu erproben:
+
+```text
+Audit Units und Hierarchie
+→ Dokumente, Katalogversionen und Fragen
+→ Audits in verschiedenen Zuständen
+→ Antworten, Zuweisungen und historische Wiederholungen
+```
+
+Demo-Daten sind kein Bestandteil des Produktbetriebs und kein normaler Datenbank-Seed. Insbesondere erzeugt, verändert oder prüft `Auditarium.Web` bei seinem regulären Start keine Demo-Daten.
+
+Der technische Bootstrap gemäß Kapitel 3 bleibt davon getrennt. Er verantwortet weiterhin ausschließlich den produktiven technischen Ausgangszustand, insbesondere Systemuser, Permissions, Systemrollen, Default-Administrator und Settings.
+
+#### Umsetzen
+
+Der Demo-Datenbestand wird ausschließlich durch ein separates Console-Projekt erzeugt:
+
+```text
+Auditarium.DemoData
+```
+
+Das Projekt ist Developer-Tooling. Es besitzt:
+
+- keinen Web- oder API-Endpunkt,
+- keine Hintergrundjob-Registrierung,
+- keine automatische Ausführung beim Start von `Auditarium.Web`,
+- keine eigene produktive Fachfunktion,
+- keine festen Zugangsdaten, Secrets oder Authentifizierungs-Backdoors.
+
+Die Erstellung erfolgt über dieselben BLL-Use-Cases, fachlichen Zustandsübergänge, Validierungen, Concurrency-Regeln und Audit-Logging-Pfade wie reguläre Fachoperationen. Direkte SQL-Inserts in fachliche Tabellen und eine Umgehung der Audit-, Katalog- oder Audit-Unit-Logik sind nicht zulässig.
+
+Die technische Provisionierung der zusätzlichen Demo-Rollen für den Default-Administrator ist hiervon ausgenommen. Sie erfolgt ausschließlich innerhalb des privilegierten Demo-Deployment-Workflows und verwendet die bestehende `user_roles`-Modellierung; sie führt keinen Superuser-Bypass ein.
+
+#### Repository- und Artefaktgrenze
+
+`Auditarium.DemoData` bleibt als Quellprojekt im Repository, damit es bei Änderungen des Datenmodells und der fachlichen Workflows gemeinsam gepflegt und getestet wird.
+
+Es ist jedoch kein auslieferbares Auditarium-Produktartefakt. Produktionsartefakte dürfen insbesondere nicht enthalten:
+
+```text
+Auditarium.DemoData-Executable oder -Assembly
+Demo-Data-Skripte
+Demo-Containerimage
+Demo-spezifische Konfigurationsdateien
+```
+
+Wer Development-Umgebung und Demo-Daten verwenden möchte, klont das Repository und bereitet seine Umgebung über Visual Studio, VS Code oder die bereitgestellte Development-Container-Konfiguration selbst vor. Die konkrete Release-Pipeline und Artefaktbereitstellung sind nicht Bestandteil dieses Work Packages; sie müssen diese Ausschlussregel später jedoch verbindlich durchsetzen und prüfen.
+
+#### Nicht Bestandteil
+
+Noch nicht Bestandteil von 20.12.1 sind:
+
+```text
+Ausführung eines Demo-Datenlaufs
+Rollenprovisionierung für DEFAULT_ADMIN
+fachliche Fixture mit Audit Units, Katalogen und Audits
+Reset einer Development-Datenbank
+```
+
+#### Abnahme
+
+- `Auditarium.DemoData` ist ein separates Console-Projekt und wird weder von `Auditarium.Web` referenziert noch beim Web-Start geladen.
+- das Projekt besitzt keinen Web-/API-Endpunkt und keine Background-Job-Registrierung.
+- der reguläre technische Bootstrap bleibt unverändert frei von fachlichen Demo-Daten.
+- die Projektstruktur erlaubt lokale Ausführung aus dem geklonten Repository über Visual Studio, VS Code oder die Development-Container-Konfiguration.
+- die Anforderungen an nicht auszuliefernde Demo-Artefakte sind als verbindlicher Distributionsvertrag dokumentiert, ohne eine Release-Pipeline vorwegzunehmen.
+
+---
+
+### 20.12.2 Gated Invocation & Development Administrator Provisioning
+
+#### Ziel
+
+Den Demo-Datenlauf ausschließlich als bewusst bestätigten, technisch privilegierten Development-Vorgang ermöglichen und den initialen Development-Administrator für die vollständige Bedienung der Teststellung vorbereiten.
+
+#### Ausführungsbedingungen
+
+Der Demo-Datenlauf ist nur zulässig, wenn sämtliche folgenden Bedingungen erfüllt sind:
+
+```text
+Host Environment = Development
+UND
+Auditarium:DemoData:Enabled = true
+UND
+expliziter Apply-Aufruf mit Bestätigung
+```
+
+Die Entwicklungskonfiguration muss `Auditarium:DemoData:Enabled` bewusst setzen; ein Defaultwert von `true` ist nicht zulässig. Fehlt eine Bedingung oder ist das Environment nicht `Development`, beendet das Tool die Ausführung ohne Datenbankänderung.
+
+`Production`, `Staging` und andere nicht explizit als `Development` laufende Umgebungen sind für Demo-Daten gesperrt. Diese Laufzeitprüfung ist eine zusätzliche Schutzschicht und kein Ersatz dafür, dass das Tool nicht in Produktartefakten ausgeliefert wird.
+
+Der Aufruf verwendet dieselbe Development-Konfiguration und damit dieselbe Datenbankverbindung wie die lokale `Auditarium.Web`-Instanz. Die konkrete Bedienform darf für lokale Ausführung und Development-Container unterschiedlich gekapselt sein, muss aber in dieselbe `Auditarium.DemoData`-Logik führen.
+
+Konzeptionell:
+
+```text
+Auditarium.Web normal starten
+→ Migrationen und technischer Bootstrap
+→ Auditarium.DemoData apply --confirm
+→ definierter Demo-Datenbestand
+```
+
+#### Default-Administrator in Development
+
+Der technische Bootstrap weist `DEFAULT_ADMIN` weiterhin ausschließlich `SYSTEM_ADMIN` zu. Dadurch bleibt die produktive Regel aus Kapitel 4 unverändert: `SYSTEM_ADMIN` ist kein impliziter fachlicher Superuser.
+
+Im erfolgreichen Demo-Datenlauf erhält derselbe Default-Administrator zusätzlich folgende reguläre, additive Systemrollen:
+
+```text
+SYSTEM_ADMIN
+AUDIT_MANAGER
+AUDITOR
+REVIEWER
+VIEWER
+```
+
+Damit besitzt der einzige initiale, menschliche Benutzer alle für Menschen vorgesehenen Bedienrechte der Teststellung. `SYSTEM_INTERNAL` wird niemals einem anmeldbaren Benutzer zugewiesen; sie bleibt dem reservierten Systemakteur vorbehalten.
+
+#### Nicht Bestandteil
+
+Noch nicht Bestandteil von 20.12.2 sind:
+
+```text
+Änderung der produktiven Default-Admin-Rollenbelegung
+allgemeiner Superuser-Mechanismus
+Vergabe von SYSTEM_INTERNAL an einen anmeldbaren Benutzer
+UI- oder API-Aktion für die Demo-Rollenprovisionierung
+```
+
+#### Abnahme
+
+- das Tool verweigert jeden Lauf außerhalb von `Development`, ohne explizites `Auditarium:DemoData:Enabled` oder ohne bestätigten Apply-Aufruf.
+- die Standardkonfiguration aktiviert Demo-Daten nicht implizit.
+- ein regulärer `Auditarium.Web`-Start erzeugt oder verändert keine Demo-Daten und ergänzt keine fachlichen Rollen.
+- der Default-Administrator besitzt nach einem erfolgreichen Demo-Lauf die vorgesehenen menschlichen Systemrollen, aber niemals `SYSTEM_INTERNAL`.
+- die produktive Bootstrap-Regel `DEFAULT_ADMIN → SYSTEM_ADMIN` bleibt unverändert.
+
+---
+
+### 20.12.3 Reproducible Fixture, Provider Verification & Quality Gate
+
+#### Ziel
+
+Den vollständigen Demo-Datenbestand fachlich konsistent, reproduzierbar und auf beiden freigegebenen Datenbankprovidern gleichwertig erzeugen und prüfen.
+
+#### Reproduzierbarkeit und Datenintegrität
+
+Der Demo-Datenlauf ist für eine fachlich leere, bereits migrierte und gebootstrappte Development-Datenbank bestimmt. Er darf keine unbekannten oder regulär gepflegten Fachobjekte überschreiben, löschen oder umdeuten.
+
+Für eine bereits mit Demo-Daten versehene Datenbank muss der Aufruf eindeutig und ohne fachliche Teiländerung melden, dass der Bestand bereits existiert. Für eine neue Ausgangslage wird die Development-Umgebung einschließlich Datenbank und gegebenenfalls Development-Dateispeicher bewusst außerhalb des Demo-Tools zurückgesetzt und anschließend erneut aufgebaut.
+
+Der Demo-Datenlauf muss atomar wirken: Nach erfolgreicher Ausführung liegt der vollständige definierte Bestand vor; bei einem Fehler darf kein unvollständiger Demo-Datenbestand als verwendbare Ausgangslage verbleiben. Die konkrete technische Transaktionskoordination darf implementierungsnah erfolgen, darf aber keine fachlichen Invarianten oder Audit-Log-Atomizität schwächen.
+
+#### Verbindlicher Demo-Datenbestand
+
+Der Datenbestand ist versioniert und fachlich nachvollziehbar zu definieren. Er enthält mindestens:
+
+- eine mehrstufige Audit-Unit-Hierarchie mit mehreren Scope Types sowie aktiven und inaktiven Audit Units,
+- mindestens einen vollständigen `READY`-Katalog mit scope-spezifischen Fragen und einen bearbeitbaren `DRAFT`-Katalog,
+- Audits in den Zuständen `DRAFT`, `READY`, `IN_PROGRESS`, `FINALIZED` und `CANCELED`,
+- freie und zugewiesene bearbeitbare Audits,
+- Antworten mit `JA`, `NEIN`, `NICHT_ANWENDBAR` und `NICHT_FESTSTELLBAR`, einschließlich Fällen für Kommentar- und Nachweispflichten,
+- mindestens ein finalisiertes Erst-Audit und ein davon getrenntes Wiederholungs-Audit mit `origin_audit_id` und abweichenden Befunden.
+
+Die konkreten Namen, Kataloginhalte, Antwortwerte und erwarteten Ergebnisse werden als versionierte Fixture zusammen mit dem Tool gepflegt. Sie müssen mit dem Referenzfall aus Kapitel 19 fachlich konsistent bleiben und auf PostgreSQL sowie Microsoft SQL Server gleichwertig funktionieren.
+
+#### Abnahme
+
+- ein erfolgreicher Lauf auf einer leeren Development-Datenbank erzeugt den vollständig definierten Bestand reproduzierbar.
+- ein weiterer Lauf verändert keinen vorhandenen Demo- oder Fachbestand teilweise oder stillschweigend.
+- die erzeugten Fachdaten erfüllen die regulären BLL-, RBAC-, Zustands-, Concurrency- und Audit-Log-Regeln.
+- derselbe Demo-Datenbestand funktioniert auf PostgreSQL und Microsoft SQL Server fachlich gleichwertig.
+
+---
+
+### Abschluss von Work Package 20.12
+
+Work Package 20.12 gilt erst als abgeschlossen, wenn:
+
+```text
+20.12.1 DemoData Project Boundary & Development Tooling
+20.12.2 Gated Invocation & Development Administrator Provisioning
+20.12.3 Reproducible Fixture, Provider Verification & Quality Gate
+```
+
+jeweils einzeln implementiert und gegen ihre Abnahmekriterien geprüft wurden.
+
+Die vollständige Abnahme von 20.12 bestätigt zusätzlich:
+
+- Development-Demo-Daten bleiben technisch und organisatorisch vom Produktbetrieb getrennt.
+- produktive Artefakte enthalten keine DemoData-Funktion oder Demo-spezifischen Artefakte.
+- Demo-Daten können nur explizit in einer bewusst konfigurierten Development-Umgebung erzeugt werden.
+- `DEFAULT_ADMIN` erhält ausschließlich während eines erfolgreichen Development-Demo-Laufs die zusätzlichen regulären menschlichen Systemrollen.
+- der Demo-Datenbestand ist vollständig, fachlich valide, reproduzierbar und auf PostgreSQL sowie Microsoft SQL Server gleichwertig.
+
+---
+
 # 21. Noch offene Themen
 
 Folgende Themen sind für die weitere Konzeption offen:
@@ -13756,6 +13992,19 @@ Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex
 ---
 
 # Anhang A – Änderungshistorie
+
+## Änderungen in Version 0.119
+
+Gegenüber Version 0.118 wurde Work Package `20.12 Development Demo Data` ergänzt:
+
+- Demo-Daten sind ein ausschließlich explizit gestartetes Development-Tool und kein regulärer Datenbank-Seed.
+- `Auditarium.DemoData` ist ein separates Console-Projekt ohne Web-/API-Endpunkt, Hintergrundjob oder automatische Ausführung durch `Auditarium.Web`.
+- Das Tool darf nur bei `Development`, explizit aktivierter `Auditarium:DemoData:Enabled`-Konfiguration und bestätigtem Apply-Aufruf arbeiten.
+- Produktartefakte dürfen weder DemoData-Binärdateien noch Demo-Skripte, Demo-Images oder Demo-Konfiguration enthalten; die konkrete Release-Pipeline muss diese Vorgabe später durchsetzen.
+- Der Demo-Lauf ergänzt den Default-Administrator ausschließlich in Development um die regulären menschlichen Systemrollen; `SYSTEM_INTERNAL` bleibt dem Systemakteur vorbehalten.
+- Der vollständige, providerneutrale Demo-Datenbestand ist reproduzierbar, atomar und über dieselben BLL-Regeln wie reguläre Fachoperationen zu erzeugen.
+
+Die bisherigen fachlichen und technischen Festlegungen bleiben bestehen.
 
 ## Änderungen in Version 0.118
 
