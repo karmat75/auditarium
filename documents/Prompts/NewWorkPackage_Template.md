@@ -37,14 +37,18 @@ dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 dotnet format Auditarium.sln --verify-no-changes --no-restore
 ```
 
-Fehlt der Zugriff auf die Docker Engine, prüfe zunächst `docker version` und den aktiven Docker-Kontext.
+Fehlt der Zugriff auf die Docker Engine, prüfe zunächst außerhalb der Sandbox `docker version` und `docker context show`.
 
-Unter Windows mit Docker Desktop kann Testcontainers vom Docker-CLI-Kontext abweichen. Verwendet der aktive Kontext eine andere Named Pipe als `npipe:////./pipe/docker_engine`, setze für den Testlauf in der aktuellen PowerShell-Sitzung `DOCKER_HOST` auf den Docker-Endpunkt des aktiven Kontexts, z. B.:
+Unter Windows mit Docker Desktop und WSL müssen Testcontainers-Integrationstests außerhalb der Sandbox ausgeführt werden. Wenn `docker version` dort einen Server und `docker context show` den aktiven Docker-Desktop-Kontext (typischerweise `desktop-linux`) ausgibt, verwende diesen Kontext unverändert und entferne eine eventuell gesetzte `DOCKER_HOST`-Variable nur für die aktuelle PowerShell-Sitzung:
 
 ```powershell
-$env:DOCKER_HOST = 'npipe:////./pipe/dockerDesktopLinuxEngine'
+Remove-Item Env:DOCKER_HOST -ErrorAction SilentlyContinue
+docker version
+docker context show
 dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 ```
+
+Setze `DOCKER_HOST` nicht automatisch aus `docker context inspect`: Die vom Docker-CLI angezeigte Named-Pipe-Notation kann von Testcontainers nicht als gültiger NPipe-URI verarbeitet werden. Erst wenn Docker außerhalb der Sandbox selbst keinen Server erreicht, darf der Docker-Desktop-/WSL-Zugriff weiter diagnostiziert werden.
 
 Keine dauerhafte Änderung von Benutzer-, System- oder Repository-Konfiguration ohne ausdrücklichen Auftrag.
 
