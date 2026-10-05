@@ -28,6 +28,8 @@
 }
 
 body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
+.skip-link { position: fixed; top: .75rem; left: .75rem; z-index: 1100; padding: .5rem .75rem; color: var(--aud-bg-surface); background: var(--aud-text); border-radius: .375rem; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); outline: .2rem solid var(--aud-accent); outline-offset: .15rem; }
 .app-wrapper { background: var(--aud-bg-page); }
 .app-header { min-height: 3.75rem; background: var(--aud-bg-surface); border-color: var(--aud-border); }
 .app-sidebar { background: var(--aud-bg-surface); border-right: 1px solid var(--aud-border); }

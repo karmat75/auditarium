@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+    <a class="skip-link" href="#main-content">Zum Hauptinhalt springen</a>
     <div class="app-wrapper">
         <header class="app-header navbar navbar-expand bg-body" aria-label="Globale Funktionen">
             <div class="container-fluid">
@@ -61,7 +62,7 @@
                 </ul></nav></div>
             }
         </aside>
-        <main class="app-main">
+        <main id="main-content" class="app-main" tabindex="-1">
             @if (showBreadcrumbs)
             {
                 <div class="app-content-header"><div class="container-fluid"><nav aria-label="Breadcrumb"><ol class="breadcrumb mb-0"><li class="breadcrumb-item"><a asp-page="/Index">Auditarium</a></li><li class="breadcrumb-item active" aria-current="page">@pageTitle</li></ol></nav></div></div>
