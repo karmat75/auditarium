@@ -4,18 +4,17 @@
     ViewData["Title"] = "Regelwerke";
 }
 <h1>Regelwerke</h1>
-<p><a asp-page="Create">Regelwerk anlegen</a></p>
-<form method="get">
-    <label asp-for="Search">Suche</label>
-    <input asp-for="Search" />
-    <button type="submit">Suchen</button>
+<p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Regelwerk anlegen</a></p>
+<form method="get" class="filter-form">
+    <div><label asp-for="Search">Suche</label><input asp-for="Search" class="form-control" /></div>
+    <div class="align-self-end"><button type="submit" class="btn btn-outline-secondary">Suchen</button></div>
 </form>
-<table>
+<div class="table-responsive"><table class="table aud-table">
     <thead><tr><th>Titel</th><th>Herausgeber</th><th>Version</th><th>Nutzungszustand</th></tr></thead>
     <tbody>
     @foreach (var document in Model.Documents)
     {
-        <tr><td><a asp-page="Details" asp-route-id="@document.DocumentId">@document.Title</a></td><td>@document.Publisher</td><td>@document.Version</td><td>@document.UsageState</td></tr>
+        <tr><td><a asp-page="Details" asp-route-id="@document.DocumentId">@document.Title</a></td><td>@document.Publisher</td><td>@document.Version</td><td><aud-status value="@document.UsageState" /></td></tr>
     }
     </tbody>
-</table>
+</table></div>

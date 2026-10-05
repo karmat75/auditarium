@@ -2,16 +2,16 @@
 @model Auditarium.Web.Pages.AuditUnits.IndexModel
 @{ ViewData["Title"] = "Audit Units"; }
 <h1>Audit Units</h1>
-<p><a asp-page="Create">Audit Unit anlegen</a></p>
-<form method="get"><label asp-for="Search">Suche</label><input asp-for="Search" /><button type="submit">Suchen</button></form>
+<p class="aud-action-bar"><a asp-page="Create" class="btn btn-primary">Audit Unit anlegen</a></p>
+<form method="get" class="filter-form"><div><label asp-for="Search">Suche</label><input asp-for="Search" class="form-control" /></div><div class="align-self-end"><button type="submit" class="btn btn-outline-secondary">Suchen</button></div></form>
 <h2>Hierarchie</h2>
 @if (Model.Hierarchy.Count == 0)
 {
-    <p class="empty-state">Es sind noch keine Audit Units angelegt. <a asp-page="Create">Jetzt die erste Audit Unit anlegen.</a></p>
+    <p class="aud-empty-state">Es sind noch keine Audit Units angelegt. <a asp-page="Create">Jetzt die erste Audit Unit anlegen.</a></p>
 }
 else
 {
-    <ul>@foreach (var unit in Model.Hierarchy) { <li style="margin-left:@(unit.Depth * 1.5)rem"><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a> – @unit.ScopeTypeName (@unit.UsageState)</li> }</ul>
+    <ul>@foreach (var unit in Model.Hierarchy) { <li class="aud-tree-item" style="--aud-tree-depth: @unit.Depth"><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a> – @unit.ScopeTypeName (@unit.UsageState)</li> }</ul>
 }
 <h2>Liste</h2>
-<table><thead><tr><th>Name</th><th>Parent</th><th>Scope Type</th><th>Nutzungszustand</th></tr></thead><tbody>@if (Model.AuditUnits.Count == 0) { <tr><td colspan="4" class="empty-state">Keine Audit Units gefunden.</td></tr> } else { @foreach (var unit in Model.AuditUnits) { <tr><td><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a></td><td>@unit.ParentName</td><td>@unit.ScopeTypeName</td><td>@unit.UsageState</td></tr> } }</tbody></table>
+<div class="table-responsive"><table class="table aud-table"><thead><tr><th>Name</th><th>Parent</th><th>Scope Type</th><th>Nutzungszustand</th></tr></thead><tbody>@if (Model.AuditUnits.Count == 0) { <tr><td colspan="4" class="aud-empty-state">Keine Audit Units gefunden.</td></tr> } else { @foreach (var unit in Model.AuditUnits) { <tr><td><a asp-page="Details" asp-route-id="@unit.AuditUnitId">@unit.Name</a></td><td>@unit.ParentName</td><td>@unit.ScopeTypeName</td><td><aud-status value="@unit.UsageState" /></td></tr> } }</tbody></table></div>

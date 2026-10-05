@@ -3,17 +3,14 @@
 @{
     ViewData["Title"] = "Anmelden";
 }
+<section class="aud-card">
 <h1>Anmelden</h1>
-<form method="post">
-    <div asp-validation-summary="ModelOnly"></div>
-    <label asp-for="Input.Username">Benutzername</label>
-    <input asp-for="Input.Username" autocomplete="username" />
-    <span asp-validation-for="Input.Username"></span>
-    <label asp-for="Input.Password">Passwort</label>
-    <input asp-for="Input.Password" type="password" autocomplete="current-password" />
-    <span asp-validation-for="Input.Password"></span>
-    <label asp-for="Input.Provider">Provider (optional)</label>
-    <input asp-for="Input.Provider" />
+<form method="post" class="aud-form">
+    <partial name="_ValidationSummary" />
+    <div class="aud-form-field"><label asp-for="Input.Username">Benutzername</label><input asp-for="Input.Username" class="form-control" autocomplete="username" /><span asp-validation-for="Input.Username"></span></div>
+    <div class="aud-form-field"><label asp-for="Input.Password">Passwort</label><input asp-for="Input.Password" class="form-control" type="password" autocomplete="current-password" /><span asp-validation-for="Input.Password"></span></div>
+    <div class="aud-form-field"><label asp-for="Input.Provider">Provider (optional)</label><input asp-for="Input.Provider" class="form-control" /></div>
     <input type="hidden" asp-for="ReturnUrl" />
-    <button type="submit">Anmelden</button>
+    <div class="aud-form-actions"><button type="submit" class="btn btn-primary">Anmelden</button></div>
 </form>
+</section>
