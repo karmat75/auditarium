@@ -1,58 +1,73 @@
 @using Auditarium.Bll.Settings
 @inject Auditarium.Bll.Abstractions.Identity.IPermissionEvaluator PermissionEvaluator
 @{
-    var permissions = User.Identity?.IsAuthenticated == true && long.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var permissions = isAuthenticated && long.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
         ? await PermissionEvaluator.GetPermissionsAsync(userId)
         : new HashSet<string>();
     var mustChangePassword = User.HasClaim(Auditarium.Infrastructure.Security.AuditariumAuthenticationSchemes.MustChangePasswordClaim, "true");
+    var currentPath = Context.Request.Path.Value ?? string.Empty;
+    var pageTitle = ViewData["Title"]?.ToString() ?? "Auditarium";
+    var showBreadcrumbs = isAuthenticated && !mustChangePassword && !string.Equals(currentPath, "/", StringComparison.Ordinal);
+    bool IsCurrent(string prefix) => currentPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    string NavigationClass(string prefix) => IsCurrent(prefix) ? "nav-link active" : "nav-link";
 }
 <!DOCTYPE html>
 <html lang="de" data-bs-theme="dark" data-aud-color-mode="dark">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Auditarium</title>
+    <title>@pageTitle - Auditarium</title>
     <script src="~/js/theme-init.js"></script>
     <link rel="stylesheet" href="~/vendor/bootstrap/5.3.8/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/vendor/adminlte/4.9.1/css/adminlte.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
-<body>
-    <div class="app-shell">
-        <aside class="sidebar" aria-label="Hauptnavigation">
-            <a class="brand" asp-page="/Index">Auditarium</a>
-            @if (User.Identity?.IsAuthenticated == true && !mustChangePassword)
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+    <div class="app-wrapper">
+        <header class="app-header navbar navbar-expand bg-body" aria-label="Globale Funktionen">
+            <div class="container-fluid">
+                <button class="btn btn-link shell-menu-toggle" type="button" data-lte-toggle="sidebar" aria-controls="application-sidebar" aria-label="Hauptnavigation ein- oder ausblenden"><span aria-hidden="true">☰</span><span class="d-none d-sm-inline ms-1">Menü</span></button>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <label class="visually-hidden" for="color-mode">Darstellungsmodus</label>
+                    <select id="color-mode" class="form-select form-select-sm shell-theme-select" data-aud-theme-select><option value="dark">Dunkel</option><option value="light">Hell</option><option value="system">System</option></select>
+                    @if (isAuthenticated)
+                    {
+                        <div class="shell-session"><span class="text-body-secondary">Angemeldet</span>@if (!mustChangePassword) { <a asp-page="/ChangePassword" class="link-body-emphasis">Passwort ändern</a> }<form method="post" asp-page="/Logout" class="d-inline"><button class="btn btn-outline-secondary btn-sm" type="submit">Abmelden</button></form></div>
+                    }
+                    else { <a asp-page="/Login" class="btn btn-outline-secondary btn-sm">Anmelden</a> }
+                </div>
+            </div>
+        </header>
+        <aside id="application-sidebar" class="app-sidebar shadow" aria-label="Hauptnavigation" data-enable-persistence="false">
+            <div class="sidebar-brand"><a asp-page="/Index" class="brand-link"><span class="brand-mark" aria-hidden="true">A</span><span class="brand-text">Auditarium</span></a></div>
+            @if (isAuthenticated && !mustChangePassword)
             {
-                <nav>
-                    @if (permissions.Contains("Audits.Read")) { <a asp-page="/Audits/Index">Audits</a> }
-                    @if (permissions.Contains("Audits.Evaluate")) { <a asp-page="/Analysis/Index">Auswertung</a> }
-                    @if (permissions.Contains("Reports.Export")) { <a asp-page="/Exports/Index">CSV-Export</a> }
-                    @if (permissions.Contains("AuditUnits.Manage")) { <a asp-page="/AuditUnits/Index">Audit Units</a> }
-                    @if (permissions.Contains("Documents.Manage")) { <a asp-page="/Documents/Index">Regelwerke</a> }
+                <div class="sidebar-wrapper"><nav class="mt-2" aria-label="Arbeitsbereiche"><ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu">
+                    @if (permissions.Contains("Audits.Read")) { <li class="nav-item"><a asp-page="/Audits/Index" class="@NavigationClass("/Audits")"><span>Audits</span></a></li> }
+                    @if (permissions.Contains("Audits.Evaluate")) { <li class="nav-item"><a asp-page="/Analysis/Index" class="@NavigationClass("/Analysis")"><span>Auswertung</span></a></li> }
+                    @if (permissions.Contains("Reports.Export")) { <li class="nav-item"><a asp-page="/Exports/Index" class="@NavigationClass("/Exports")"><span>CSV-Export</span></a></li> }
+                    @if (permissions.Contains("AuditUnits.Manage")) { <li class="nav-item"><a asp-page="/AuditUnits/Index" class="@NavigationClass("/AuditUnits")"><span>Audit Units</span></a></li> }
+                    @if (permissions.Contains("Documents.Manage")) { <li class="nav-item"><a asp-page="/Documents/Index" class="@NavigationClass("/Documents")"><span>Regelwerke</span></a></li> }
                     @if (permissions.Any(permission => permission is "Users.Manage" or "Roles.Manage" or "Authentication.Manage" or "Settings.Manage" or "Maintenance.Jobs.Execute"))
                     {
-                        <span class="navigation-heading">Administration</span>
-                        @if (permissions.Contains("Users.Manage")) { <a asp-page="/Administration/Users/Index">Benutzer</a> }
-                        @if (permissions.Contains("Roles.Manage")) { <a asp-page="/Administration/Roles/Index">Rollen</a> }
-                        @if (permissions.Contains("Authentication.Manage")) { <a asp-page="/Administration/AuthenticationProviders/Index">Authentication Provider</a> }
-                        @if (permissions.Contains("Settings.Manage")) { <a asp-page="/Administration/Settings/Index">Einstellungen</a> }
-                        @if (permissions.Contains("Maintenance.Jobs.Execute")) { <a asp-page="/Administration/Jobs/Index">Jobs</a> }
+                        <li class="nav-header">Administration</li>
+                        @if (permissions.Contains("Users.Manage")) { <li class="nav-item"><a asp-page="/Administration/Users/Index" class="@NavigationClass("/Administration/Users")"><span>Benutzer</span></a></li> }
+                        @if (permissions.Contains("Roles.Manage")) { <li class="nav-item"><a asp-page="/Administration/Roles/Index" class="@NavigationClass("/Administration/Roles")"><span>Rollen</span></a></li> }
+                        @if (permissions.Contains("Authentication.Manage")) { <li class="nav-item"><a asp-page="/Administration/AuthenticationProviders/Index" class="@NavigationClass("/Administration/AuthenticationProviders")"><span>Authentication Provider</span></a></li> }
+                        @if (permissions.Contains("Settings.Manage")) { <li class="nav-item"><a asp-page="/Administration/Settings/Index" class="@NavigationClass("/Administration/Settings")"><span>Einstellungen</span></a></li> }
+                        @if (permissions.Contains("Maintenance.Jobs.Execute")) { <li class="nav-item"><a asp-page="/Administration/Jobs/Index" class="@NavigationClass("/Administration/Jobs")"><span>Jobs</span></a></li> }
                     }
-                </nav>
+                </ul></nav></div>
             }
         </aside>
-        <div class="main-area">
-            <header class="header">
-                <span>@(User.Identity?.IsAuthenticated == true ? "Angemeldet" : "Nicht angemeldet")</span>
-                @if (User.Identity?.IsAuthenticated == true)
-                {
-                    <form method="post" asp-page="/Logout"><button type="submit">Abmelden</button></form>
-                }
-            </header>
-            <main class="content">
-                @RenderBody()
-            </main>
-        </div>
+        <main class="app-main">
+            @if (showBreadcrumbs)
+            {
+                <div class="app-content-header"><div class="container-fluid"><nav aria-label="Breadcrumb"><ol class="breadcrumb mb-0"><li class="breadcrumb-item"><a asp-page="/Index">Auditarium</a></li><li class="breadcrumb-item active" aria-current="page">@pageTitle</li></ol></nav></div></div>
+            }
+            <div class="app-content"><div class="container-fluid shell-content">@RenderBody()</div></div>
+        </main>
     </div>
     <script src="~/vendor/bootstrap/5.3.8/js/bootstrap.bundle.min.js" defer></script>
     <script src="~/vendor/adminlte/4.9.1/js/adminlte.min.js" defer></script>

@@ -50,4 +50,14 @@
       applyMode(mode);
     }
   });
+
+  document.querySelectorAll("[data-aud-theme-select]").forEach(select => {
+    if (!(select instanceof HTMLSelectElement)) return;
+
+    select.value = mode;
+    select.addEventListener("change", () => window.AuditariumTheme.setMode(select.value));
+    document.addEventListener("auditarium:themechange", event => {
+      select.value = event.detail.mode;
+    });
+  });
 })();

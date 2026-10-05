@@ -37,7 +37,16 @@ dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 dotnet format Auditarium.sln --verify-no-changes --no-restore
 ```
 
-Fehlt dir an irgendeiner Stelle der Zugriff auf die Docker Engine, verwende den Docker Socket des Host Systems.
+Fehlt der Zugriff auf die Docker Engine, prüfe zunächst `docker version` und den aktiven Docker-Kontext.
+
+Unter Windows mit Docker Desktop kann Testcontainers vom Docker-CLI-Kontext abweichen. Verwendet der aktive Kontext eine andere Named Pipe als `npipe:////./pipe/docker_engine`, setze für den Testlauf in der aktuellen PowerShell-Sitzung `DOCKER_HOST` auf den Docker-Endpunkt des aktiven Kontexts, z. B.:
+
+```powershell
+$env:DOCKER_HOST = 'npipe:////./pipe/dockerDesktopLinuxEngine'
+dotnet test Auditarium.sln --configuration Release --no-build --no-restore
+```
+
+Keine dauerhafte Änderung von Benutzer-, System- oder Repository-Konfiguration ohne ausdrücklichen Auftrag.
 
 Schwäche keine Abnahmekriterien ab, nur damit Tests grün werden.
 
