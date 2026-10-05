@@ -39,7 +39,7 @@ public sealed class LocalFileStorage(string storageRoot) : IFileStorage
         }
     }
 
-    public Task<Stream> OpenReadAsync(string saveFilePath, string saveFileName, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(new FileStream(Resolve(saveFilePath, saveFileName), FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous));
+    public Task<Stream> OpenReadAsync(string saveFilePath, string saveFileName, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(new FileStream(Resolve(saveFilePath, saveFileName), FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 81920, FileOptions.Asynchronous));
     public Task DeleteAsync(string saveFilePath, string saveFileName, CancellationToken cancellationToken = default) { File.Delete(Resolve(saveFilePath, saveFileName)); return Task.CompletedTask; }
     public Task<bool> ExistsAsync(string saveFilePath, string saveFileName, CancellationToken cancellationToken = default) => Task.FromResult(File.Exists(Resolve(saveFilePath, saveFileName)));
     private string Resolve(string relativePath, string name)

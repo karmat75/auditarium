@@ -9,7 +9,7 @@ namespace Auditarium.Persistence.IntegrationTests;
 public sealed class LocalFileStorageTests
 {
     [Fact]
-    public async Task Store_open_and_delete_preserve_content_and_use_an_opaque_name()
+    public async Task Store_open_and_delete_preserve_content_keep_open_reader_readable_and_use_an_opaque_name()
     {
         var root = Path.Combine(Path.GetTempPath(), "auditarium-fal-tests", Guid.NewGuid().ToString("N"));
         try
@@ -24,11 +24,15 @@ public sealed class LocalFileStorageTests
             Assert.Equal(Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(), stored.Checksum);
             Assert.True(await storage.ExistsAsync(stored.SaveFilePath, stored.SaveFileName, CancellationToken.None));
             await using var download = await storage.OpenReadAsync(stored.SaveFilePath, stored.SaveFileName, CancellationToken.None);
-            using var result = new MemoryStream(); await download.CopyToAsync(result, CancellationToken.None);
-            Assert.Equal(content, result.ToArray());
+            var first = new byte[5];
+            Assert.Equal(first.Length, await download.ReadAsync(first, CancellationToken.None));
 
             await storage.DeleteAsync(stored.SaveFilePath, stored.SaveFileName, CancellationToken.None);
             Assert.False(await storage.ExistsAsync(stored.SaveFilePath, stored.SaveFileName, CancellationToken.None));
+
+            var remaining = new byte[content.Length - first.Length];
+            Assert.Equal(remaining.Length, await download.ReadAsync(remaining, CancellationToken.None));
+            Assert.Equal(content, first.Concat(remaining).ToArray());
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }
