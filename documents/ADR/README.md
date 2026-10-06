@@ -5,7 +5,7 @@ This directory contains the durable decision history for Auditarium's significan
 ## Convention
 
 - ADRs use four-digit, sequential numbers and kebab-case filenames.
-- An accepted ADR is immutable decision history. It is not rewritten merely to describe a later state.
+- Accepted ADR decision content is immutable. Status/reference metadata may be amended solely to record supersession; the decision itself is not rewritten merely to describe a later state.
 - A changed decision is recorded in a new ADR. The new ADR links back to the ADR it supersedes, and the earlier ADR gains an explicit forward reference.
 - Status is stated explicitly. This initial baseline records accepted decisions only.
 
