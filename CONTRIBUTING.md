@@ -51,6 +51,62 @@ dotnet format Auditarium.sln --verify-no-changes --no-restore
 
 The CI workflow runs the same checks on pull requests and on `main`.
 
+For a focused check of maintained documentation, run:
+
+```sh
+dotnet test Tests/Auditarium.Infrastructure.Security.Tests/Auditarium.Infrastructure.Security.Tests.csproj --configuration Release --filter FullyQualifiedName~DocumentationQualityTests
+```
+
+The normal solution-wide test command above runs these checks as well, so they
+are enforced by CI without a separate documentation toolchain.
+
+## Development lifecycle
+
+Planned work starts with a GitHub Issue. Its scope and acceptance criteria
+define the selected work. A GitHub Issue is the unit of planned work; the
+GitHub Project is its workflow and prioritization view.
+
+The maintainer-verified Project flow is:
+
+```text
+Backlog → Ready → In Progress → Review → Done
+```
+
+- **Backlog:** captured or planned work that is not yet selected or ready.
+- **Ready:** scope is understood and approved; relevant dependencies and
+  decisions are resolved sufficiently to start.
+- **In Progress:** implementation is active. Contributors normally assign the
+  Issue to themselves and move it here.
+- **Review:** a pull request represents the implementation and is under review
+  and CI; Project automation may move linked work here.
+- **Done:** work has been accepted and the Issue is completed or closed,
+  normally after review, successful CI, and merge.
+
+Work on one selected Issue scope at a time. The implementation pull request
+references that Issue and normally uses `Closes #<issue>` when it completes the
+Issue. Tests must cover relevant changed behavior. Put documentation updates in
+the same pull request when behavior, interfaces, architecture, operator
+procedures, or external formats change.
+
+Architecture documentation is maintained in `documents/Architecture/`.
+Durable cross-cutting decisions normally need an ADR: application or system
+boundaries, security or authorization models, persistence or deployment
+strategies, and provider or extensibility models are typical examples. Ordinary
+implementation details, local refactorings, individual handlers or queries,
+library use without an architectural constraint, and undecided backlog or
+product questions normally do not need an ADR. Follow the governance in
+[documents/README.md](documents/README.md) and the conventions in
+[documents/ADR/README.md](documents/ADR/README.md); ADR decision history is not
+casually rewritten. Update `documents/Operations/` when an operational
+procedure changes, and update the applicable versioned contract documentation
+when an external contract changes.
+
+The historical Soll-/Pflichtenheft and its Work Packages provide provenance and
+traceability, not the active backlog. Completed work is accepted only when its
+acceptance criteria are satisfied, relevant tests pass, required documentation
+and ADRs are updated, CI is green, review is complete, and the pull request is
+merged or the Issue is completed.
+
 ## Code and pull requests
 
 - Follow the repository `.editorconfig`; do not mix unrelated formatting
