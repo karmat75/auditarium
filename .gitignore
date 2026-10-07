@@ -2,6 +2,7 @@ bin/
 obj/
 TestResults/
 .vs/
+.auditarium/
 .env
 .env.*
 !.env.example

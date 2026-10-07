@@ -48,17 +48,14 @@ external development operation.
 
 ## Local configuration and secrets
 
-Do not commit credentials, tokens, or machine-specific settings. Create local
-configuration from the versioned examples when needed:
+Do not commit credentials, tokens, or machine-specific settings. The complete
+Development examples, configuration precedence, supported database providers,
+and copyable connection-string examples are maintained in the
+[Development configuration reference](documents/Development/Configuration.md).
 
-```sh
-cp UI/Auditarium.Api/appsettings.Development.example.json UI/Auditarium.Api/appsettings.Development.json
-cp UI/Auditarium.Web/appsettings.Development.example.json UI/Auditarium.Web/appsettings.Development.json
-```
-
-`appsettings.Development.json`, `appsettings.*.local.json`, and `.env` files
-are ignored by Git. Keep the example files safe to publish and update them when
-new configuration is required.
+`appsettings.Development.json`, `appsettings.*.local.json`, `.auditarium/`,
+and `.env` are ignored by Git. Keep the versioned examples safe to publish and
+update the reference when configuration behavior changes.
 
 ## Required checks
 

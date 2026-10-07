@@ -14,6 +14,7 @@ Information in mehreren Artefakten als konkurrierende Wahrheit gepflegt wird.
 | GitHub Project | Workflow-Status und Priorisierung, nicht dauerhafte Architektur-Dokumentation |
 | [README.md](../README.md) | Einstieg und Navigation für das Repository, nicht der Architekturkanon |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Verbindlicher Ablauf für Mitwirkende |
+| [Development](Development/) | Kurze, versionierte Anleitungen für lokale Entwicklungsumgebungen und Konfiguration |
 | [Operations](Operations/) | Ausführbare Betriebs- und Runbook-Verfahren |
 | [ImportFormat](ImportFormat/) | Versionierte externe Verträge, etwa das Katalog-Importformat |
 | [Prompts](Prompts/) | Werkzeughinweise; die [Issue-Implementierungsvorlage](Prompts/IssueImplementation_Template.md) folgt dem aktiven Issue-basierten Ablauf |

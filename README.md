@@ -151,16 +151,13 @@ Kompatibilitätsziel, ohne dafür derzeit eine Support-Garantie abzugeben.
 ## Konfiguration und Secrets
 
 Keine Zugangsdaten, Tokens oder maschinenspezifischen Einstellungen einchecken.
-Falls lokale Konfiguration benötigt wird, die versionierten Vorlagen kopieren:
+Die vollständigen Development-Beispiele, alle relevanten Optionen,
+Konfigurationsreihenfolge und Connection-String-Beispiele stehen in der
+[Development-Konfigurationsreferenz](documents/Development/Configuration.md).
 
-```sh
-cp UI/Auditarium.Api/appsettings.Development.example.json UI/Auditarium.Api/appsettings.Development.json
-cp UI/Auditarium.Web/appsettings.Development.example.json UI/Auditarium.Web/appsettings.Development.json
-```
-
-`appsettings.Development.json`, `appsettings.*.local.json` und `.env` sind
-absichtlich von Git ausgeschlossen. Die Beispielkonfigurationen müssen stets
-ohne schützenswerte Werte bleiben.
+`appsettings.Development.json`, `appsettings.*.local.json`, `.auditarium/`
+und `.env` sind absichtlich von Git ausgeschlossen. Die versionierten
+Beispielkonfigurationen enthalten keine echten Secrets.
 
 ## Qualität und Zusammenarbeit
 
