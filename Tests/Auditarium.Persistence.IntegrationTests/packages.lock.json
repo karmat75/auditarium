@@ -657,6 +657,12 @@
           "Microsoft.EntityFrameworkCore.SqlServer": "[10.0.12, )"
         }
       },
+      "auditarium.demodata": {
+        "type": "Project",
+        "dependencies": {
+          "Auditarium.Dal": "[1.0.0, )"
+        }
+      },
       "auditarium.fal": {
         "type": "Project",
         "dependencies": {

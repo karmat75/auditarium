@@ -44,6 +44,9 @@
       "preLaunchTask": "build Auditarium Demo Data",
       "program": "${workspaceFolder}/Tools/Auditarium.DemoData/bin/Debug/net10.0/Auditarium.DemoData.dll",
       "cwd": "${workspaceFolder}/Tools/Auditarium.DemoData",
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
       "console": "internalConsole",
       "stopAtEntry": false
     }

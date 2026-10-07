@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <Description>Development-only boundary for the future Auditarium demo-data tool.</Description>
+    <Description>Development-only tool for explicitly gated demo-data operations.</Description>
   </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../Persistence/Auditarium.Dal/Auditarium.Dal.csproj" />
+  </ItemGroup>
 </Project>

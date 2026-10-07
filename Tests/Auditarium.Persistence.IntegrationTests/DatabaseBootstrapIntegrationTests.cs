@@ -237,6 +237,11 @@ public sealed class DatabaseBootstrapIntegrationTests
         Assert.Equal(6, await db.Roles.CountAsync());
         var systemAdmin = await db.Roles.SingleAsync(role => role.RoleKey == "SYSTEM_ADMIN");
         Assert.Equal(6, await db.RolePermissions.CountAsync(x => x.RoleId == systemAdmin.RoleId));
+        var administratorRoleKeys = await (from userRole in db.UserRoles
+                                           join role in db.Roles on userRole.RoleId equals role.RoleId
+                                           where userRole.UserId == administrator.UserId
+                                           select role.RoleKey).ToListAsync();
+        Assert.Equal(["SYSTEM_ADMIN"], administratorRoleKeys);
 
         administrator.IsActive = false;
         await db.SaveChangesAsync();
