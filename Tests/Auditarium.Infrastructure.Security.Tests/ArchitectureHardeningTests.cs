@@ -58,6 +58,34 @@ public sealed class ArchitectureHardeningTests
         }
     }
 
+    [Fact]
+    public void Demo_data_tool_is_an_independent_console_project()
+    {
+        var root = FindRepositoryRoot();
+        var demoDataProject = Path.Combine(root, "Tools", "Auditarium.DemoData", "Auditarium.DemoData.csproj");
+        var project = XDocument.Load(demoDataProject);
+        var projectReferences = project.Descendants("ProjectReference").ToArray();
+
+        Assert.Equal("Exe", project.Descendants("OutputType").Single().Value);
+        Assert.Empty(projectReferences);
+        Assert.Contains("Tools\\Auditarium.DemoData\\Auditarium.DemoData.csproj", File.ReadAllText(Path.Combine(root, "Auditarium.sln")), StringComparison.Ordinal);
+
+        foreach (var productProject in new[]
+                 {
+                     "UI/Auditarium.Web/Auditarium.Web.csproj",
+                     "UI/Auditarium.Api/Auditarium.Api.csproj"
+                 })
+        {
+            var references = File.ReadAllText(Path.Combine(root, productProject));
+            Assert.DoesNotContain("Auditarium.DemoData", references, StringComparison.Ordinal);
+        }
+
+        var program = File.ReadAllText(Path.Combine(root, "Tools", "Auditarium.DemoData", "Program.cs"));
+        Assert.DoesNotContain("WebApplication", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("Map", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddHostedService", program, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
