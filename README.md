@@ -97,6 +97,10 @@ automatisch geöffnet.
 
 ## Lokaler Containerbetrieb
 
+Compose verwendet den festen Development-Projektnamen `auditarium`. Start, Status,
+Reset inklusive Volumes und gezielter Rebuild sind kurz in
+[Local Development](documents/Development/LocalDevelopment.md) beschrieben.
+
 Für den `workspace`-Entwicklungscontainer auf einem Linux-Host steht ein
 Compose-Wrapper bereit:
 
