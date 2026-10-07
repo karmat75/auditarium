@@ -175,15 +175,19 @@ public sealed class DemoFixtureIntegrationTests
                            join scope in db.ScopeTypes on unit.ScopeTypeId equals scope.ScopeTypeId
                            select new { unit, scope.Key }).ToListAsync();
         var unitNames = units.ToDictionary(unit => unit.unit.AuditUnitId, unit => unit.unit.Name);
-        var audits = await db.Audits.OrderBy(audit => audit.Name).ToListAsync();
+        var audits = (await db.Audits.ToListAsync())
+            .OrderBy(audit => audit.Name, StringComparer.Ordinal)
+            .ToList();
         var auditNames = audits.ToDictionary(audit => audit.AuditId, audit => audit.Name);
-        var answers = await (from question in db.AuditQuestions
-                             join auditElement in db.AuditDocumentElements on question.AuditDocumentElementId equals auditElement.AuditDocumentElementId
-                             join element in db.DocumentElements on auditElement.ElementId equals element.ElementId
-                             join audit in db.Audits on auditElement.AuditId equals audit.AuditId
-                             where question.Result != null
-                             orderby audit.Name, element.Title
-                             select new FixtureAnswer(audit.Name, element.Title!, question.Result!.Value, question.Comment != null, question.Evidence != null)).ToListAsync();
+        var answers = (await (from question in db.AuditQuestions
+                              join auditElement in db.AuditDocumentElements on question.AuditDocumentElementId equals auditElement.AuditDocumentElementId
+                              join element in db.DocumentElements on auditElement.ElementId equals element.ElementId
+                              join audit in db.Audits on auditElement.AuditId equals audit.AuditId
+                              where question.Result != null
+                              select new FixtureAnswer(audit.Name, element.Title!, question.Result!.Value, question.Comment != null, question.Evidence != null)).ToListAsync())
+            .OrderBy(answer => answer.Audit, StringComparer.Ordinal)
+            .ThenBy(answer => answer.Reference, StringComparer.Ordinal)
+            .ToList();
         var catalogs = await db.CatalogVersions.OrderBy(catalog => catalog.VersionNumber).ToListAsync();
         return new(
             DemoFixtureDefinition.FixtureVersion,
