@@ -36,6 +36,13 @@ jobs:
       - name: Restore locked dependencies
         run: dotnet restore Auditarium.sln --locked-mode
 
+      - name: Verify development tooling
+        run: |
+          sh -n scripts/dev.sh
+          sh scripts/dev.sh help >/dev/null
+          pwsh -NoLogo -NoProfile -File scripts/dev.ps1 help >/dev/null
+          LOCAL_UID=1000 LOCAL_GID=1000 docker compose -f compose.yaml -f compose.linux.yaml config --quiet
+
       - name: Build
         run: dotnet build Auditarium.sln --configuration Release --no-restore
 

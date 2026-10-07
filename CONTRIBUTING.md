@@ -5,46 +5,37 @@ the checks required before opening a pull request.
 
 ## Development environment
 
-Use VS Code with the repository's Dev Container:
+The maintained local workflows are documented in
+[Local Development](documents/Development/LocalDevelopment.md):
 
-1. Open the repository in VS Code.
-2. Run **Dev Containers: Reopen in Container**.
-3. Wait for the post-create restore to finish.
+- Windows + VS Code + Docker Compose + PostgreSQL
+- Windows + Visual Studio + native .NET + SQL Server LocalDB
+- Linux + VS Code + Docker Compose + PostgreSQL
+- optional native development against an external PostgreSQL database
 
-The Dev Container provides the .NET SDK version pinned in `global.json` and
-installs the repository's recommended VS Code extensions.
+The Dev Container remains available as an additional VS Code environment, but
+it is not required for these workflows.
 
-## Run and debug
+For Compose, prefer the small repository helpers:
 
-Use the **Run and Debug** view in VS Code:
-
-- `Auditarium Web` starts the web application with the debugger on port 5000.
-- `Auditarium API` starts the API with the debugger on port 5001.
-- `Auditarium Web + API` starts both processes.
-- `Auditarium Demo Data` starts the development-only console-tool boundary. It
-  applies the versioned demo fixture only after the explicit confirmation below.
-
-The pre-launch tasks build the selected project and its project references.
-
-The tool can also be run from the repository root, including the Development
-Container:
-
-```sh
-DOTNET_ENVIRONMENT=Development Auditarium__DemoData__Enabled=true \
-  dotnet run --project Tools/Auditarium.DemoData/Auditarium.DemoData.csproj -- apply --confirm
+```text
+Windows: .\scripts\dev.ps1 up
+Linux:   sh scripts/dev.sh up
 ```
 
-This command is **Development only**. It reuses the Web Development
-configuration and requires an already migrated and normally bootstrapped
-database; it never runs migrations or bootstrap itself. It provisions the
-regular demo roles for `DEFAULT_ADMIN` and creates fixture version 1 through
-the normal application use cases.
+Use `status`, `demo`, `down`, `reset`, or `rebuild` with the same
+helper. `reset` is intentionally destructive only for the Auditarium Compose
+project and its development volumes.
 
-The first run must target an otherwise empty business database. A complete
-fixture of the same version is detected and left unchanged. Unknown business
-data or a visible incomplete fixture cause a non-zero exit; the tool never
-resets, deletes, or repairs data. Resetting a Development database is an
-external development operation.
+For native debugging, VS Code provides `Auditarium Web`, `Auditarium API`,
+`Auditarium Web + API`, and `Auditarium Demo Data` profiles. The DemoData
+profile runs `apply --confirm` in Development and uses the Web Development
+configuration.
+
+DemoData always targets an already migrated and normally bootstrapped
+Development database. It rejects unknown business data and never resets the
+database itself. For Compose use the `demo` helper; for native configuration
+use `demo-native`.
 
 ## Local configuration and secrets
 
