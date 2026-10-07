@@ -1,4 +1,4 @@
-Implementiere ausschließlich GitHub Issue #<ISSUE> – <TITLE>.
+Implementiere ausschließlich GitHub Issue #{ISSUE} – {TITLE}.
 
 Der Issue ist die verbindliche Quelle für den ausgewählten Arbeitsumfang und
 seine Akzeptanzkriterien.
