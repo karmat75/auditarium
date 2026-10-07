@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../Core/Auditarium.Bll/Auditarium.Bll.csproj" />
     <ProjectReference Include="../../Persistence/Auditarium.Dal/Auditarium.Dal.csproj" />
   </ItemGroup>
 </Project>
