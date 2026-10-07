@@ -63,7 +63,11 @@ dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 dotnet format Auditarium.sln --verify-no-changes --no-restore
 ```
 
-The CI workflow runs the same checks on pull requests and on `main`.
+The CI workflow runs the same checks automatically for pull requests targeting
+`main`. The full suite is not repeated solely because an already-green pull
+request was merged. A manual `workflow_dispatch` run remains available when an
+explicit re-check of `main` is useful. New commits on the same pull request
+supersede and cancel an older in-progress CI run.
 
 For a focused check of maintained documentation, run:
 
@@ -126,6 +130,9 @@ merged or the Issue is completed.
 - Follow the repository `.editorconfig`; do not mix unrelated formatting
   changes with functional work.
 - Keep package lockfiles up to date when changing package dependencies.
-- Use focused branches and pull requests. Describe the behavior change, tests,
+- Use focused branches and pull requests. The pull request title must exactly
+  match the selected GitHub Issue title. Describe the behavior change, tests,
   and any configuration or migration impact.
+- `main` is pull-request-only. Do not push or commit directly to `main`.
+- Required CI must be green before merging to `main`.
 - Address CI failures before requesting review.
