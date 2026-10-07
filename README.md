@@ -110,6 +110,7 @@ Debug**:
 | `Auditarium Web` | Startet und debuggt die Razor-Pages-Anwendung | <http://localhost:5000> |
 | `Auditarium API` | Startet und debuggt die HTTP-API | <http://localhost:5001> |
 | `Auditarium Web + API` | Startet beide Hosts gemeinsam | beide Adressen |
+| `Auditarium Demo Data` | Lädt die Demo-Fixture in die native Development-Datenbank | keine |
 
 Das gewählte Profil baut das jeweilige Projekt einschließlich seiner
 Projektverweise vor dem Debug-Start. Der Browser wird nach erfolgreichem Start
