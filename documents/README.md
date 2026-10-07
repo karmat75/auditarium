@@ -8,7 +8,7 @@ Information in mehreren Artefakten als konkurrierende Wahrheit gepflegt wird.
 | Bereich | Zweck |
 | --- | --- |
 | Code und automatisierte Tests | Nachweis des tatsächlich implementierten Verhaltens |
-| Architektur-Dokumentation | Gepflegte Beschreibung der aktuell beabsichtigten Architektur; wird in WP13.3 ergänzt |
+| [Architektur-Dokumentation](Architecture/Overview.md) | Gepflegte Beschreibung der aktuell beabsichtigten Architektur |
 | [ADRs](ADR/) | Dauerhafte Entscheidungen zu wesentlichen Architekturfragen und deren Begründung |
 | [GitHub Issues](https://github.com/karmat75/auditarium/issues) | Aktiver Backlog für geplante Arbeit und Änderungen |
 | GitHub Project | Workflow-Status und Priorisierung, nicht dauerhafte Architektur-Dokumentation |
