@@ -30,8 +30,13 @@ The tool can also be run from the repository root, including the Development
 Container:
 
 ```sh
-dotnet run --project Tools/Auditarium.DemoData/Auditarium.DemoData.csproj
+DOTNET_ENVIRONMENT=Development Auditarium__DemoData__Enabled=true \
+  dotnet run --project Tools/Auditarium.DemoData/Auditarium.DemoData.csproj -- apply --confirm
 ```
+
+This command is **Development only**. It reuses the Web Development
+configuration and requires an already migrated and normally bootstrapped
+database; it never runs migrations or bootstrap itself.
 
 ## Local configuration and secrets
 
