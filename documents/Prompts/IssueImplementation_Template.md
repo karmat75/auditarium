@@ -78,7 +78,11 @@ Abschluss sauber:
 2. Implementiere, committe und pushe ausschließlich auf dem Feature-Branch des
    ausgewählten Issue.
 
-3. Nachdem der Branch erfolgreich gepusht und der Pull Request erstellt wurde,
+3. Erstelle den Pull Request mit dem **exakten Titel des ausgewählten GitHub
+   Issue**. Verwende keinen verkürzten oder umformulierten Titel. Der PR-Body
+   referenziert den Issue und verwendet normalerweise `Closes #{ISSUE}`.
+
+   Nachdem der Branch erfolgreich gepusht und der Pull Request erstellt wurde,
    wechsle den lokalen Checkout zurück auf `main`:
 
    ```bash
