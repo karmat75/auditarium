@@ -28,7 +28,7 @@ als historische fachliche und technische Provenienz.
 | Validierung | FluentValidation |
 | Persistenz | Entity Framework Core; PostgreSQL und Microsoft SQL Server als Zielprovider |
 | Observability | `ILogger<T>`, OpenTelemetry, Health Checks und Prometheus-Metriken |
-| Entwicklungsumgebung | VS Code Dev Container, Docker und Docker Compose |
+| Entwicklungsumgebung | VS Code, Visual Studio, Docker und Docker Compose |
 | Lizenz | [MIT](LICENSE) |
 
 ## Projektstruktur
@@ -56,20 +56,40 @@ fachliche Regeln in die UI zu verlagern.
 
 ## Schnellstart
 
-Die kanonische Entwicklungsumgebung ist der Dev Container. Benötigt werden nur
-VS Code, die Erweiterung **Dev Containers** sowie Docker und Docker Compose.
+Die gepflegten lokalen Entwicklungswege orientieren sich an den tatsächlich
+verwendeten Umgebungen:
 
-1. Repository in VS Code öffnen.
-2. In der Befehlspalette **Dev Containers: Reopen in Container** auswählen.
-3. Warten, bis `dotnet restore` beim Erstellen des Containers abgeschlossen ist.
-4. Anschließend die Anwendung über F5 oder die Kommandozeile starten.
+| Umgebung | Anwendung | Datenbank |
+| --- | --- | --- |
+| Windows + VS Code | Docker Compose | PostgreSQL |
+| Windows + Visual Studio | native .NET | SQL Server LocalDB |
+| Linux + VS Code | Docker Compose | PostgreSQL |
 
-Der Container verwendet die in [global.json](global.json) festgelegte
-.NET-SDK-Version und installiert die empfohlenen VS-Code-Erweiterungen.
+Die kurzen Rezepte für Start, DemoData, Stop und vollständigen Reset stehen in
+[Local Development](documents/Development/LocalDevelopment.md).
+
+Compose unter Windows:
+
+```powershell
+.\scripts\dev.ps1 up
+```
+
+Compose unter Linux:
+
+```sh
+sh scripts/dev.sh up
+```
+
+Für native Windows-Entwicklung zuerst die vollständigen
+Development-Beispielkonfigurationen kopieren und anschließend
+`Auditarium.sln` in Visual Studio öffnen. Die
+[Konfigurationsreferenz](documents/Development/Configuration.md) enthält auch
+Connection Strings für LocalDB, SQL Server sowie lokales und externes
+PostgreSQL.
 
 ### Build und Tests
 
-Im Dev Container:
+Unabhängig vom Entwicklungsweg:
 
 ```sh
 dotnet restore Auditarium.sln --locked-mode
@@ -77,8 +97,8 @@ dotnet build Auditarium.sln --configuration Release --no-restore
 dotnet test Auditarium.sln --configuration Release --no-build --no-restore
 ```
 
-Die Paket-Lockdateien sind Teil des Repositories. Verwende bei Restore und CI
-`--locked-mode`, damit Abhängigkeiten reproduzierbar bleiben.
+Der vorhandene Dev Container bleibt als zusätzliche VS-Code-Umgebung nutzbar,
+ist aber nicht Voraussetzung für die oben beschriebenen Workflows.
 
 ## Starten und Debuggen in VS Code
 
@@ -97,38 +117,11 @@ automatisch geöffnet.
 
 ## Lokaler Containerbetrieb
 
-Compose verwendet den festen Development-Projektnamen `auditarium`. Start, Status,
-Reset inklusive Volumes und gezielter Rebuild sind kurz in
-[Local Development](documents/Development/LocalDevelopment.md) beschrieben.
+Compose verwendet den festen Development-Projektnamen `auditarium`. Die
+plattformgerechten Helper kapseln nur die üblichen Compose-Befehle und bieten
+`up`, `status`, `demo`, `down`, `reset` und `rebuild`.
 
-Für den `workspace`-Entwicklungscontainer auf einem Linux-Host steht ein
-Compose-Wrapper bereit:
-
-```sh
-sh scripts/compose.sh up --build workspace
-```
-
-Der Wrapper erstellt oder ergänzt automatisch die nicht versionierte Datei
-`.env` um die UID und GID des jeweiligen Host-Benutzers, lädt die Linux-spezifische
-Compose-Ergänzung und führt dann den übergebenen `docker compose`-Befehl aus.
-Dadurch gehören Dateien, die der Container im
-eingebundenen Repository erzeugt, dem richtigen Entwickler – unabhängig von
-dessen Benutzername oder UID. Die Datei darf nicht ins Repository committed
-werden.
-
-Unter macOS und Windows genügt der normale `docker compose`-Befehl. Docker
-Desktop virtualisiert dort die eingebundenen Host-Dateisysteme; eine Linux-
-UID/GID-Abbildung ist weder sinnvoll noch notwendig. Wer unter Windows in WSL
-entwickelt, verwendet den Linux-Wrapper und legt das Repository im
-WSL-Dateisystem ab.
-
-Für den referenzierten lokalen Containerbetrieb:
-
-```sh
-docker compose up --build auditarium web
-```
-
-Danach sind die Hosts erreichbar unter:
+Web und API sind nach dem Start erreichbar unter:
 
 | Host | Adresse |
 | --- | --- |
@@ -136,21 +129,18 @@ Danach sind die Hosts erreichbar unter:
 | API | <http://localhost:8080> |
 | API-Status | <http://localhost:8080/api/v1/system/status> |
 
-Das bei einer frischen Installation erzeugte temporäre Initial-Credential ist ausschließlich im API-Container-Log sichtbar:
+Das temporäre Initial-Credential einer frischen Compose-Installation steht im
+API-Log:
 
 ```sh
 docker compose logs auditarium
 ```
 
-Beide Hosts stellen diese Betriebsendpunkte bereit:
-
-- `/health/live` für die Liveness-Prüfung
-- `/health/ready` für die Readiness-Prüfung
-- `/metrics` für Prometheus-kompatible Metriken
-
-Docker Compose ist die getestete Referenzplattform. Die Konfiguration nutzt
-portable OCI-/Compose-Mechanismen und berücksichtigt Podman als
-Kompatibilitätsziel, ohne dafür derzeit eine Support-Garantie abzugeben.
+Unter Linux verwenden die Helper intern `scripts/compose.sh`, damit die
+UID/GID-Abbildung des Workspace erhalten bleibt. Reset und Ressourcen gehören
+immer nur zum Compose-Projekt `auditarium`; externe Datenbanken werden nicht
+gelöscht. Details stehen in
+[Local Development](documents/Development/LocalDevelopment.md).
 
 ## Konfiguration und Secrets
 
@@ -165,9 +155,10 @@ Beispielkonfigurationen enthalten keine echten Secrets.
 
 ## Qualität und Zusammenarbeit
 
-Die CI prüft jeden Pull Request und jeden Push auf `main` mit einem
-Locked-Mode-Restore, Release-Build, Tests und einer Formatprüfung. Vor einem
-Pull Request kannst du dieselbe Prüfung lokal ausführen:
+Die CI prüft Pull Requests auf `main` mit Locked-Mode-Restore, Release-Build,
+Tests und einer Formatprüfung. Ein erfolgreicher Merge löst nicht noch einmal
+dieselbe vollständige CI aus. Vor einem Pull Request kannst du dieselbe Prüfung
+lokal ausführen:
 
 ```sh
 dotnet restore Auditarium.sln --locked-mode
