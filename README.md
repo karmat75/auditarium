@@ -9,8 +9,10 @@ Regelwerke und Dokumentkataloge.
 Das Projekt wird als strukturierter Monolith entwickelt: Fachlogik,
 Persistenz und technische Infrastruktur sind klar von der Weboberfläche und
 der HTTP-API getrennt. Das ausführliche fachliche und technische Zielbild ist
-im [Soll- und Pflichtenheft](documents/Auditarium_Soll_Pflichtenheft.md)
-dokumentiert.
+Die gepflegte aktuelle Architektur ist in der
+[Architekturdokumentation](documents/Architecture/Overview.md) beschrieben.
+Das [Soll- und Pflichtenheft](documents/Auditarium_Soll_Pflichtenheft.md) dient
+als historische fachliche und technische Provenienz.
 
 > **Projektstatus:** Der aktuelle Repository-Stand enthält die technische
 > Grundlage und erste Host-Endpunkte. Die im Pflichtenheft beschriebene
@@ -201,38 +203,8 @@ Drittanbieterkomponenten und ihren Lizenzen befinden sich in
 
 ## Datenbank-Bootstrap und Recovery
 
-Der Datenbankprovider wird ausschließlich extern konfiguriert. Erlaubte Werte
-sind `PostgreSQL` und `SqlServer`:
-
-```text
-AUDITARIUM__Database__Provider=PostgreSQL
-AUDITARIUM__Database__ConnectionString=...
-AUDITARIUM__Database__BootstrapTimeoutSeconds=180
-AUDITARIUM__DataProtection__KeyRingPath=/persisted/auditarium-keys
-AUDITARIUM__DataProtection__ApplicationName=Auditarium
-```
-
-Der Keyring muss persistent sein und bei mehreren Instanzen gemeinsam erreichbar
-bleiben. Niemals den Keyring in `application_settings` oder zusammen mit seinem
-Schutz-Secret speichern.
-
-Jeder Start wendet zunächst die Migrationen an und erwirbt anschließend einen
-installationsweiten Datenbank-Lock für Bootstrap und Reconcile. Weitere
-Instanzen warten höchstens bis `BootstrapTimeoutSeconds`; bei Timeout, Fehler
-oder Prozessabbruch wird kein Normalbetrieb freigegeben. PostgreSQL verwendet
-einen sessiongebundenen Advisory Lock, SQL Server `sp_getapplock`; das Schließen
-der Datenbankverbindung gibt beide Sperren zuverlässig frei.
-
-### Default-Administrator wiederherstellen
-
-1. Alle Auditarium-Instanzen anhalten.
-2. Für genau eine Instanz `AUDITARIUM__Recovery__Enabled=true` und
-   `AUDITARIUM__Recovery__DefaultAdminPassword=<temporäres Passwort>` setzen.
-3. Ausschließlich diese Instanz starten. Sie stellt nur `/recovery` sowie die
-   technischen Health-Endpunkte bereit; UI, API und Jobs bleiben gesperrt.
-4. Die Recovery-Instanz beenden, beide Recovery-Variablen entfernen und erst
-   dann die gewünschte Anzahl normaler Instanzen starten.
-
-Das Recovery-Passwort ist ein temporäres LOCAL-Credential. Beim nächsten
-normalen Login muss es geändert werden. Es darf nicht in Dateien, Datenbank,
-Logs oder Telemetrie abgelegt werden.
+Die ausführbaren Betriebsverfahren für Datenbank-Initialisierung und die
+Wiederherstellung des Default-Administrators stehen im
+[Bootstrap- und Recovery-Runbook](documents/Operations/BootstrapAndRecovery.md).
+Weitere Dokumentationsrollen und Navigation beschreibt
+[documents/README.md](documents/README.md).
