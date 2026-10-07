@@ -17,7 +17,7 @@ Information in mehreren Artefakten als konkurrierende Wahrheit gepflegt wird.
 | [Operations](Operations/) | Ausführbare Betriebs- und Runbook-Verfahren |
 | [ImportFormat](ImportFormat/) | Versionierte externe Verträge, etwa das Katalog-Importformat |
 | [Prompts](Prompts/) | Werkzeughinweise; bei Workflow-Bezug gilt der aktive Issue-basierte Ablauf |
-| [Auditarium_Soll_Pflichtenheft.md](Auditarium_Soll_Pflichtenheft.md) | Historisches Material, kein Backlog für künftige Arbeit; die formelle Freeze-Kennzeichnung folgt erst in WP13.4 |
+| [Auditarium_Soll_Pflichtenheft.md](Auditarium_Soll_Pflichtenheft.md) | Eingefrorenes historisches Material für Provenienz und Nachvollziehbarkeit; weder aktuelle Architektur noch aktiver Backlog |
 
 ## Änderungen richtig einordnen
 

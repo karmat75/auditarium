@@ -8,15 +8,14 @@ Regelwerke und Dokumentkataloge.
 
 Das Projekt wird als strukturierter Monolith entwickelt: Fachlogik,
 Persistenz und technische Infrastruktur sind klar von der Weboberfläche und
-der HTTP-API getrennt. Das ausführliche fachliche und technische Zielbild ist
 Die gepflegte aktuelle Architektur ist in der
 [Architekturdokumentation](documents/Architecture/Overview.md) beschrieben.
 Das [Soll- und Pflichtenheft](documents/Auditarium_Soll_Pflichtenheft.md) dient
 als historische fachliche und technische Provenienz.
 
-> **Projektstatus:** Der aktuelle Repository-Stand enthält die technische
-> Grundlage und erste Host-Endpunkte. Die im Pflichtenheft beschriebene
-> Fachfunktionalität wird schrittweise umgesetzt.
+> **Projektstatus:** Geplante Arbeit und Änderungen werden über
+> [GitHub Issues](https://github.com/karmat75/auditarium/issues) und das
+> GitHub Project verfolgt.
 
 ## Technischer Überblick
 
@@ -48,7 +47,7 @@ UI/
   Auditarium.Web/        Razor-Pages-Webanwendung
   Auditarium.Api/        versionierte HTTP-API
 Tests/                   automatisierte Tests
-documents/               Soll- und Pflichtenheft
+documents/               Architektur-, Entscheidungs-, Betriebs- und historische Dokumentation
 ```
 
 Die Abhängigkeitsrichtung verläuft von den UI-Hosts über die BLL zu Common und

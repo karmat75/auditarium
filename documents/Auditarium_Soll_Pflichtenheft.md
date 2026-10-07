@@ -2,17 +2,21 @@
 
 **Version:** 0.119
 **Stand:** 05.10.2026
-**Status:** Konsolidierter Sollstand / Implementierungsleitfaden  
+**Status:** Historische Implementierungsbaseline / Projektprovenienz
 **Produkt:** Auditarium  
 **Sub-Titel:** *Structured audits. Traceable results.*
 
-Dieses Dokument beschreibt den aktuell abgestimmten **Sollzustand** von Auditarium. Es ist zugleich Pflichtenheft, Architekturleitfaden und strukturierter Bauplan für die Implementierung.
+> ## Historischer Freeze: 07.10.2026
+>
+> Dieses Dokument bleibt als historische Implementierungsbaseline und Projektprovenienz erhalten. Es ist eingefroren und weder die gepflegte aktuelle Architekturdokumentation noch der aktive Arbeits-Backlog. Geplante Arbeit wird in [GitHub Issues](https://github.com/karmat75/auditarium/issues) und im GitHub Project verfolgt. Die aktuelle Architektur wird unter [Architecture/](Architecture/) gepflegt; Architekturentscheidungen und ihre Begründungen unter [ADR/](ADR/); ausführbare Betriebsverfahren unter [Operations/](Operations/). Versionierte externe Verträge bleiben in ihrer jeweiligen Fachdokumentation. Die bestehenden historischen Work-Package-Abschnitte bleiben absichtlich unverändert erhalten.
 
-Der Hauptteil enthält ausschließlich den aktuell gewünschten Zielzustand. Historische Entscheidungen und frühere Entwicklungsstände stehen gesammelt im **Anhang A – Änderungshistorie**.
+Der folgende Text beschreibt den zum Stand dieses Dokuments abgestimmten **Sollzustand**. Er ist historischer Kontext und kein aktueller Implementierungsauftrag.
+
+Der Hauptteil enthält den damals gewünschten Zielzustand. Historische Entscheidungen und frühere Entwicklungsstände stehen gesammelt im **Anhang A – Änderungshistorie**.
 
 ## 0.1 Zweck und Verwendung
 
-Das Dokument soll so gelesen und umgesetzt werden, dass eine neue Implementierung von oben nach unten aufgebaut werden kann:
+Zum damaligen Zeitpunkt sollte das Dokument so gelesen und umgesetzt werden, dass eine neue Implementierung von oben nach unten aufgebaut werden konnte:
 
 ```text
 technische Plattform und Solution
@@ -26,7 +30,7 @@ technische Plattform und Solution
 → Tests und Abnahme
 ```
 
-Für die Umsetzung gilt:
+Für die damalige Umsetzung galt:
 
 - Anforderungen im Hauptteil bilden den aktuellen Sollzustand.
 - Offene Punkte werden nicht stillschweigend durch Implementierungsannahmen ersetzt.
@@ -13972,7 +13976,7 @@ Die vollständige Abnahme von 20.12 bestätigt zusätzlich:
 
 # 21. Noch offene Themen
 
-Folgende Themen sind für die weitere Konzeption offen:
+Folgende Themen waren zum Dokumentstand für die weitere Konzeption offen:
 
 
 - Detailgestaltung der Reports, Zeitleiste und Visualisierungen
@@ -13985,9 +13989,25 @@ Folgende Themen sind für die weitere Konzeption offen:
 
 ---
 
+## Freeze-time reconciliation
+
+Die folgenden Status beschreiben ausschließlich den Repository-Stand zum historischen Freeze. Sie sind kein neuer Backlog. Ein als OPEN oder PARTIALLY RESOLVED markiertes Thema wird erst durch ein ausdrücklich erstelltes und angenommenes GitHub Issue zu aktiver Arbeit.
+
+| Historisches Thema | Freeze-Status | Aktueller Nachweis / verbleibende Frage |
+| --- | --- | --- |
+| Detailgestaltung der Reports, Zeitleiste und Visualisierungen | PARTIALLY RESOLVED | `20.10.3` sowie die Analysis-/Timeline-UI liefern filterbare Analyseansichten und eine funktionale Zeitleiste. Offen bleibt nur die weitergehende fachliche Gestaltung von Reports und Visualisierungen über diesen Mindestumfang hinaus. |
+| Managementsicht / Kennzahlen unter Beachtung des Verbots einer rein mathematischen Gesamtbewertung | OPEN | Eine eigene Managementsicht oder ein Kennzahlenkonzept ist weder als aktuelle Architektur noch als implementierte Produktfunktion nachgewiesen. |
+| fachliche Bewertung von Abweichungen durch verantwortliche Personen | OPEN | Es gibt keinen nachgewiesenen Verantwortungs-, Remediation-, Freigabe- oder Eskalationsworkflow. |
+| Audit-Historie und Vergleich über Zeit | PARTIALLY RESOLVED | Materialisierte Auditdaten, unveränderliche Katalogversionen, `OriginAuditId` und historieorientierte Datenzugriffe bilden belastbare Grundlagen. Offen bleibt ein vollständiges nutzerseitiges Vergleichskonzept über Audits hinweg. |
+| abschließender fachlicher Review des Zustands-, Soft-Delete-, Aggregate- und Retention-Modells | PARTIALLY RESOLVED | Zustandsverhalten, Soft Delete, Betreiber-Restore, Retention/Purge und Provider-Integrationstests sind vorhanden. Offen bleibt der in der historischen Formulierung verlangte abschließende fachliche Review des Gesamtmodells. |
+| Detailausgestaltung von Audit-Log-Eventtypen und Purge-Jobs | PARTIALLY RESOLVED | Transaktionales Audit Logging, kontrollierte Retention und der `RetentionJob` sind durch [ADR 0007](ADR/0007-transactional-system-audit-log-and-controlled-retention.md) festgelegt und implementiert. Offen bleibt nur eine abschließende bzw. künftige domänenspezifische Event-Taxonomie. |
+| vollständiges versioniertes Import-Schema und Hilfsprompt für externe Werkzeuge, abgeleitet aus dem manuellen DRAFT-Workflow | RESOLVED | Das gepflegte [Catalog Import Format v1](ImportFormat/CatalogImportFormat-v1.md) und der [Import Prompt v1](Prompts/CatalogImport-v1.md) sind vorhanden; der Import-Workflow ist mit Provider-Integrationstests umgesetzt. |
+
+---
+
 ## Umgang mit offenen Punkten
 
-Offene Punkte sind bewusst noch nicht Teil des verbindlichen Sollzustands. Codex oder eine Implementierung darf hierfür keine weitreichende Produktentscheidung stillschweigend erfinden. Für die erste Implementierung ist entweder eine konservative, leicht austauschbare technische Zwischenlösung zu wählen oder die Entscheidung vor Umsetzung explizit nachzuholen.
+Historisch waren offene Punkte bewusst noch nicht Teil des verbindlichen Sollzustands. Codex oder eine Implementierung durfte hierfür keine weitreichende Produktentscheidung stillschweigend erfinden. Für die erste Implementierung war entweder eine konservative, leicht austauschbare technische Zwischenlösung zu wählen oder die Entscheidung vor Umsetzung explizit nachzuholen.
 
 ---
 
