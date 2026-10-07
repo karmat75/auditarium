@@ -64,10 +64,16 @@ public sealed class ArchitectureHardeningTests
         var root = FindRepositoryRoot();
         var demoDataProject = Path.Combine(root, "Tools", "Auditarium.DemoData", "Auditarium.DemoData.csproj");
         var project = XDocument.Load(demoDataProject);
-        var projectReferences = project.Descendants("ProjectReference").ToArray();
+        var projectDirectory = Path.GetDirectoryName(demoDataProject)!;
+        var projectReferences = project.Descendants("ProjectReference")
+            .Select(reference => Path.GetFullPath(Path.Combine(projectDirectory, reference.Attribute("Include")!.Value)))
+            .Select(reference => Path.GetRelativePath(root, reference).Replace('\\', '/'))
+            .ToArray();
 
         Assert.Equal("Exe", project.Descendants("OutputType").Single().Value);
-        Assert.Empty(projectReferences);
+        Assert.Equal("Microsoft.NET.Sdk", project.Root!.Attribute("Sdk")!.Value);
+        Assert.DoesNotContain("UI/Auditarium.Web/Auditarium.Web.csproj", projectReferences, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("UI/Auditarium.Api/Auditarium.Api.csproj", projectReferences, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("Tools\\Auditarium.DemoData\\Auditarium.DemoData.csproj", File.ReadAllText(Path.Combine(root, "Auditarium.sln")), StringComparison.Ordinal);
 
         foreach (var productProject in new[]
