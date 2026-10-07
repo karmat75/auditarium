@@ -22,7 +22,7 @@ Use the **Run and Debug** view in VS Code:
 - `Auditarium API` starts the API with the debugger on port 5001.
 - `Auditarium Web + API` starts both processes.
 - `Auditarium Demo Data` starts the development-only console-tool boundary. It
-  performs no data changes in the current work package.
+  applies the versioned demo fixture only after the explicit confirmation below.
 
 The pre-launch tasks build the selected project and its project references.
 
@@ -36,7 +36,15 @@ DOTNET_ENVIRONMENT=Development Auditarium__DemoData__Enabled=true \
 
 This command is **Development only**. It reuses the Web Development
 configuration and requires an already migrated and normally bootstrapped
-database; it never runs migrations or bootstrap itself.
+database; it never runs migrations or bootstrap itself. It provisions the
+regular demo roles for `DEFAULT_ADMIN` and creates fixture version 1 through
+the normal application use cases.
+
+The first run must target an otherwise empty business database. A complete
+fixture of the same version is detected and left unchanged. Unknown business
+data or a visible incomplete fixture cause a non-zero exit; the tool never
+resets, deletes, or repairs data. Resetting a Development database is an
+external development operation.
 
 ## Local configuration and secrets
 

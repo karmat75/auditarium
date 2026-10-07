@@ -35,12 +35,24 @@ public static class DemoDataProgram
         {
             await using var provider = serviceProviderFactory(configuration).AsAsyncDisposable();
             await using var scope = provider.ServiceProvider.CreateAsyncScope();
+            var fixtureRunner = scope.ServiceProvider.GetRequiredService<DemoFixtureRunner>();
+            await fixtureRunner.ValidatePreflightAsync(cancellationToken);
             var provisioner = new DevelopmentAdministratorProvisioner(scope.ServiceProvider.GetRequiredService<AuditariumDbContext>());
-            await provisioner.ProvisionAsync(cancellationToken);
-            await output.WriteLineAsync("Development administrator roles were provisioned.");
+            var defaultAdministratorId = await provisioner.ProvisionAsync(cancellationToken);
+            scope.ServiceProvider.GetRequiredService<DemoDataCurrentActor>().SetDefaultAdministrator(defaultAdministratorId);
+            var fixture = await fixtureRunner.ApplyAsync(cancellationToken);
+            if (fixture.Status == DemoFixtureApplyStatus.AlreadyPresent)
+                await output.WriteLineAsync($"Demo fixture v{fixture.FixtureVersion} is already complete; no data was changed.");
+            else
+                await output.WriteLineAsync($"Demo fixture v{fixture.FixtureVersion} was created.");
             return 0;
         }
         catch (DemoDataProvisioningException exception)
+        {
+            await error.WriteLineAsync(exception.Message);
+            return 1;
+        }
+        catch (DemoDataFixtureException exception)
         {
             await error.WriteLineAsync(exception.Message);
             return 1;
@@ -56,7 +68,7 @@ public static class DemoDataProgram
     {
         var services = new ServiceCollection();
         services.AddSingleton(configuration);
-        services.AddAuditariumPersistence(configuration);
+        services.AddAuditariumDemoData(configuration);
         return services.BuildServiceProvider();
     }
 

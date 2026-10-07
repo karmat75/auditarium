@@ -660,6 +660,7 @@
       "auditarium.demodata": {
         "type": "Project",
         "dependencies": {
+          "Auditarium.Bll": "[1.0.0, )",
           "Auditarium.Dal": "[1.0.0, )"
         }
       },

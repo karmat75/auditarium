@@ -12,7 +12,7 @@ public sealed class DevelopmentAdministratorProvisioner(AuditariumDbContext db)
 {
     private static readonly string[] RequiredRoleKeys = ["SYSTEM_ADMIN", "AUDIT_MANAGER", "AUDITOR", "REVIEWER", "VIEWER"];
 
-    public async Task ProvisionAsync(CancellationToken cancellationToken = default)
+    public async Task<long> ProvisionAsync(CancellationToken cancellationToken = default)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var administrator = await db.Users.SingleOrDefaultAsync(user => user.UserKey == "DEFAULT_ADMIN", cancellationToken)
@@ -36,5 +36,6 @@ public sealed class DevelopmentAdministratorProvisioner(AuditariumDbContext db)
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        return administrator.UserId;
     }
 }
