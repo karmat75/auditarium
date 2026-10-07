@@ -16,7 +16,7 @@ Information in mehreren Artefakten als konkurrierende Wahrheit gepflegt wird.
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Verbindlicher Ablauf für Mitwirkende |
 | [Operations](Operations/) | Ausführbare Betriebs- und Runbook-Verfahren |
 | [ImportFormat](ImportFormat/) | Versionierte externe Verträge, etwa das Katalog-Importformat |
-| [Prompts](Prompts/) | Werkzeughinweise; bei Workflow-Bezug gilt der aktive Issue-basierte Ablauf |
+| [Prompts](Prompts/) | Werkzeughinweise; die [Issue-Implementierungsvorlage](Prompts/IssueImplementation_Template.md) folgt dem aktiven Issue-basierten Ablauf |
 | [Auditarium_Soll_Pflichtenheft.md](Auditarium_Soll_Pflichtenheft.md) | Eingefrorenes historisches Material für Provenienz und Nachvollziehbarkeit; weder aktuelle Architektur noch aktiver Backlog |
 
 ## Änderungen richtig einordnen

@@ -8,7 +8,7 @@ Regelwerke und Dokumentkataloge.
 
 Das Projekt wird als strukturierter Monolith entwickelt: Fachlogik,
 Persistenz und technische Infrastruktur sind klar von der Weboberfläche und
-Die gepflegte aktuelle Architektur ist in der
+den API-Transportgrenzen getrennt. Die gepflegte aktuelle Architektur ist in der
 [Architekturdokumentation](documents/Architecture/Overview.md) beschrieben.
 Das [Soll- und Pflichtenheft](documents/Auditarium_Soll_Pflichtenheft.md) dient
 als historische fachliche und technische Provenienz.
