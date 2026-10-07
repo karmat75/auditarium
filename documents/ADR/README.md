@@ -20,3 +20,4 @@ This directory contains the durable decision history for Auditarium's significan
 7. [ADR 0007 – Transactional System Audit Log & Controlled Retention](0007-transactional-system-audit-log-and-controlled-retention.md)
 8. [ADR 0008 – Database-Lease Coordination for Distributed Jobs](0008-database-lease-coordination-for-distributed-jobs.md)
 9. [ADR 0009 – Local Bootstrap/AdminLTE Vendoring & Auditarium Theme Layer](0009-local-bootstrap-adminlte-vendoring-and-auditarium-theme-layer.md)
+10. [ADR 0010 – Development Demo Data Tool & Distribution Boundary](0010-development-demo-data-tool-and-distribution-boundary.md)

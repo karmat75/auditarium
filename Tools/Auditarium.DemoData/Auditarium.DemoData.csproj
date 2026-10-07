@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Development-only boundary for the future Auditarium demo-data tool.</Description>
+  </PropertyGroup>
+</Project>

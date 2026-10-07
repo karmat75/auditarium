@@ -20,6 +20,11 @@ Der gemeinsame Persistenzkern unterstützt PostgreSQL und SQL Server. Identität
 
 Die Präsentations- und Abhängigkeitsgrenzen folgen [ADR 0001](../ADR/0001-application-architecture-and-presentation-boundaries.md).
 
+`Auditarium.DemoData` ist ein separates, im Quellrepository verbleibendes
+Development-Tooling-Projekt. Es gehört weder zur Web-/API-Laufzeit noch zu
+Produktionsartefakten und wird nicht automatisch ausgeführt. Die vollständige
+Tool- und Distributionsgrenze ist in [ADR 0010](../ADR/0010-development-demo-data-tool-and-distribution-boundary.md) festgelegt.
+
 ## Themen
 
 - [Persistenz und Startlaufzeit](Persistence.md)

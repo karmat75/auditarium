@@ -25,6 +25,19 @@
         "Debug"
       ],
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build Auditarium Demo Data",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/Tools/Auditarium.DemoData/Auditarium.DemoData.csproj",
+        "--configuration",
+        "Debug"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
     }
   ]
 }

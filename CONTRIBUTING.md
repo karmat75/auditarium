@@ -21,8 +21,17 @@ Use the **Run and Debug** view in VS Code:
 - `Auditarium Web` starts the web application with the debugger on port 5000.
 - `Auditarium API` starts the API with the debugger on port 5001.
 - `Auditarium Web + API` starts both processes.
+- `Auditarium Demo Data` starts the development-only console-tool boundary. It
+  performs no data changes in the current work package.
 
 The pre-launch tasks build the selected project and its project references.
+
+The tool can also be run from the repository root, including the Development
+Container:
+
+```sh
+dotnet run --project Tools/Auditarium.DemoData/Auditarium.DemoData.csproj
+```
 
 ## Local configuration and secrets
 
