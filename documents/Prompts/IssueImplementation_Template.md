@@ -61,6 +61,49 @@ diagnostiziert werden.
 Keine dauerhafte Änderung von Benutzer-, System- oder Repository-Konfiguration
 ohne ausdrücklichen Auftrag.
 
+## Branch- und Checkout-Hygiene
+
+Wenn der Lauf einen Feature-Branch verwendet, halte den lokalen Checkout nach
+Abschluss sauber:
+
+1. Ausgangspunkt für neue Arbeit ist ein aktuelles `main`. Vor dem Anlegen eines
+   neuen Feature-Branches:
+
+   ```bash
+   git switch main
+   git pull --ff-only origin main
+   git fetch --prune
+   ```
+
+2. Implementiere, committe und pushe ausschließlich auf dem Feature-Branch des
+   ausgewählten Issue.
+
+3. Nachdem der Branch erfolgreich gepusht und der Pull Request erstellt wurde,
+   wechsle den lokalen Checkout zurück auf `main`:
+
+   ```bash
+   git switch main
+   ```
+
+   Lösche den lokalen Feature-Branch zu diesem Zeitpunkt noch nicht, solange der
+   Pull Request nicht gemergt ist.
+
+4. Zu Beginn eines späteren Laufs dürfen bereits gemergte lokale
+   `codex/*`-Branches aufgeräumt werden. Aktualisiere zuerst `main` und die
+   Remote-Referenzen und prüfe anschließend explizit, welche Branches in
+   `origin/main` enthalten sind:
+
+   ```bash
+   git switch main
+   git pull --ff-only origin main
+   git fetch --prune
+   git branch --merged origin/main
+   ```
+
+   Lösche nur eindeutig gemergte lokale Feature-Branches mit `git branch -d`.
+   Verwende dafür kein `-D` und lösche keinen offenen oder nicht gemergten
+   Branch. Remote-Branches werden nur auf ausdrücklichen Auftrag gelöscht.
+
 Beende den Lauf mit einem kurzen Bericht:
 
 ```text
