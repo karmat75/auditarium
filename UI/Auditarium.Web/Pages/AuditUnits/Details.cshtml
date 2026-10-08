@@ -1,5 +1,13 @@
 @page "/audit-units/{id:long}"
 @model Auditarium.Web.Pages.AuditUnits.DetailsModel
-@{ ViewData["Title"] = Model.Input.Name; ViewBag.AuditUnits = Model.Options.AuditUnits.Where(x => x.AuditUnitId != Model.Input.AuditUnitId).ToArray(); ViewBag.ScopeTypes = Model.Options.ScopeTypes; }
-<h1>@Model.Input.Name</h1>
-<partial name="_AuditUnitForm" model="Model.Input" />
+@{ ViewData["Title"] = Model.Unit.Name; }
+<h1>@Model.Unit.Name</h1>
+<div class="aud-action-bar"><a asp-page="Edit" asp-route-id="@Model.Unit.AuditUnitId" class="btn btn-primary"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="ms-1">Bearbeiten</span></a></div>
+<dl class="aud-detail-list">
+    <dt>Übergeordnete Audit Unit</dt><dd>@(Model.ParentName ?? "–")</dd>
+    <dt>Scope Type</dt><dd>@(Model.ScopeTypeName ?? "–")</dd>
+    <dt>Nutzungszustand</dt><dd><aud-status value="@Model.Unit.UsageState" /></dd>
+    <dt>Beschreibung</dt><dd>@(Model.Unit.Description ?? "–")</dd>
+    <dt>Begründung bei INACTIVE</dt><dd>@(Model.Unit.UsageStateReason ?? "–")</dd>
+    <dt>Interne Hinweise</dt><dd>@(Model.Unit.Notes ?? "–")</dd>
+</dl>

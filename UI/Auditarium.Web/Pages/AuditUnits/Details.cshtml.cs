@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 using Auditarium.Bll.Features.Audits;
+using Auditarium.Models.Catalog;
 using Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,20 +11,15 @@ namespace Auditarium.Web.Pages.AuditUnits;
 [Authorize]
 public sealed class DetailsModel(IMediator mediator) : PageModel
 {
-    [BindProperty] public AuditUnitInputModel Input { get; set; } = new();
+    public AuditUnitDetails Unit { get; private set; } = new(0, null, 0, string.Empty, null, AuditUnitUsageState.Active, null, null, 0);
     public AuditUnitFormOptions Options { get; private set; } = new([], []);
-    public async Task<IActionResult> OnGetAsync(long id, CancellationToken ct) => await LoadAsync(id, ct);
-    public async Task<IActionResult> OnPostAsync(long id, CancellationToken ct)
-    {
-        var result = await mediator.Send(new UpdateAuditUnitCommand(id, Input.ToBll(), Input.ConcurrencyVersion), ct);
-        if (result.IsSuccess) return RedirectToPage(new { id });
-        result.ApplyTo(ModelState); return await LoadAsync(id, ct);
-    }
-    private async Task<IActionResult> LoadAsync(long id, CancellationToken ct)
+    public string? ParentName => Options.AuditUnits.SingleOrDefault(unit => unit.AuditUnitId == Unit.ParentAuditUnitId)?.Name;
+    public string? ScopeTypeName => Options.ScopeTypes.SingleOrDefault(scope => scope.ScopeTypeId == Unit.ScopeTypeId)?.Name;
+    public async Task<IActionResult> OnGetAsync(long id, CancellationToken ct)
     {
         var unit = await mediator.Send(new GetAuditUnitQuery(id), ct);
         if (!unit.IsSuccess) { unit.ApplyTo(ModelState); return Page(); }
-        if (!Request.Method.Equals("POST", StringComparison.OrdinalIgnoreCase)) Input = AuditUnitInputModel.From(unit.Value!);
+        Unit = unit.Value!;
         var options = await mediator.Send(new GetAuditUnitFormOptionsQuery(), ct);
         if (!options.IsSuccess) options.ApplyTo(ModelState); else Options = options.Value!;
         return Page();

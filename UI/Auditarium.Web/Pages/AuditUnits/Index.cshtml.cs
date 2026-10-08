@@ -14,11 +14,12 @@ public sealed class IndexModel(IMediator mediator, ICurrentActor actor, IPermiss
 {
     [BindProperty(SupportsGet = true)] public string? Search { get; set; }
     public IReadOnlyList<AuditUnitHierarchyItem> Hierarchy { get; private set; } = [];
+    public bool CanManage { get; private set; }
     public bool CanDelete { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
-        CanDelete = await CanDeleteAsync(ct);
+        await LoadPermissionsAsync(ct);
         var hierarchy = await mediator.Send(new GetAuditUnitHierarchyQuery(Search), ct);
         if (!hierarchy.IsSuccess) hierarchy.ApplyTo(ModelState); else Hierarchy = hierarchy.Value!;
         return Page();
@@ -36,8 +37,8 @@ public sealed class IndexModel(IMediator mediator, ICurrentActor actor, IPermiss
     {
         var result = await mediator.Send(new GetAuditUnitHierarchyQuery(search, sort ?? "name", string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase)), ct);
         if (!result.IsSuccess) return BadRequest();
-        var canDelete = await CanDeleteAsync(ct);
-        var nodes = result.Value!.ToDictionary(unit => unit.AuditUnitId, unit => new AuditUnitTreeNode(unit, Url.Page("Details", new { id = unit.AuditUnitId }), canDelete));
+        await LoadPermissionsAsync(ct);
+        var nodes = result.Value!.ToDictionary(unit => unit.AuditUnitId, unit => new AuditUnitTreeNode(unit, Url.Page("Details", new { id = unit.AuditUnitId }), Url.Page("Edit", new { id = unit.AuditUnitId }), CanManage, CanDelete));
         var roots = new List<AuditUnitTreeNode>();
         foreach (var unit in result.Value!)
         {
@@ -48,13 +49,19 @@ public sealed class IndexModel(IMediator mediator, ICurrentActor actor, IPermiss
         return new JsonResult(roots);
     }
 
-    private Task<bool> CanDeleteAsync(CancellationToken ct) => actor.UserId is { } userId ? permissionEvaluator.HasPermissionAsync(userId, "AuditUnits.Delete", ct) : Task.FromResult(false);
+    private async Task LoadPermissionsAsync(CancellationToken ct)
+    {
+        if (actor.UserId is not { } userId) return;
+        var permissions = await permissionEvaluator.GetPermissionsAsync(userId, ct);
+        CanManage = permissions.Contains("AuditUnits.Manage");
+        CanDelete = permissions.Contains("AuditUnits.Delete");
+    }
 
     private sealed class AuditUnitTreeNode
     {
-        public AuditUnitTreeNode(AuditUnitHierarchyItem unit, string? detailsUrl, bool canDelete)
+        public AuditUnitTreeNode(AuditUnitHierarchyItem unit, string? detailsUrl, string? editUrl, bool canManage, bool canDelete)
         {
-            Id = unit.AuditUnitId; Name = unit.Name; ScopeTypeKey = unit.ScopeTypeKey; ScopeType = unit.ScopeTypeName; UsageState = StatusPresentations.Resolve(unit.UsageState).Label; UsageStateTone = StatusPresentations.Resolve(unit.UsageState).Tone; ConcurrencyVersion = unit.ConcurrencyVersion; DetailsUrl = detailsUrl; CanDelete = canDelete;
+            Id = unit.AuditUnitId; Name = unit.Name; ScopeTypeKey = unit.ScopeTypeKey; ScopeType = unit.ScopeTypeName; UsageState = StatusPresentations.Resolve(unit.UsageState).Label; UsageStateTone = StatusPresentations.Resolve(unit.UsageState).Tone; ConcurrencyVersion = unit.ConcurrencyVersion; DetailsUrl = detailsUrl; EditUrl = editUrl; CanManage = canManage; CanDelete = canDelete;
         }
         public long Id { get; }
         public string Name { get; }
@@ -64,6 +71,8 @@ public sealed class IndexModel(IMediator mediator, ICurrentActor actor, IPermiss
         public string UsageStateTone { get; }
         public long ConcurrencyVersion { get; }
         public string? DetailsUrl { get; }
+        public string? EditUrl { get; }
+        public bool CanManage { get; }
         public bool CanDelete { get; }
         public List<AuditUnitTreeNode> Children { get; } = [];
     }

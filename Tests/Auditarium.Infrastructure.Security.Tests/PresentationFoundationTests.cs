@@ -292,6 +292,8 @@ public sealed class PresentationFoundationTests
         var root = FindRepositoryRoot();
         var tables = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "wwwroot", "js", "tables.js"));
         var auditUnits = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "AuditUnits", "Index.cshtml"));
+        var auditUnitDetails = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "AuditUnits", "Details.cshtml"));
+        var auditUnitEdit = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "AuditUnits", "Edit.cshtml"));
         var layout = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "Shared", "_Layout.cshtml"));
         var siteCss = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "wwwroot", "css", "site.css"));
 
@@ -323,6 +325,14 @@ public sealed class PresentationFoundationTests
         Assert.Contains("row.isTreeExpanded()", tables, StringComparison.Ordinal);
         Assert.Contains("row.treeCollapse()", tables, StringComparison.Ordinal);
         Assert.Contains("window.scrollTo(0", tables, StringComparison.Ordinal);
+        Assert.Contains("actionsFormatter", tables, StringComparison.Ordinal);
+        Assert.Contains("makeTreeControlsAccessible", tables, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"linkField\":\"detailsUrl\"", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("\"widthGrow\":1", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("\"editUrl\"", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("asp-page=\"Edit\"", auditUnitDetails, StringComparison.Ordinal);
+        Assert.DoesNotContain("_AuditUnitForm", auditUnitDetails, StringComparison.Ordinal);
+        Assert.Contains("_AuditUnitForm", auditUnitEdit, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
