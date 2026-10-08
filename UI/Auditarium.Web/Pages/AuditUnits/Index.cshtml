@@ -51,6 +51,7 @@ else
                     </table>
                 </div>
                 <div class="aud-tabulator" data-aud-tabulator data-aud-table-url="@Url.Page("./Index", "Table", new { Search = Model.Search })" data-aud-default-sort="name" data-aud-default-direction="asc" data-aud-columns='[{"title":"Name","field":"name","linkField":"detailsUrl","sortable":true,"minWidth":220},{"title":"Parent","field":"parent","minWidth":180},{"title":"Scope Type","field":"scopeType","sortable":true,"minWidth":180},{"title":"Nutzungszustand","field":"usageState","status":true,"sortable":true,"minWidth":180},{"title":"Aktion","field":"actions","action":"deleteAuditUnit","visibleField":"canDelete","label":"Audit Unit löschen","icon":"bi bi-trash-fill","buttonClass":"btn btn-outline-danger btn-sm aud-tabulator-action","width":90,"hozAlign":"center"}]'></div>
+                <div class="aud-grid-footer" data-aud-tabulator-footer aria-label="Tabellennavigation"></div>
             }
         </div>
     </section>

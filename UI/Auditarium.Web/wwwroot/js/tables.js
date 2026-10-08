@@ -59,6 +59,29 @@
         return button;
     };
 
+    const arrangeExternalPagination = (footer) => {
+        if (!footer) {
+            return;
+        }
+
+        const pageSizeSelect = footer.querySelector(".tabulator-page-size");
+        const pageSizeLabel = footer.querySelector("label");
+        const pageSize = document.createElement("div");
+        const pagination = document.createElement("div");
+        pageSize.className = "aud-grid-page-size";
+        pagination.className = "aud-grid-pagination";
+
+        if (pageSizeSelect) {
+            pageSize.append(pageSizeSelect);
+        }
+        if (pageSizeLabel) {
+            pageSize.append(pageSizeLabel);
+        }
+        footer.querySelectorAll(".tabulator-page").forEach((control) => control.classList.add("btn", "btn-sm", "btn-outline-secondary"));
+        footer.querySelectorAll(".tabulator-page, .tabulator-pages").forEach((control) => pagination.append(control));
+        footer.replaceChildren(pageSize, pagination);
+    };
+
     document.querySelectorAll("[data-aud-tabulator]").forEach((element) => {
         if (typeof window.Tabulator !== "function") {
             return;
@@ -92,6 +115,7 @@
         });
 
         const fallback = element.previousElementSibling;
+        const footer = element.nextElementSibling?.matches("[data-aud-tabulator-footer]") ? element.nextElementSibling : null;
         const table = new window.Tabulator(element, {
             ajaxURL: element.dataset.audTableUrl,
             ajaxURLGenerator(url, _config, params) {
@@ -110,6 +134,7 @@
             paginationMode: "remote",
             paginationSize: 25,
             paginationSizeSelector: [25, 50, 100, 200],
+            paginationElement: footer || false,
             sortMode: "remote",
             initialSort: [{ column: element.dataset.audDefaultSort, dir: element.dataset.audDefaultDirection }],
             placeholder: "Keine Einträge gefunden.",
@@ -127,6 +152,7 @@
 
         table.on("tableBuilt", () => {
             fallback?.setAttribute("hidden", "hidden");
+            arrangeExternalPagination(footer);
             const container = element.parentElement || element;
             const grid = { table, width: container.clientWidth };
             gridTables.set(container, grid);

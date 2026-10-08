@@ -301,6 +301,8 @@ public sealed class PresentationFoundationTests
         Assert.Contains("ResizeObserver", tables, StringComparison.Ordinal);
         Assert.Contains("fitDataStretch", tables, StringComparison.Ordinal);
         Assert.Contains("queueRedrawForChangedWidth", tables, StringComparison.Ordinal);
+        Assert.Contains("paginationElement: footer || false", tables, StringComparison.Ordinal);
+        Assert.Contains("arrangeExternalPagination", tables, StringComparison.Ordinal);
         Assert.DoesNotContain("responsiveLayout: \"collapse\"", tables, StringComparison.Ordinal);
         Assert.Contains("card-tools", auditUnits, StringComparison.Ordinal);
         Assert.Contains("aud-grid-search", auditUnits, StringComparison.Ordinal);
@@ -308,8 +310,10 @@ public sealed class PresentationFoundationTests
         Assert.Contains("aud-grid-actions", auditUnits, StringComparison.Ordinal);
         Assert.Contains("audit-units.js", auditUnits, StringComparison.Ordinal);
         Assert.Contains("RenderSectionAsync(\"Scripts\"", layout, StringComparison.Ordinal);
-        Assert.Contains("tabulator-page-size { order: 1", siteCss, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-footer", siteCss, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-pagination", siteCss, StringComparison.Ordinal);
         Assert.Contains("not(.aud-grid-search)", siteCss, StringComparison.Ordinal);
+        Assert.Contains("data-aud-tabulator-footer", auditUnits, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
