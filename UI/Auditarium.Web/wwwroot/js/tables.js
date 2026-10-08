@@ -92,6 +92,24 @@
         popup.document.close();
     };
 
+    const treeRows = (rows) => rows.flatMap((row) => [row, ...treeRows(row.getTreeChildren())]);
+    const rootTreeRows = (table) => treeRows(table.getRows().filter((row) => !row.getTreeParent()));
+    const captureTreeState = (table) => ({
+        expandedIds: new Set(rootTreeRows(table)
+            .filter((row) => row.getTreeChildren().length && row.isTreeExpanded())
+            .map((row) => String(row.getData().id))),
+        scrollY: window.scrollY
+    });
+    const restoreTreeState = (table, state) => {
+        rootTreeRows(table).forEach((row) => {
+            if (row.getTreeChildren().length && !state.expandedIds.has(String(row.getData().id))) {
+                row.treeCollapse();
+            }
+        });
+        const scrollingElement = document.scrollingElement;
+        window.scrollTo(0, Math.min(state.scrollY, Math.max(0, scrollingElement.scrollHeight - window.innerHeight)));
+    };
+
     const arrangeExternalPagination = (footer) => {
         if (!footer) {
             return;
@@ -190,6 +208,23 @@
             },
             locale: "de"
         });
+
+        if (isTree) {
+            let hasLoadedTree = false;
+            let pendingTreeState;
+            table.on("dataLoading", () => {
+                if (hasLoadedTree) {
+                    pendingTreeState = captureTreeState(table);
+                }
+            });
+            table.on("dataProcessed", () => {
+                if (pendingTreeState) {
+                    restoreTreeState(table, pendingTreeState);
+                    pendingTreeState = undefined;
+                }
+                hasLoadedTree = true;
+            });
+        }
 
         table.on("tableBuilt", () => {
             fallback?.setAttribute("hidden", "hidden");
