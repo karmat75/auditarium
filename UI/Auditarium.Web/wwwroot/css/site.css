@@ -116,7 +116,9 @@ body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
 .aud-grid-page-size > .tabulator-page-size { box-sizing: border-box; width: auto; max-width: none; height: calc(1.5em + .75rem + 2px); margin: 0; padding: .375rem 2.25rem .375rem .75rem; color: var(--aud-text); font-size: 1rem; font-weight: 400; line-height: 1.5; background-color: var(--aud-bg-surface); border: 1px solid var(--aud-border); border-radius: .375rem; }
 .aud-grid-pagination { margin-left: auto; }
 .aud-grid-pagination .tabulator-pages { display: flex; gap: .4rem; }
-.aud-grid-pagination .tabulator-page { margin: 0; color: var(--aud-text); }
+.aud-grid-pagination .tabulator-page { display: inline-block; padding: .25rem .5rem; margin: 0; color: var(--aud-text); font-size: .875rem; line-height: 1.5; background: transparent; border: 1px solid var(--aud-border); border-radius: .25rem; }
+.aud-grid-pagination .tabulator-page:not(:disabled):hover { color: var(--aud-text); background: var(--aud-bg-surface); }
+.aud-grid-pagination .tabulator-page:disabled { opacity: .5; }
 .aud-grid-pagination .tabulator-page.active { background: var(--aud-accent); border-color: var(--aud-accent); color: #fff; }
 .aud-tabulator-action { min-width: 2.25rem; }
 @media (max-width: 575.98px) { .aud-data-card .card-header { display: flex; flex-wrap: wrap; gap: .75rem; align-items: stretch; } .aud-grid-search { width: 100%; } .aud-grid-pagination { width: 100%; margin-left: 0; } }

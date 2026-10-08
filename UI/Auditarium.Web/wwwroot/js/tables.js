@@ -64,8 +64,10 @@
             return;
         }
 
-        const pageSizeSelect = footer.querySelector(".tabulator-page-size");
-        const pageSizeLabel = footer.querySelector("label");
+        const footerChildren = Array.from(footer.children);
+        const pageSizeSelect = footerChildren.find((child) => child.matches(".tabulator-page-size"));
+        const pageSizeLabel = footerChildren.find((child) => child.matches("label"));
+        const paginationControls = footerChildren.filter((child) => child.matches(".tabulator-page, .tabulator-pages"));
         const pageSize = document.createElement("div");
         const pagination = document.createElement("div");
         pageSize.className = "aud-grid-page-size";
@@ -77,8 +79,7 @@
         if (pageSizeLabel) {
             pageSize.append(pageSizeLabel);
         }
-        footer.querySelectorAll(".tabulator-page").forEach((control) => control.classList.add("btn", "btn-sm", "btn-outline-secondary"));
-        footer.querySelectorAll(".tabulator-page, .tabulator-pages").forEach((control) => pagination.append(control));
+        paginationControls.forEach((control) => pagination.append(control));
         footer.replaceChildren(pageSize, pagination);
     };
 

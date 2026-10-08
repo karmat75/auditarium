@@ -303,6 +303,8 @@ public sealed class PresentationFoundationTests
         Assert.Contains("queueRedrawForChangedWidth", tables, StringComparison.Ordinal);
         Assert.Contains("paginationElement: footer || false", tables, StringComparison.Ordinal);
         Assert.Contains("arrangeExternalPagination", tables, StringComparison.Ordinal);
+        Assert.Contains("Array.from(footer.children)", tables, StringComparison.Ordinal);
+        Assert.DoesNotContain("footer.querySelectorAll(\".tabulator-page, .tabulator-pages\")", tables, StringComparison.Ordinal);
         Assert.DoesNotContain("responsiveLayout: \"collapse\"", tables, StringComparison.Ordinal);
         Assert.Contains("card-tools", auditUnits, StringComparison.Ordinal);
         Assert.Contains("aud-grid-search", auditUnits, StringComparison.Ordinal);
