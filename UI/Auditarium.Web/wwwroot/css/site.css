@@ -100,24 +100,24 @@ body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
 .aud-data-card { margin: 1rem 0; color: var(--aud-text); background: var(--aud-bg-surface); border-color: var(--aud-border); }
 .aud-data-card .card-header { background: var(--aud-bg-elevated); border-color: var(--aud-border); }
 .aud-data-card .card-title { margin: 0; color: var(--aud-text); font-size: 1rem; font-weight: 650; }
-.aud-grid-toolbar, .aud-grid-toolbar-start { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
-.aud-grid-toolbar { justify-content: space-between; }
 .aud-grid-search { width: min(100%, 18rem); margin: 0; }
 .aud-grid-search .input-group { flex-wrap: nowrap; }
 .aud-grid-search .form-control { min-width: 0; }
-.aud-tabulator { overflow: hidden; }
+.aud-tabulator { overflow-x: auto; }
 .aud-tabulator .tabulator { border: 0; font-family: inherit; }
 .aud-tabulator .tabulator .tabulator-header, .aud-tabulator .tabulator .tabulator-footer { background: var(--aud-bg-elevated); border-color: var(--aud-border); color: var(--aud-text); }
 .aud-tabulator .tabulator .tabulator-header .tabulator-col { background: var(--aud-bg-elevated); border-color: var(--aud-border); color: var(--aud-text); }
 .aud-tabulator .tabulator .tabulator-row, .aud-tabulator .tabulator .tabulator-row.tabulator-row-even { background: var(--aud-bg-surface); border-color: var(--aud-border); color: var(--aud-text); }
 .aud-tabulator .tabulator .tabulator-row .tabulator-cell { border-color: var(--aud-border); }
 .aud-tabulator .tabulator .tabulator-footer .tabulator-page.active { background: var(--aud-accent); border-color: var(--aud-accent); color: #fff; }
-.aud-tabulator .tabulator .tabulator-footer .tabulator-paginator { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: .4rem; align-items: center; justify-content: flex-end; }
-.aud-tabulator .tabulator .tabulator-footer .tabulator-paginator > label { display: inline-flex; align-items: center; margin: 0; color: var(--aud-text); font-weight: 600; white-space: nowrap; }
+.aud-tabulator .tabulator .tabulator-footer .tabulator-paginator { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.aud-tabulator .tabulator .tabulator-footer .tabulator-paginator > label { display: inline-flex; order: 2; align-items: center; margin: 0; color: var(--aud-text); font-weight: 600; white-space: nowrap; }
 .aud-tabulator .tabulator .tabulator-footer .tabulator-page-size { box-sizing: border-box; width: auto; max-width: none; height: calc(1.5em + .75rem + 2px); margin: 0; padding: .375rem 2.25rem .375rem .75rem; color: var(--aud-text); font-size: 1rem; font-weight: 400; line-height: 1.5; background-color: var(--aud-bg-surface); border: 1px solid var(--aud-border); border-radius: .375rem; }
-.aud-tabulator .tabulator .tabulator-footer .tabulator-page { color: var(--aud-text); }
+.aud-tabulator .tabulator .tabulator-footer .tabulator-page-size { order: 1; }
+.aud-tabulator .tabulator .tabulator-footer .tabulator-page { order: 3; color: var(--aud-text); }
+.aud-tabulator .tabulator .tabulator-footer .tabulator-page[data-page="first"] { margin-left: auto; }
 .aud-tabulator-action { min-width: 2.25rem; }
-@media (max-width: 575.98px) { .aud-grid-toolbar { align-items: stretch; } .aud-grid-search { width: 100%; } .aud-tabulator .tabulator .tabulator-footer .tabulator-paginator { justify-content: flex-start; } }
+@media (max-width: 575.98px) { .aud-data-card .card-header { display: flex; flex-wrap: wrap; gap: .75rem; align-items: stretch; } .aud-grid-search { width: 100%; } .aud-tabulator .tabulator .tabulator-footer .tabulator-page[data-page="first"] { margin-left: 0; } }
 .aud-pagination { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
 .aud-pagination-summary { color: var(--aud-text-muted); }
 .aud-empty-state { padding: 1.25rem; color: var(--aud-text-muted); background: var(--aud-bg-surface); border: 1px dashed var(--aud-border); border-radius: .5rem; }

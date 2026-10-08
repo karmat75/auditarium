@@ -1,6 +1,17 @@
 (() => {
     "use strict";
 
+    const tables = [];
+    let redrawFrame;
+    const scheduleRedraw = () => {
+        window.cancelAnimationFrame(redrawFrame);
+        redrawFrame = window.requestAnimationFrame(() => tables.forEach((table) => table.redraw(true)));
+    };
+    const resizeObserver = typeof window.ResizeObserver === "function"
+        ? new window.ResizeObserver(scheduleRedraw)
+        : null;
+    window.addEventListener("resize", scheduleRedraw);
+
     const statusFormatter = (cell) => {
         const status = document.createElement("span");
         const tone = cell.getRow().getData()[`${cell.getField()}Tone`] || "neutral";
@@ -89,8 +100,6 @@
             paginationSizeSelector: [25, 50, 100, 200],
             sortMode: "remote",
             initialSort: [{ column: element.dataset.audDefaultSort, dir: element.dataset.audDefaultDirection }],
-            responsiveLayout: "collapse",
-            responsiveLayoutCollapseStartOpen: false,
             placeholder: "Keine Einträge gefunden.",
             langs: {
                 de: {
@@ -104,6 +113,11 @@
             locale: "de"
         });
 
-        table.on("tableBuilt", () => fallback?.setAttribute("hidden", "hidden"));
+        table.on("tableBuilt", () => {
+            fallback?.setAttribute("hidden", "hidden");
+            tables.push(table);
+            resizeObserver?.observe(element.closest(".card") || element);
+            scheduleRedraw();
+        });
     });
 })();
