@@ -21,27 +21,18 @@
 
     const actionFormatter = (cell, formatterParams) => {
         const row = cell.getRow().getData();
-        if (!row.canDelete) {
+        const action = window.AuditariumGridActions?.[formatterParams.action];
+        if (typeof action !== "function" || (formatterParams.visibleField && !row[formatterParams.visibleField])) {
             return "";
         }
 
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "btn btn-outline-danger btn-sm aud-tabulator-action";
-        button.title = "Audit Unit löschen";
-        button.setAttribute("aria-label", `Audit Unit ${row.name} löschen`);
-        button.innerHTML = '<i class="bi bi-trash-fill" aria-hidden="true"></i>';
-        button.addEventListener("click", () => {
-            const modal = document.querySelector(formatterParams.modalSelector);
-            if (!modal || !window.bootstrap) {
-                return;
-            }
-
-            modal.querySelector("[data-aud-delete-name]").textContent = row.name;
-            modal.querySelector("[data-aud-delete-id]").value = row.id;
-            modal.querySelector("[data-aud-delete-version]").value = row.concurrencyVersion;
-            window.bootstrap.Modal.getOrCreateInstance(modal).show();
-        });
+        button.className = formatterParams.buttonClass || "btn btn-outline-secondary btn-sm aud-tabulator-action";
+        button.title = formatterParams.label;
+        button.setAttribute("aria-label", formatterParams.label);
+        button.innerHTML = `<i class="${formatterParams.icon}" aria-hidden="true"></i>`;
+        button.addEventListener("click", () => action(row, button));
         return button;
     };
 
@@ -64,9 +55,15 @@
             if (column.status) {
                 column.formatter = statusFormatter;
             }
-            if (column.actions) {
+            if (column.action) {
                 column.formatter = actionFormatter;
-                column.formatterParams = { modalSelector: element.dataset.audDeleteModal };
+                column.formatterParams = {
+                    action: column.action,
+                    buttonClass: column.buttonClass,
+                    icon: column.icon,
+                    label: column.label,
+                    visibleField: column.visibleField
+                };
                 column.headerSort = false;
             }
         });
@@ -74,10 +71,10 @@
         const fallback = element.previousElementSibling;
         const table = new window.Tabulator(element, {
             ajaxURL: element.dataset.audTableUrl,
-            ajaxURLGenerator(_url, _config, params) {
-                const requestUrl = new URL(window.location.href);
+            ajaxURLGenerator(url, _config, params) {
+                const requestUrl = new URL(url, window.location.origin);
                 requestUrl.searchParams.set("handler", "Table");
-                const sorter = params.sorters?.[0];
+                const sorter = params.sort?.[0];
                 requestUrl.searchParams.set("page", params.page || "1");
                 requestUrl.searchParams.set("size", params.size || "25");
                 requestUrl.searchParams.set("sort", sorter ? sortFields[sorter.field] : element.dataset.audDefaultSort);
@@ -107,9 +104,6 @@
             locale: "de"
         });
 
-        table.on("tableBuilt", () => {
-            element.querySelector('.tabulator-page-size option[value="200"]')?.replaceChildren("Alle");
-            fallback?.setAttribute("hidden", "hidden");
-        });
+        table.on("tableBuilt", () => fallback?.setAttribute("hidden", "hidden"));
     });
 })();

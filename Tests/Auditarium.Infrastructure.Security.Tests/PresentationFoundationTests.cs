@@ -286,6 +286,30 @@ public sealed class PresentationFoundationTests
         Assert.Empty(events.Events);
     }
 
+    [Fact]
+    public void Tabulator_grid_foundation_keeps_shared_and_page_specific_concerns_separate()
+    {
+        var root = FindRepositoryRoot();
+        var tables = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "wwwroot", "js", "tables.js"));
+        var auditUnits = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "AuditUnits", "Index.cshtml"));
+        var layout = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "Shared", "_Layout.cshtml"));
+
+        Assert.DoesNotContain("Audit Unit löschen", tables, StringComparison.Ordinal);
+        Assert.DoesNotContain("delete-audit-unit-modal", tables, StringComparison.Ordinal);
+        Assert.Contains("params.sort?.[0]", tables, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-toolbar", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-search", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("audit-units.js", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("RenderSectionAsync(\"Scripts\"", layout, StringComparison.Ordinal);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+            if (File.Exists(Path.Combine(directory.FullName, "Auditarium.sln"))) return directory.FullName;
+        throw new DirectoryNotFoundException("Could not locate the Auditarium repository root.");
+    }
+
     private sealed class StubRouter(string? provider) : IAuthenticationRouter
     {
         public Task<string?> RouteAsync(string login, string? explicitlySelectedProvider, CancellationToken cancellationToken = default) =>
