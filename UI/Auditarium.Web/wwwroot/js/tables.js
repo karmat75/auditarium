@@ -80,11 +80,16 @@
         anchor.href = URL.createObjectURL(new Blob([contents], { type })); anchor.download = name; anchor.click(); URL.revokeObjectURL(anchor.href);
     };
     const printTree = (rows) => {
-        const popup = window.open("", "_blank", "noopener,noreferrer");
-        if (!popup) return;
+        const popup = window.open("", "_blank");
+        if (!popup) {
+            window.alert("Die Druckansicht konnte nicht geöffnet werden.");
+            return;
+        }
+        popup.opener = null;
         const escape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-        popup.document.write(`<table><thead><tr><th>Hierarchy</th><th>Name</th><th>Scope Type</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escape(row.hierarchyPath)}</td><td>${escape(row.name)}</td><td>${escape(row.scopeType)}</td><td>${escape(row.usageState)}</td></tr>`).join("")}</tbody></table>`);
-        popup.document.close(); popup.print();
+        popup.document.write(`<!doctype html><html lang="de"><head><title>Audit Units</title><style>body{font-family:system-ui,sans-serif;margin:2rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #777;padding:.4rem;text-align:left}th{background:#eee}</style></head><body><h1>Audit Units</h1><table><thead><tr><th>Hierarchie</th><th>Name</th><th>Typ</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escape(row.hierarchyPath)}</td><td>${escape(row.name)}</td><td>${escape(row.scopeType)}</td><td>${escape(row.usageState)}</td></tr>`).join("")}</tbody></table></body></html>`);
+        popup.onload = () => { popup.focus(); popup.print(); };
+        popup.document.close();
     };
 
     const arrangeExternalPagination = (footer) => {

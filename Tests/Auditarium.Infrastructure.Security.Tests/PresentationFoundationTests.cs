@@ -315,7 +315,9 @@ public sealed class PresentationFoundationTests
         Assert.Contains("aud-grid-footer", siteCss, StringComparison.Ordinal);
         Assert.Contains("aud-grid-pagination", siteCss, StringComparison.Ordinal);
         Assert.Contains("not(.aud-grid-search)", siteCss, StringComparison.Ordinal);
-        Assert.Contains("data-aud-tabulator-footer", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("data-aud-tree=\"true\"", auditUnits, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-aud-tabulator-footer", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("pagination: !isTree", tables, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
