@@ -318,6 +318,11 @@ public sealed class PresentationFoundationTests
         Assert.Contains("data-aud-tree=\"true\"", auditUnits, StringComparison.Ordinal);
         Assert.DoesNotContain("data-aud-tabulator-footer", auditUnits, StringComparison.Ordinal);
         Assert.Contains("pagination: !isTree", tables, StringComparison.Ordinal);
+        Assert.Contains("table.on(\"dataLoading\"", tables, StringComparison.Ordinal);
+        Assert.Contains("table.on(\"dataProcessed\"", tables, StringComparison.Ordinal);
+        Assert.Contains("row.isTreeExpanded()", tables, StringComparison.Ordinal);
+        Assert.Contains("row.treeCollapse()", tables, StringComparison.Ordinal);
+        Assert.Contains("window.scrollTo(0", tables, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
