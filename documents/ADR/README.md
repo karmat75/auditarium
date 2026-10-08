@@ -22,3 +22,4 @@ This directory contains the durable decision history for Auditarium's significan
 9. [ADR 0009 – Local Bootstrap/AdminLTE Vendoring & Auditarium Theme Layer](0009-local-bootstrap-adminlte-vendoring-and-auditarium-theme-layer.md)
 10. [ADR 0010 – Development Demo Data Tool & Distribution Boundary](0010-development-demo-data-tool-and-distribution-boundary.md)
 11. [ADR 0011 – Development Demo Data Invocation & Admin Provisioning](0011-development-demo-data-invocation-and-admin-provisioning.md)
+12. [ADR 0012 – Standardized Tabulator Data Grid & Tree Grid Integration](0012-standardized-tabulator-data-grid-and-tree-grid-integration.md)
