@@ -1,6 +1,29 @@
 (() => {
     "use strict";
 
+    const gridTables = new Map();
+    const pendingRedraws = new Set();
+    let redrawFrame;
+    const queueRedraw = (grid) => {
+        pendingRedraws.add(grid);
+        window.cancelAnimationFrame(redrawFrame);
+        redrawFrame = window.requestAnimationFrame(() => {
+            pendingRedraws.forEach(({ table }) => table.redraw(true));
+            pendingRedraws.clear();
+        });
+    };
+    const queueRedrawForChangedWidth = (target, width) => {
+        const grid = gridTables.get(target);
+        if (grid && grid.width !== width) {
+            grid.width = width;
+            queueRedraw(grid);
+        }
+    };
+    const resizeObserver = typeof window.ResizeObserver === "function"
+        ? new window.ResizeObserver((entries) => entries.forEach((entry) => queueRedrawForChangedWidth(entry.target, entry.contentRect.width)))
+        : null;
+    window.addEventListener("resize", () => gridTables.forEach((grid, target) => queueRedrawForChangedWidth(target, target.clientWidth)));
+
     const statusFormatter = (cell) => {
         const status = document.createElement("span");
         const tone = cell.getRow().getData()[`${cell.getField()}Tone`] || "neutral";
@@ -36,6 +59,30 @@
         return button;
     };
 
+    const arrangeExternalPagination = (footer) => {
+        if (!footer) {
+            return;
+        }
+
+        const footerChildren = Array.from(footer.children);
+        const pageSizeSelect = footerChildren.find((child) => child.matches(".tabulator-page-size"));
+        const pageSizeLabel = footerChildren.find((child) => child.matches("label"));
+        const paginationControls = footerChildren.filter((child) => child.matches(".tabulator-page, .tabulator-pages"));
+        const pageSize = document.createElement("div");
+        const pagination = document.createElement("div");
+        pageSize.className = "aud-grid-page-size";
+        pagination.className = "aud-grid-pagination";
+
+        if (pageSizeSelect) {
+            pageSize.append(pageSizeSelect);
+        }
+        if (pageSizeLabel) {
+            pageSize.append(pageSizeLabel);
+        }
+        paginationControls.forEach((control) => pagination.append(control));
+        footer.replaceChildren(pageSize, pagination);
+    };
+
     document.querySelectorAll("[data-aud-tabulator]").forEach((element) => {
         if (typeof window.Tabulator !== "function") {
             return;
@@ -69,6 +116,7 @@
         });
 
         const fallback = element.previousElementSibling;
+        const footer = element.nextElementSibling?.matches("[data-aud-tabulator-footer]") ? element.nextElementSibling : null;
         const table = new window.Tabulator(element, {
             ajaxURL: element.dataset.audTableUrl,
             ajaxURLGenerator(url, _config, params) {
@@ -82,15 +130,14 @@
                 return requestUrl.toString();
             },
             columns,
-            layout: "fitColumns",
+            layout: "fitDataStretch",
             pagination: true,
             paginationMode: "remote",
             paginationSize: 25,
             paginationSizeSelector: [25, 50, 100, 200],
+            paginationElement: footer || false,
             sortMode: "remote",
             initialSort: [{ column: element.dataset.audDefaultSort, dir: element.dataset.audDefaultDirection }],
-            responsiveLayout: "collapse",
-            responsiveLayoutCollapseStartOpen: false,
             placeholder: "Keine Einträge gefunden.",
             langs: {
                 de: {
@@ -104,6 +151,13 @@
             locale: "de"
         });
 
-        table.on("tableBuilt", () => fallback?.setAttribute("hidden", "hidden"));
+        table.on("tableBuilt", () => {
+            fallback?.setAttribute("hidden", "hidden");
+            arrangeExternalPagination(footer);
+            const container = element.parentElement || element;
+            const grid = { table, width: container.clientWidth };
+            gridTables.set(container, grid);
+            resizeObserver?.observe(container);
+        });
     });
 })();

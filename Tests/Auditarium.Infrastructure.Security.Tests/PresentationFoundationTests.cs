@@ -293,14 +293,29 @@ public sealed class PresentationFoundationTests
         var tables = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "wwwroot", "js", "tables.js"));
         var auditUnits = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "AuditUnits", "Index.cshtml"));
         var layout = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "Pages", "Shared", "_Layout.cshtml"));
+        var siteCss = File.ReadAllText(Path.Combine(root, "UI", "Auditarium.Web", "wwwroot", "css", "site.css"));
 
         Assert.DoesNotContain("Audit Unit löschen", tables, StringComparison.Ordinal);
         Assert.DoesNotContain("delete-audit-unit-modal", tables, StringComparison.Ordinal);
         Assert.Contains("params.sort?.[0]", tables, StringComparison.Ordinal);
-        Assert.Contains("aud-grid-toolbar", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("ResizeObserver", tables, StringComparison.Ordinal);
+        Assert.Contains("fitDataStretch", tables, StringComparison.Ordinal);
+        Assert.Contains("queueRedrawForChangedWidth", tables, StringComparison.Ordinal);
+        Assert.Contains("paginationElement: footer || false", tables, StringComparison.Ordinal);
+        Assert.Contains("arrangeExternalPagination", tables, StringComparison.Ordinal);
+        Assert.Contains("Array.from(footer.children)", tables, StringComparison.Ordinal);
+        Assert.DoesNotContain("footer.querySelectorAll(\".tabulator-page, .tabulator-pages\")", tables, StringComparison.Ordinal);
+        Assert.DoesNotContain("responsiveLayout: \"collapse\"", tables, StringComparison.Ordinal);
+        Assert.Contains("card-tools", auditUnits, StringComparison.Ordinal);
         Assert.Contains("aud-grid-search", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("Suche zurücksetzen", auditUnits, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-actions", auditUnits, StringComparison.Ordinal);
         Assert.Contains("audit-units.js", auditUnits, StringComparison.Ordinal);
         Assert.Contains("RenderSectionAsync(\"Scripts\"", layout, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-footer", siteCss, StringComparison.Ordinal);
+        Assert.Contains("aud-grid-pagination", siteCss, StringComparison.Ordinal);
+        Assert.Contains("not(.aud-grid-search)", siteCss, StringComparison.Ordinal);
+        Assert.Contains("data-aud-tabulator-footer", auditUnits, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
