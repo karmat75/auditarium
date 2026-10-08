@@ -79,6 +79,13 @@
         const anchor = document.createElement("a");
         anchor.href = URL.createObjectURL(new Blob([contents], { type })); anchor.download = name; anchor.click(); URL.revokeObjectURL(anchor.href);
     };
+    const printTree = (rows) => {
+        const popup = window.open("", "_blank", "noopener,noreferrer");
+        if (!popup) return;
+        const escape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+        popup.document.write(`<table><thead><tr><th>Hierarchy</th><th>Name</th><th>Scope Type</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escape(row.hierarchyPath)}</td><td>${escape(row.name)}</td><td>${escape(row.scopeType)}</td><td>${escape(row.usageState)}</td></tr>`).join("")}</tbody></table>`);
+        popup.document.close(); popup.print();
+    };
 
     const arrangeExternalPagination = (footer) => {
         if (!footer) {
@@ -164,6 +171,7 @@
             dataTree: isTree,
             dataTreeChildField: "children",
             dataTreeStartExpanded: isTree,
+            dataTreeSort: !isTree ? undefined : false,
             initialSort: [{ column: element.dataset.audDefaultSort, dir: element.dataset.audDefaultDirection }],
             placeholder: "Keine Einträge gefunden.",
             langs: {
@@ -192,7 +200,7 @@
                 if (button.dataset.audTreeExport === "csv") download(csv(rows), "text/csv;charset=utf-8", "audit-units.csv");
                 else download(JSON.stringify(rows, null, 2), "application/json", "audit-units.json");
             }));
-            document.querySelectorAll("[data-aud-tree-print]").forEach((button) => button.addEventListener("click", () => table.print(false, true)));
+            document.querySelectorAll("[data-aud-tree-print]").forEach((button) => button.addEventListener("click", () => printTree(flattenTree(table.getData()))));
         }
     });
 })();
