@@ -301,7 +301,7 @@ public sealed class PresentationFoundationTests
         Assert.DoesNotContain("delete-audit-unit-modal", tables, StringComparison.Ordinal);
         Assert.Contains("params.sort?.[0]", tables, StringComparison.Ordinal);
         Assert.Contains("ResizeObserver", tables, StringComparison.Ordinal);
-        Assert.Contains("fitDataStretch", tables, StringComparison.Ordinal);
+        Assert.Contains("layout: isTree ? \"fitColumns\" : \"fitDataStretch\"", tables, StringComparison.Ordinal);
         Assert.Contains("queueRedrawForChangedWidth", tables, StringComparison.Ordinal);
         Assert.Contains("paginationElement: footer || false", tables, StringComparison.Ordinal);
         Assert.Contains("arrangeExternalPagination", tables, StringComparison.Ordinal);
@@ -327,10 +327,12 @@ public sealed class PresentationFoundationTests
         Assert.Contains("window.scrollTo(0", tables, StringComparison.Ordinal);
         Assert.Contains("actionsFormatter", tables, StringComparison.Ordinal);
         Assert.Contains("makeTreeControlsAccessible", tables, StringComparison.Ordinal);
+        Assert.Contains("syncTreeControlState", tables, StringComparison.Ordinal);
         Assert.DoesNotContain("\"linkField\":\"detailsUrl\"", auditUnits, StringComparison.Ordinal);
         Assert.Contains("\"widthGrow\":1", auditUnits, StringComparison.Ordinal);
         Assert.Contains("\"editUrl\"", auditUnits, StringComparison.Ordinal);
         Assert.Contains("asp-page=\"Edit\"", auditUnitDetails, StringComparison.Ordinal);
+        Assert.Contains("@if (Model.CanManage)", auditUnitDetails, StringComparison.Ordinal);
         Assert.DoesNotContain("_AuditUnitForm", auditUnitDetails, StringComparison.Ordinal);
         Assert.Contains("_AuditUnitForm", auditUnitEdit, StringComparison.Ordinal);
     }

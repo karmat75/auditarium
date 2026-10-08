@@ -80,14 +80,21 @@
         return actions.childElementCount ? actions : "";
     };
 
+    const syncTreeControlState = (element) => {
+        element.querySelectorAll(".tabulator-data-tree-control").forEach((control) => {
+            control.setAttribute("aria-expanded", control.querySelector(".tabulator-data-tree-control-collapse") ? "true" : "false");
+        });
+    };
+
     const makeTreeControlsAccessible = (element) => {
+        syncTreeControlState(element);
         element.querySelectorAll(".tabulator-data-tree-control").forEach((control) => {
             if (control.dataset.audTreeControl === "true") return;
             control.dataset.audTreeControl = "true";
             control.tabIndex = 0;
             control.setAttribute("role", "button");
             control.setAttribute("aria-label", "Untergeordnete Audit Units ein- oder ausblenden");
-            control.setAttribute("aria-expanded", control.querySelector(".tabulator-data-tree-control-collapse") ? "true" : "false");
+            control.addEventListener("click", () => window.requestAnimationFrame(() => syncTreeControlState(element)));
             control.addEventListener("keydown", (event) => {
                 if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -227,7 +234,7 @@
                 return requestUrl.toString();
             },
             columns,
-            layout: "fitDataStretch",
+            layout: isTree ? "fitColumns" : "fitDataStretch",
             pagination: !isTree,
             paginationMode: isTree ? undefined : "remote",
             paginationSize: isTree ? undefined : 25,
