@@ -56,6 +56,34 @@ public sealed class AuditWorkflowIntegrationTests
         Assert.Equal("Alpha", byUsageState.Value!.Items[0].Name);
     }
 
+    [Fact]
+    public async Task Audit_unit_hierarchy_keeps_parent_paths_when_searching_and_sorts_only_siblings()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var commands = new AuditCommandHandler(db, new TestActor());
+        var root = await commands.Handle(new CreateAuditUnitCommand(new(null, 1, "Root", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
+        var zulu = await commands.Handle(new CreateAuditUnitCommand(new(root.Value, 2, "Zulu", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
+        var alpha = await commands.Handle(new CreateAuditUnitCommand(new(root.Value, 2, "Alpha", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None);
+        var leaf = await commands.Handle(new CreateAuditUnitCommand(new(alpha.Value, 3, "Needle", null, AuditUnitUsageState.Inactive, "Nicht verwendet", null)), CancellationToken.None);
+        Assert.True(root.IsSuccess && zulu.IsSuccess && alpha.IsSuccess && leaf.IsSuccess);
+
+        var queries = new AuditQueryHandler(db);
+        var sorted = await queries.Handle(new GetAuditUnitHierarchyQuery(null, "name", false), CancellationToken.None);
+        var searched = await queries.Handle(new GetAuditUnitHierarchyQuery("Needle"), CancellationToken.None);
+        var searchedItems = searched.Value!;
+
+        Assert.Equal(["Root", "Alpha", "Needle", "Zulu"], sorted.Value!.Select(x => x.Name));
+        Assert.Equal(["Root", "Alpha", "Needle"], searchedItems.Select(x => x.Name));
+        Assert.Equal([0, 1, 2], searchedItems.Select(x => x.Depth));
+        Assert.All(searchedItems, item => Assert.False(string.IsNullOrWhiteSpace(item.ScopeTypeKey)));
+        Assert.Equal(root.Value, searchedItems[1].ParentAuditUnitId);
+    }
+
     private static async Task VerifyEmptyListsAsync(string databaseProvider, string connectionString)
     {
         await using var provider = CreateProvider(databaseProvider, connectionString);

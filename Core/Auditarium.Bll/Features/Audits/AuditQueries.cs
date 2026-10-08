@@ -13,7 +13,7 @@ namespace Auditarium.Bll.Features.Audits;
 public sealed record AuditUnitListItem(long AuditUnitId, long? ParentAuditUnitId, string? ParentName, long ScopeTypeId, string ScopeTypeKey, string ScopeTypeName, string Name, AuditUnitUsageState UsageState, long ConcurrencyVersion);
 public sealed record AuditUnitDetails(long AuditUnitId, long? ParentAuditUnitId, long ScopeTypeId, string Name, string? Description, AuditUnitUsageState UsageState, string? UsageStateReason, string? Notes, long ConcurrencyVersion);
 public sealed record AuditUnitPage(IReadOnlyList<AuditUnitListItem> Items, long TotalCount);
-public sealed record AuditUnitHierarchyItem(long AuditUnitId, long? ParentAuditUnitId, int Depth, string Name, string ScopeTypeName, AuditUnitUsageState UsageState);
+public sealed record AuditUnitHierarchyItem(long AuditUnitId, long? ParentAuditUnitId, int Depth, string ScopeTypeKey, string ScopeTypeName, string Name, AuditUnitUsageState UsageState, long ConcurrencyVersion);
 public sealed record AuditListItem(long AuditId, string Name, long AuditUnitId, string AuditUnitName, long CatalogVersionId, string DocumentTitle, int CatalogVersionNumber, AuditState AuditState, DateTimeOffset CreatedAt, long? AssignedAuditorUserId, string? AssignedAuditorDisplayName, long ConcurrencyVersion);
 public sealed record AuditQuestionDetails(long AuditQuestionId, string Text, string? VerificationHint, string? EvidenceHint, AuditQuestionResult? Result, string? Comment, string? Evidence, DateTimeOffset? AnsweredAt, string? AnsweredByDisplayName, long ConcurrencyVersion);
 public sealed record AuditorOption(long UserId, string DisplayName);
@@ -25,7 +25,7 @@ public sealed record AuditUnitFormOptions(IReadOnlyList<AuditUnitListItem> Audit
 
 [RequiresPermission("AuditUnits.Manage")] public sealed record ListAuditUnitsQuery(string? Search, int Skip, int Take, string Sort, bool Descending) : IRequest<Result<AuditUnitPage>>;
 [RequiresPermission("AuditUnits.Manage")] public sealed record GetAuditUnitQuery(long AuditUnitId) : IRequest<Result<AuditUnitDetails>>;
-[RequiresPermission("AuditUnits.Manage")] public sealed record GetAuditUnitHierarchyQuery() : IRequest<Result<IReadOnlyList<AuditUnitHierarchyItem>>>;
+[RequiresPermission("AuditUnits.Manage")] public sealed record GetAuditUnitHierarchyQuery(string? Search = null, string Sort = "name", bool Descending = false) : IRequest<Result<IReadOnlyList<AuditUnitHierarchyItem>>>;
 [RequiresPermission("AuditUnits.Manage")] public sealed record GetAuditUnitFormOptionsQuery() : IRequest<Result<AuditUnitFormOptions>>;
 [RequiresPermission("Audits.Read")] public sealed record ListAuditsQuery(string? Search, AuditState? State, int Skip, int Take, string Sort, bool Descending) : IRequest<Result<AuditPage>>;
 [RequiresPermission("Audits.Read")] public sealed record GetAuditQuery(long AuditId) : IRequest<Result<AuditDetails>>;
@@ -75,21 +75,52 @@ public sealed class AuditQueryHandler(IAuditariumDbContext db) :
 
     public async ValueTask<Result<IReadOnlyList<AuditUnitHierarchyItem>>> Handle(GetAuditUnitHierarchyQuery query, CancellationToken ct)
     {
+        if (query.Sort is not ("name" or "scopeType" or "usageState")) return Fail<IReadOnlyList<AuditUnitHierarchyItem>>("AUDIT_UNIT.HIERARCHY_ARGUMENT_INVALID");
         var units = await (from unit in db.AuditUnits.AsNoTracking()
                            join scope in db.ScopeTypes.AsNoTracking() on unit.ScopeTypeId equals scope.ScopeTypeId
-                           select new { unit, ScopeTypeName = scope.Name })
-            .OrderBy(x => x.unit.Name)
-            .Select(x => new AuditUnitHierarchyItem(x.unit.AuditUnitId, x.unit.ParentAuditUnitId, 0, x.unit.Name, x.ScopeTypeName, x.unit.UsageState))
+                           select new AuditUnitHierarchySource(unit.AuditUnitId, unit.ParentAuditUnitId, scope.Key, scope.Name, unit.Name, unit.Description, unit.UsageState, unit.ConcurrencyVersion))
             .ToListAsync(ct);
-        var byParent = units.ToLookup(x => x.ParentAuditUnitId);
+        var included = units.Select(x => x.AuditUnitId).ToHashSet();
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            included = units.Where(x => x.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || x.ScopeTypeName.Contains(search, StringComparison.OrdinalIgnoreCase) || x.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true).Select(x => x.AuditUnitId).ToHashSet();
+            var byId = units.ToDictionary(x => x.AuditUnitId);
+            foreach (var match in included.ToArray())
+                for (var parent = byId[match].ParentAuditUnitId; parent is { } id && byId.TryGetValue(id, out var ancestor) && included.Add(id); parent = ancestor.ParentAuditUnitId) { }
+        }
+        var byParent = units.Where(x => included.Contains(x.AuditUnitId)).ToLookup(x => x.ParentAuditUnitId);
         var result = new List<AuditUnitHierarchyItem>();
+        var visited = new HashSet<long>();
         void AddChildren(long? parent, int depth)
         {
-            foreach (var unit in byParent[parent]) { result.Add(unit with { Depth = depth }); AddChildren(unit.AuditUnitId, depth + 1); }
+            foreach (var unit in SortSiblings(byParent[parent], query.Sort, query.Descending))
+            {
+                if (!visited.Add(unit.AuditUnitId)) continue;
+                result.Add(new(unit.AuditUnitId, unit.ParentAuditUnitId, depth, unit.ScopeTypeKey, unit.ScopeTypeName, unit.Name, unit.UsageState, unit.ConcurrencyVersion));
+                AddChildren(unit.AuditUnitId, depth + 1);
+            }
         }
         AddChildren(null, 0);
+        foreach (var unit in SortSiblings(units.Where(x => included.Contains(x.AuditUnitId) && !visited.Contains(x.AuditUnitId)), query.Sort, query.Descending))
+        {
+            result.Add(new(unit.AuditUnitId, unit.ParentAuditUnitId, 0, unit.ScopeTypeKey, unit.ScopeTypeName, unit.Name, unit.UsageState, unit.ConcurrencyVersion));
+            AddChildren(unit.AuditUnitId, 1);
+        }
         return Result<IReadOnlyList<AuditUnitHierarchyItem>>.Success(result);
     }
+
+    private static IOrderedEnumerable<AuditUnitHierarchySource> SortSiblings(IEnumerable<AuditUnitHierarchySource> units, string sort, bool descending) => (sort, descending) switch
+    {
+        ("scopeType", false) => units.OrderBy(x => x.ScopeTypeName).ThenBy(x => x.Name),
+        ("scopeType", true) => units.OrderByDescending(x => x.ScopeTypeName).ThenByDescending(x => x.Name),
+        ("usageState", false) => units.OrderBy(x => x.UsageState).ThenBy(x => x.Name),
+        ("usageState", true) => units.OrderByDescending(x => x.UsageState).ThenByDescending(x => x.Name),
+        ("name", true) => units.OrderByDescending(x => x.Name),
+        _ => units.OrderBy(x => x.Name)
+    };
+
+    private sealed record AuditUnitHierarchySource(long AuditUnitId, long? ParentAuditUnitId, string ScopeTypeKey, string ScopeTypeName, string Name, string? Description, AuditUnitUsageState UsageState, long ConcurrencyVersion);
 
     public async ValueTask<Result<AuditUnitFormOptions>> Handle(GetAuditUnitFormOptionsQuery query, CancellationToken ct)
     {
