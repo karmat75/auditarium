@@ -15,6 +15,7 @@ public sealed class StatusTagHelper : TagHelper
         var presentation = StatusPresentations.Resolve(Value);
 
         output.TagName = "span";
+        output.TagMode = TagMode.StartTagAndEndTag;
         output.Attributes.SetAttribute("class", $"aud-status aud-status--{presentation.Tone}");
         output.Attributes.SetAttribute("aria-label", $"Status: {presentation.Label}");
         output.Content.SetHtmlContent($"<span class=\"aud-status__label\">{HtmlEncoder.Default.Encode(presentation.Label)}</span>");

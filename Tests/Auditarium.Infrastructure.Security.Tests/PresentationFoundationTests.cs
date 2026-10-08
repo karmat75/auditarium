@@ -10,10 +10,13 @@ using Auditarium.Bll.Pipeline;
 using Auditarium.Common.Results;
 using Auditarium.Web;
 using Auditarium.Web.Components;
+using Auditarium.Web.TagHelpers;
 using Auditarium.Web.Pages.Analysis;
+using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Mediator;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Encodings.Web;
 using Xunit;
 
 namespace Auditarium.Infrastructure.Security.Tests;
@@ -33,6 +36,22 @@ public sealed class PresentationFoundationTests
 
         Assert.Equal(label, presentation.Label);
         Assert.Equal(tone, presentation.Tone);
+    }
+
+    [Theory]
+    [InlineData(Auditarium.Models.Catalog.AuditUnitUsageState.Active, "Aktiv")]
+    [InlineData(Auditarium.Models.Catalog.AuditUnitUsageState.Inactive, "Inaktiv")]
+    public void Status_tag_helper_renders_a_visible_audit_unit_status_label(object status, string label)
+    {
+        var helper = new StatusTagHelper { Value = status };
+        var context = new TagHelperContext(new TagHelperAttributeList(), new Dictionary<object, object>(), "status-test");
+        var output = new TagHelperOutput("aud-status", new TagHelperAttributeList(), (_, _) => Task.FromResult<TagHelperContent>(new DefaultTagHelperContent())) { TagMode = TagMode.SelfClosing };
+
+        helper.Process(context, output);
+
+        using var writer = new StringWriter();
+        output.WriteTo(writer, HtmlEncoder.Default);
+        Assert.Contains($">{label}</span>", writer.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -339,12 +358,16 @@ public sealed class PresentationFoundationTests
         Assert.Contains("asp-page=\"Edit\"", auditUnitDetails, StringComparison.Ordinal);
         Assert.Contains("@if (Model.CanManage)", auditUnitDetails, StringComparison.Ordinal);
         Assert.Contains("Zurück zur Übersicht", auditUnitDetails, StringComparison.Ordinal);
+        Assert.Contains("<dt>Status</dt>", auditUnitDetails, StringComparison.Ordinal);
         Assert.DoesNotContain("_AuditUnitForm", auditUnitDetails, StringComparison.Ordinal);
         Assert.Contains("_AuditUnitForm", auditUnitEdit, StringComparison.Ordinal);
         Assert.Contains("CancelUrl", auditUnitEdit, StringComparison.Ordinal);
+        Assert.Contains("Url.Page(\"Index\")", auditUnitEdit, StringComparison.Ordinal);
+        Assert.DoesNotContain("Url.Page(\"Details\"", auditUnitEdit, StringComparison.Ordinal);
         Assert.DoesNotContain("CancelUrl", auditUnitCreate, StringComparison.Ordinal);
         Assert.Contains("Abbrechen", auditUnitForm, StringComparison.Ordinal);
         Assert.Contains("aud-status__label", statusTagHelper, StringComparison.Ordinal);
+        Assert.Contains("TagMode.StartTagAndEndTag", statusTagHelper, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

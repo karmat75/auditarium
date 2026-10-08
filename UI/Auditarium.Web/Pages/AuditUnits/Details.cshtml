@@ -12,7 +12,7 @@
 <dl class="aud-detail-list">
     <dt>Übergeordnete Audit Unit</dt><dd>@(Model.ParentName ?? "–")</dd>
     <dt>Scope Type</dt><dd>@(Model.ScopeTypeName ?? "–")</dd>
-    <dt>Nutzungszustand</dt><dd><aud-status value="@Model.Unit.UsageState" /></dd>
+    <dt>Status</dt><dd><aud-status value="@Model.Unit.UsageState" /></dd>
     <dt>Beschreibung</dt><dd>@(Model.Unit.Description ?? "–")</dd>
     <dt>Begründung bei INACTIVE</dt><dd>@(Model.Unit.UsageStateReason ?? "–")</dd>
     <dt>Interne Hinweise</dt><dd>@(Model.Unit.Notes ?? "–")</dd>
