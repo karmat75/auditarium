@@ -59,6 +59,27 @@
         return button;
     };
 
+    const scopeTypeFormatter = (cell) => {
+        const icons = { ORGANIZATION: "bi-building", SITE: "bi-geo-alt", BUILDING: "bi-buildings", ROOM: "bi-door-open", TECHNICAL_AREA: "bi-cpu", APPLICATION: "bi-window-stack", OTHER: "bi-tag" };
+        const wrapper = document.createElement("span");
+        const icon = document.createElement("i");
+        icon.className = `bi ${icons[cell.getRow().getData().scopeTypeKey] || "bi-diagram-3"} me-1`;
+        icon.setAttribute("aria-hidden", "true");
+        wrapper.append(icon, document.createTextNode(cell.getValue() || "–"));
+        return wrapper;
+    };
+
+    const flattenTree = (nodes, path = []) => nodes.flatMap((node) => {
+        const hierarchyPath = [...path, node.name];
+        const row = { name: node.name, hierarchyPath: hierarchyPath.join(" / "), scopeType: node.scopeType, usageState: node.usageState };
+        return [row, ...flattenTree(node.children || [], hierarchyPath)];
+    });
+    const csv = (rows) => ["Hierarchy,Name,Scope Type,Status", ...rows.map((row) => [row.hierarchyPath, row.name, row.scopeType, row.usageState].map((value) => `"${String(value).replaceAll("\"", "\"\"")}"`).join(","))].join("\r\n");
+    const download = (contents, type, name) => {
+        const anchor = document.createElement("a");
+        anchor.href = URL.createObjectURL(new Blob([contents], { type })); anchor.download = name; anchor.click(); URL.revokeObjectURL(anchor.href);
+    };
+
     const arrangeExternalPagination = (footer) => {
         if (!footer) {
             return;
@@ -89,6 +110,7 @@
         }
 
         const columns = JSON.parse(element.dataset.audColumns);
+        const isTree = element.dataset.audTree === "true";
         const sortFields = {};
         columns.forEach((column) => {
             column.headerSort = column.sortable === true;
@@ -101,6 +123,9 @@
             }
             if (column.status) {
                 column.formatter = statusFormatter;
+            }
+            if (column.scopeType) {
+                column.formatter = scopeTypeFormatter;
             }
             if (column.action) {
                 column.formatter = actionFormatter;
@@ -121,22 +146,24 @@
             ajaxURL: element.dataset.audTableUrl,
             ajaxURLGenerator(url, _config, params) {
                 const requestUrl = new URL(url, window.location.origin);
-                requestUrl.searchParams.set("handler", "Table");
+                requestUrl.searchParams.set("handler", isTree ? "Tree" : "Table");
                 const sorter = params.sort?.[0];
-                requestUrl.searchParams.set("page", params.page || "1");
-                requestUrl.searchParams.set("size", params.size || "25");
+                if (!isTree) { requestUrl.searchParams.set("page", params.page || "1"); requestUrl.searchParams.set("size", params.size || "25"); }
                 requestUrl.searchParams.set("sort", sorter ? sortFields[sorter.field] : element.dataset.audDefaultSort);
                 requestUrl.searchParams.set("direction", sorter?.dir || element.dataset.audDefaultDirection);
                 return requestUrl.toString();
             },
             columns,
             layout: "fitDataStretch",
-            pagination: true,
-            paginationMode: "remote",
-            paginationSize: 25,
-            paginationSizeSelector: [25, 50, 100, 200],
+            pagination: !isTree,
+            paginationMode: isTree ? undefined : "remote",
+            paginationSize: isTree ? undefined : 25,
+            paginationSizeSelector: isTree ? undefined : [25, 50, 100, 200],
             paginationElement: footer || false,
             sortMode: "remote",
+            dataTree: isTree,
+            dataTreeChildField: "children",
+            dataTreeStartExpanded: isTree,
             initialSort: [{ column: element.dataset.audDefaultSort, dir: element.dataset.audDefaultDirection }],
             placeholder: "Keine Einträge gefunden.",
             langs: {
@@ -159,5 +186,13 @@
             gridTables.set(container, grid);
             resizeObserver?.observe(container);
         });
+        if (isTree) {
+            document.querySelectorAll("[data-aud-tree-export]").forEach((button) => button.addEventListener("click", () => {
+                const rows = flattenTree(table.getData());
+                if (button.dataset.audTreeExport === "csv") download(csv(rows), "text/csv;charset=utf-8", "audit-units.csv");
+                else download(JSON.stringify(rows, null, 2), "application/json", "audit-units.json");
+            }));
+            document.querySelectorAll("[data-aud-tree-print]").forEach((button) => button.addEventListener("click", () => table.print(false, true)));
+        }
     });
 })();
