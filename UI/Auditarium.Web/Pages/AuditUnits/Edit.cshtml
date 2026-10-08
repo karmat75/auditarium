@@ -1,5 +1,5 @@
 @page "/audit-units/{id:long}/edit"
 @model Auditarium.Web.Pages.AuditUnits.EditModel
-@{ ViewData["Title"] = $"{Model.Input.Name} bearbeiten"; ViewBag.AuditUnits = Model.Options.AuditUnits.Where(x => x.AuditUnitId != Model.Input.AuditUnitId).ToArray(); ViewBag.ScopeTypes = Model.Options.ScopeTypes; }
+@{ ViewData["Title"] = $"{Model.Input.Name} bearbeiten"; ViewData["CancelUrl"] = Url.Page("Details", new { id = Model.Input.AuditUnitId }); ViewBag.AuditUnits = Model.Options.AuditUnits.Where(x => x.AuditUnitId != Model.Input.AuditUnitId).ToArray(); ViewBag.ScopeTypes = Model.Options.ScopeTypes; }
 <h1>@Model.Input.Name bearbeiten</h1>
 <partial name="_AuditUnitForm" model="Model.Input" />

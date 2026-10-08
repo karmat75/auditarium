@@ -2,10 +2,13 @@
 @model Auditarium.Web.Pages.AuditUnits.DetailsModel
 @{ ViewData["Title"] = Model.Unit.Name; }
 <h1>@Model.Unit.Name</h1>
-@if (Model.CanManage)
-{
-    <div class="aud-action-bar"><a asp-page="Edit" asp-route-id="@Model.Unit.AuditUnitId" class="btn btn-primary"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="ms-1">Bearbeiten</span></a></div>
-}
+<div class="aud-action-bar">
+    <a asp-page="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left" aria-hidden="true"></i><span class="ms-1">Zurück zur Übersicht</span></a>
+    @if (Model.CanManage)
+    {
+        <a asp-page="Edit" asp-route-id="@Model.Unit.AuditUnitId" class="btn btn-primary"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="ms-1">Bearbeiten</span></a>
+    }
+</div>
 <dl class="aud-detail-list">
     <dt>Übergeordnete Audit Unit</dt><dd>@(Model.ParentName ?? "–")</dd>
     <dt>Scope Type</dt><dd>@(Model.ScopeTypeName ?? "–")</dd>

@@ -1,5 +1,6 @@
 using Auditarium.Web.Components;
 using Microsoft.AspNetCore.Razor.TagHelpers;
+using System.Text.Encodings.Web;
 
 namespace Auditarium.Web.TagHelpers;
 
@@ -16,6 +17,6 @@ public sealed class StatusTagHelper : TagHelper
         output.TagName = "span";
         output.Attributes.SetAttribute("class", $"aud-status aud-status--{presentation.Tone}");
         output.Attributes.SetAttribute("aria-label", $"Status: {presentation.Label}");
-        output.Content.SetContent(presentation.Label);
+        output.Content.SetHtmlContent($"<span class=\"aud-status__label\">{HtmlEncoder.Default.Encode(presentation.Label)}</span>");
     }
 }
