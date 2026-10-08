@@ -143,11 +143,20 @@ public sealed class DemoFixtureIntegrationTests
     private static void AssertFixture(AuditariumDbContext db, FixtureSnapshot snapshot)
     {
         Assert.Equal(DemoFixtureDefinition.FixtureVersion, snapshot.FixtureVersion);
+        Assert.Equal(DemoFixtureDefinition.ExpectedAuditUnitCount, snapshot.Units.Length);
+        Assert.Equal(DemoFixtureDefinition.ExpectedAuditUnitCount, DemoFixtureDefinition.AuditUnits.Count);
+        Assert.Equal(
+            DemoFixtureDefinition.AuditUnits
+                .Select(unit => new FixtureUnit(unit.Name, unit.ScopeTypeKey, unit.UsageState, unit.ParentName))
+                .OrderBy(unit => unit.Name)
+                .ToArray(),
+            snapshot.Units);
         var auditStates = snapshot.Audits.Select(audit => audit.State).Distinct().ToArray();
         Assert.Equal(5, auditStates.Length);
         Assert.All(Enum.GetValues<AuditState>(), state => Assert.Contains(state, auditStates));
         Assert.Contains(snapshot.Units, unit => unit.Name == DemoFixtureDefinition.RetiredRoomName && unit.State == AuditUnitUsageState.Inactive);
         Assert.Contains(snapshot.Units, unit => unit.Name == DemoFixtureDefinition.ServerRoomName && unit.State == AuditUnitUsageState.Active);
+        Assert.Contains(snapshot.Units, unit => unit.Name == DemoFixtureDefinition.ServerRoomName && unit.Parent == DemoFixtureDefinition.BuildingName);
         Assert.Equal([CatalogState.Ready, CatalogState.Draft], snapshot.Catalogs.Select(catalog => catalog.State).ToArray());
         Assert.Contains(snapshot.Audits, audit => audit.Name == DemoFixtureDefinition.RepeatAuditName && audit.Origin == DemoFixtureDefinition.InitialAuditName && !audit.Assigned);
         Assert.Contains(snapshot.Audits, audit => audit.Name == DemoFixtureDefinition.InProgressAuditName && audit.Assigned);
