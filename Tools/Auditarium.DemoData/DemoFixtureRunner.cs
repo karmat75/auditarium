@@ -44,12 +44,15 @@ public sealed class DemoFixtureRunner(AuditariumDbContext db, IMediator mediator
 
         if (afterBuildingMarker is not null) await afterBuildingMarker(cancellationToken);
 
-        var technicalArea = await ScopeTypeIdAsync("TECHNICAL_AREA", cancellationToken);
-        var organization = await SendIdAsync(new CreateAuditUnitCommand(new(null, 1, DemoFixtureDefinition.OrganizationName, null, AuditUnitUsageState.Active, null, DemoFixtureDefinition.FixtureNote)), cancellationToken);
-        var site = await SendIdAsync(new CreateAuditUnitCommand(new(organization, 2, DemoFixtureDefinition.SiteName, null, AuditUnitUsageState.Active, null, DemoFixtureDefinition.FixtureNote)), cancellationToken);
-        var building = await SendIdAsync(new CreateAuditUnitCommand(new(site, 3, DemoFixtureDefinition.BuildingName, null, AuditUnitUsageState.Active, null, DemoFixtureDefinition.FixtureNote)), cancellationToken);
-        var serverRoom = await SendIdAsync(new CreateAuditUnitCommand(new(building, technicalArea, DemoFixtureDefinition.ServerRoomName, null, AuditUnitUsageState.Active, null, DemoFixtureDefinition.FixtureNote)), cancellationToken);
-        await SendIdAsync(new CreateAuditUnitCommand(new(building, technicalArea, DemoFixtureDefinition.RetiredRoomName, null, AuditUnitUsageState.Inactive, "Außer Betrieb; nur als historischer Demo-Kontext.", DemoFixtureDefinition.FixtureNote)), cancellationToken);
+        var scopeTypeIds = await db.ScopeTypes.ToDictionaryAsync(scope => scope.Key, scope => scope.ScopeTypeId, StringComparer.Ordinal, cancellationToken);
+        var auditUnitIds = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var unit in DemoFixtureDefinition.AuditUnits)
+        {
+            var parentId = unit.ParentName is null ? (long?)null : auditUnitIds[unit.ParentName];
+            auditUnitIds[unit.Name] = await SendIdAsync(new CreateAuditUnitCommand(new(parentId, scopeTypeIds[unit.ScopeTypeKey], unit.Name, null, unit.UsageState, unit.UsageStateReason, DemoFixtureDefinition.FixtureNote)), cancellationToken);
+        }
+        var technicalArea = scopeTypeIds["TECHNICAL_AREA"];
+        var serverRoom = auditUnitIds[DemoFixtureDefinition.ServerRoomName];
 
         var readyCatalog = await SendIdAsync(new CreateCatalogVersionCommand(documentId, DemoFixtureDefinition.FixtureNote), cancellationToken);
         foreach (var group in DemoFixtureDefinition.Requirements.GroupBy(requirement => requirement.Topic))
@@ -163,7 +166,7 @@ public sealed class DemoFixtureRunner(AuditariumDbContext db, IMediator mediator
 
     private async Task<bool> HasCompleteFixtureShapeAsync(Document marker, CancellationToken cancellationToken)
     {
-        if (marker.Title != DemoFixtureDefinition.CompleteTitle || await db.Documents.CountAsync(cancellationToken) != 1 || await db.AuditUnits.CountAsync(cancellationToken) != 5 || await db.Audits.CountAsync(cancellationToken) != 5 || !await db.AuditUnits.AllAsync(unit => unit.Notes == DemoFixtureDefinition.FixtureNote, cancellationToken))
+        if (marker.Title != DemoFixtureDefinition.CompleteTitle || await db.Documents.CountAsync(cancellationToken) != 1 || await db.Audits.CountAsync(cancellationToken) != 5 || !await HasExpectedAuditUnitsAsync(cancellationToken))
             return false;
         var catalogs = await db.CatalogVersions.Where(catalog => catalog.DocumentId == marker.DocumentId).OrderBy(catalog => catalog.VersionNumber).ToListAsync(cancellationToken);
         if (catalogs.Count != 2 || catalogs[0].CatalogState != CatalogState.Ready || catalogs[1].CatalogState != CatalogState.Draft || catalogs.Any(catalog => catalog.Notes != DemoFixtureDefinition.FixtureNote)) return false;
@@ -173,6 +176,25 @@ public sealed class DemoFixtureRunner(AuditariumDbContext db, IMediator mediator
             return false;
         var audits = await db.Audits.ToListAsync(cancellationToken);
         return audits.All(audit => audit.Notes == DemoFixtureDefinition.FixtureNote) && audits.Count(audit => audit.AuditState == AuditState.Finalized) == 1 && audits.Any(audit => audit.Name == DemoFixtureDefinition.RepeatAuditName && audit.OriginAuditId is not null) && audits.Any(audit => audit.AuditState == AuditState.Draft) && audits.Any(audit => audit.AuditState == AuditState.Ready) && audits.Any(audit => audit.AuditState == AuditState.InProgress) && audits.Any(audit => audit.AuditState == AuditState.Canceled);
+    }
+
+    private async Task<bool> HasExpectedAuditUnitsAsync(CancellationToken cancellationToken)
+    {
+        var units = await (from unit in db.AuditUnits
+                           join scope in db.ScopeTypes on unit.ScopeTypeId equals scope.ScopeTypeId
+                           select new { unit.AuditUnitId, unit.Name, ScopeTypeKey = scope.Key, unit.ParentAuditUnitId, unit.UsageState, unit.UsageStateReason, unit.Notes }).ToListAsync(cancellationToken);
+        if (units.Count != DemoFixtureDefinition.ExpectedAuditUnitCount || units.Count != DemoFixtureDefinition.AuditUnits.Count || units.Select(unit => unit.Name).Distinct(StringComparer.Ordinal).Count() != units.Count || units.Any(unit => unit.Notes != DemoFixtureDefinition.FixtureNote))
+            return false;
+
+        var names = units.ToDictionary(unit => unit.Name);
+        return DemoFixtureDefinition.AuditUnits.All(expected =>
+            names.TryGetValue(expected.Name, out var actual)
+            && actual.ScopeTypeKey == expected.ScopeTypeKey
+            && actual.UsageState == expected.UsageState
+            && actual.UsageStateReason == expected.UsageStateReason
+            && (expected.ParentName is null
+                ? actual.ParentAuditUnitId is null
+                : actual.ParentAuditUnitId is { } parentId && names.TryGetValue(expected.ParentName, out var parent) && parentId == parent.AuditUnitId));
     }
 
     private async Task<bool> HasBusinessDataAsync(CancellationToken cancellationToken) =>
