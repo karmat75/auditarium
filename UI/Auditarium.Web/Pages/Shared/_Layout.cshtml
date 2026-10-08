@@ -100,6 +100,7 @@
     <script src="~/vendor/adminlte/4.9.1/js/adminlte.min.js" defer></script>
     <script src="~/js/theme.js" asp-append-version="true" defer></script>
     <script src="~/vendor/tabulator/6.5.0/tabulator.min.js" defer></script>
+    @await RenderSectionAsync("Scripts", required: false)
     <script src="~/js/tables.js" asp-append-version="true" defer></script>
 </body>
 </html>
