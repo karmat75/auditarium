@@ -42,21 +42,66 @@
         return link;
     };
 
-    const actionFormatter = (cell, formatterParams) => {
-        const row = cell.getRow().getData();
-        const action = window.AuditariumGridActions?.[formatterParams.action];
-        if (typeof action !== "function" || (formatterParams.visibleField && !row[formatterParams.visibleField])) {
-            return "";
+    const actionControl = (row, definition) => {
+        if (definition.visibleField && !row[definition.visibleField]) {
+            return null;
         }
 
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = formatterParams.buttonClass || "btn btn-outline-secondary btn-sm aud-tabulator-action";
-        button.title = formatterParams.label;
-        button.setAttribute("aria-label", formatterParams.label);
-        button.innerHTML = `<i class="${formatterParams.icon}" aria-hidden="true"></i>`;
-        button.addEventListener("click", () => action(row, button));
-        return button;
+        const target = definition.urlField && row[definition.urlField];
+        const action = definition.action && window.AuditariumGridActions?.[definition.action];
+        if (!target && typeof action !== "function") {
+            return null;
+        }
+
+        const control = target ? document.createElement("a") : document.createElement("button");
+        control.className = definition.buttonClass || "btn btn-outline-secondary btn-sm aud-tabulator-action";
+        control.title = definition.label;
+        control.setAttribute("aria-label", definition.label);
+        if (target) control.href = target;
+        else {
+            control.type = "button";
+            control.addEventListener("click", () => action(row, control));
+        }
+        const icon = document.createElement("i");
+        icon.className = definition.icon;
+        icon.setAttribute("aria-hidden", "true");
+        control.append(icon);
+        return control;
+    };
+
+    const actionFormatter = (cell, formatterParams) => actionControl(cell.getRow().getData(), formatterParams) || "";
+    const actionsFormatter = (cell, formatterParams) => {
+        const actions = document.createElement("div");
+        actions.className = "aud-tabulator-actions";
+        formatterParams.actions.forEach((definition) => {
+            const control = actionControl(cell.getRow().getData(), definition);
+            if (control) actions.append(control);
+        });
+        return actions.childElementCount ? actions : "";
+    };
+
+    const syncTreeControlState = (element) => {
+        element.querySelectorAll(".tabulator-data-tree-control").forEach((control) => {
+            control.setAttribute("aria-expanded", control.querySelector(".tabulator-data-tree-control-collapse") ? "true" : "false");
+        });
+    };
+
+    const makeTreeControlsAccessible = (element) => {
+        syncTreeControlState(element);
+        element.querySelectorAll(".tabulator-data-tree-control").forEach((control) => {
+            if (control.dataset.audTreeControl === "true") return;
+            control.dataset.audTreeControl = "true";
+            control.tabIndex = 0;
+            control.setAttribute("role", "button");
+            control.setAttribute("aria-label", "Untergeordnete Audit Units ein- oder ausblenden");
+            control.addEventListener("click", () => window.requestAnimationFrame(() => syncTreeControlState(element)));
+            control.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    control.click();
+                }
+            });
+        });
     };
 
     const scopeTypeFormatter = (cell) => {
@@ -168,6 +213,11 @@
                 };
                 column.headerSort = false;
             }
+            if (column.actions) {
+                column.formatter = actionsFormatter;
+                column.formatterParams = { actions: column.actions };
+                column.headerSort = false;
+            }
         });
 
         const fallback = element.previousElementSibling;
@@ -184,7 +234,7 @@
                 return requestUrl.toString();
             },
             columns,
-            layout: "fitDataStretch",
+            layout: isTree ? "fitColumns" : "fitDataStretch",
             pagination: !isTree,
             paginationMode: isTree ? undefined : "remote",
             paginationSize: isTree ? undefined : 25,
@@ -210,6 +260,7 @@
         });
 
         if (isTree) {
+            table.on("renderComplete", () => makeTreeControlsAccessible(element));
             let hasLoadedTree = false;
             let pendingTreeState;
             table.on("dataLoading", () => {

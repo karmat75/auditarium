@@ -121,6 +121,12 @@ body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
 .aud-grid-pagination .tabulator-page:disabled { opacity: .5; }
 .aud-grid-pagination .tabulator-page.active { background: var(--aud-accent); border-color: var(--aud-accent); color: #fff; }
 .aud-tabulator-action { min-width: 2.25rem; }
+.aud-tabulator-actions, .aud-audit-unit-fallback-actions { display: inline-flex; gap: .25rem; align-items: center; }
+.aud-audit-unit-tree-grid .tabulator { min-width: 59rem; }
+.aud-audit-unit-tree-grid .tabulator-data-tree-control:focus-visible { outline: .2rem solid color-mix(in srgb, var(--aud-accent) 65%, transparent); outline-offset: .15rem; }
+.aud-detail-list { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: .75rem 1rem; max-width: 52rem; }
+.aud-detail-list dt { font-weight: 650; }
+.aud-detail-list dd { margin: 0; white-space: pre-wrap; }
 @media (max-width: 575.98px) { .aud-data-card .card-header { display: flex; flex-wrap: wrap; gap: .75rem; align-items: stretch; } .aud-grid-search { width: 100%; } .aud-grid-pagination { width: 100%; margin-left: 0; } }
 .aud-pagination { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
 .aud-pagination-summary { color: var(--aud-text-muted); }
