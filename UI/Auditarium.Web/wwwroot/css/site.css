@@ -63,7 +63,7 @@ body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
 .app-content h3 { margin: 1.5rem 0 .75rem; font-size: 1.05rem; font-weight: 650; }
 .app-content a { color: var(--aud-accent); }
 .subnav, .aud-action-bar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
-.filter-form, .form-grid, .app-content form:not(.d-inline):not(.aud-inline-form) { display: grid; gap: .75rem; max-width: 48rem; margin: 1rem 0; }
+.filter-form, .form-grid, .app-content form:not(.d-inline):not(.aud-inline-form):not(.aud-grid-search) { display: grid; gap: .75rem; max-width: 48rem; margin: 1rem 0; }
 .filter-form { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); max-width: none; padding: 1rem; background: var(--aud-bg-surface); border: 1px solid var(--aud-border); border-radius: .5rem; }
 .app-content label, .app-content legend { display: block; font-weight: 600; }
 .app-content input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not(.form-control), .app-content select:not(.form-select):not(.tabulator-page-size), .app-content textarea:not(.form-control) { box-sizing: border-box; width: 100%; max-width: 36rem; margin-top: .25rem; color: var(--aud-text); background: var(--aud-bg-elevated); border: 1px solid var(--aud-border); border-radius: .375rem; padding: .45rem .65rem; }
@@ -103,7 +103,7 @@ body { margin: 0; color: var(--aud-text); background: var(--aud-bg-page); }
 .aud-grid-search { width: min(100%, 18rem); margin: 0; }
 .aud-grid-search .input-group { flex-wrap: nowrap; }
 .aud-grid-search .form-control { min-width: 0; }
-.aud-tabulator { overflow-x: auto; }
+.aud-tabulator { max-width: 100%; overflow-x: auto; }
 .aud-tabulator .tabulator { border: 0; font-family: inherit; }
 .aud-tabulator .tabulator .tabulator-header, .aud-tabulator .tabulator .tabulator-footer { background: var(--aud-bg-elevated); border-color: var(--aud-border); color: var(--aud-text); }
 .aud-tabulator .tabulator .tabulator-header .tabulator-col { background: var(--aud-bg-elevated); border-color: var(--aud-border); color: var(--aud-text); }

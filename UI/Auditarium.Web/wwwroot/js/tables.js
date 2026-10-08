@@ -1,16 +1,28 @@
 (() => {
     "use strict";
 
-    const tables = [];
+    const gridTables = new Map();
+    const pendingRedraws = new Set();
     let redrawFrame;
-    const scheduleRedraw = () => {
+    const queueRedraw = (grid) => {
+        pendingRedraws.add(grid);
         window.cancelAnimationFrame(redrawFrame);
-        redrawFrame = window.requestAnimationFrame(() => tables.forEach((table) => table.redraw(true)));
+        redrawFrame = window.requestAnimationFrame(() => {
+            pendingRedraws.forEach(({ table }) => table.redraw(true));
+            pendingRedraws.clear();
+        });
+    };
+    const queueRedrawForChangedWidth = (target, width) => {
+        const grid = gridTables.get(target);
+        if (grid && grid.width !== width) {
+            grid.width = width;
+            queueRedraw(grid);
+        }
     };
     const resizeObserver = typeof window.ResizeObserver === "function"
-        ? new window.ResizeObserver(scheduleRedraw)
+        ? new window.ResizeObserver((entries) => entries.forEach((entry) => queueRedrawForChangedWidth(entry.target, entry.contentRect.width)))
         : null;
-    window.addEventListener("resize", scheduleRedraw);
+    window.addEventListener("resize", () => gridTables.forEach((grid, target) => queueRedrawForChangedWidth(target, target.clientWidth)));
 
     const statusFormatter = (cell) => {
         const status = document.createElement("span");
@@ -93,7 +105,7 @@
                 return requestUrl.toString();
             },
             columns,
-            layout: "fitColumns",
+            layout: "fitDataStretch",
             pagination: true,
             paginationMode: "remote",
             paginationSize: 25,
@@ -115,9 +127,10 @@
 
         table.on("tableBuilt", () => {
             fallback?.setAttribute("hidden", "hidden");
-            tables.push(table);
-            resizeObserver?.observe(element.closest(".card") || element);
-            scheduleRedraw();
+            const container = element.parentElement || element;
+            const grid = { table, width: container.clientWidth };
+            gridTables.set(container, grid);
+            resizeObserver?.observe(container);
         });
     });
 })();

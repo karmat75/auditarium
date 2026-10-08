@@ -31,6 +31,31 @@ public sealed class AuditWorkflowIntegrationTests
         await VerifyEmptyListsAsync("SqlServer", container.GetConnectionString());
     }
 
+    [Fact]
+    public async Task Audit_unit_list_sorting_returns_the_rows_in_the_requested_order()
+    {
+        await using var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        await container.StartAsync();
+        await using var provider = CreateProvider(container.GetConnectionString());
+        await provider.InitializeAuditariumDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditariumDbContext>();
+        var commands = new AuditCommandHandler(db, new TestActor());
+
+        Assert.True((await commands.Handle(new CreateAuditUnitCommand(new(null, 6, "Beta", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None)).IsSuccess);
+        Assert.True((await commands.Handle(new CreateAuditUnitCommand(new(null, 2, "Alpha", null, AuditUnitUsageState.Inactive, "Nicht verwendet", null)), CancellationToken.None)).IsSuccess);
+        Assert.True((await commands.Handle(new CreateAuditUnitCommand(new(null, 1, "Gamma", null, AuditUnitUsageState.Active, null, null)), CancellationToken.None)).IsSuccess);
+
+        var queries = new AuditQueryHandler(db);
+        var byName = await queries.Handle(new ListAuditUnitsQuery(null, 0, 25, "name", false), CancellationToken.None);
+        var byScopeType = await queries.Handle(new ListAuditUnitsQuery(null, 0, 25, "scopeType", false), CancellationToken.None);
+        var byUsageState = await queries.Handle(new ListAuditUnitsQuery(null, 0, 25, "usageState", true), CancellationToken.None);
+
+        Assert.Equal(["Alpha", "Beta", "Gamma"], byName.Value!.Items.Select(item => item.Name));
+        Assert.Equal(["Gamma", "Alpha", "Beta"], byScopeType.Value!.Items.Select(item => item.Name));
+        Assert.Equal("Alpha", byUsageState.Value!.Items[0].Name);
+    }
+
     private static async Task VerifyEmptyListsAsync(string databaseProvider, string connectionString)
     {
         await using var provider = CreateProvider(databaseProvider, connectionString);
