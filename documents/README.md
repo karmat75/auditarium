@@ -9,7 +9,7 @@ Information in mehreren Artefakten als konkurrierende Wahrheit gepflegt wird.
 | --- | --- |
 | Code und automatisierte Tests | Nachweis des tatsächlich implementierten Verhaltens |
 | [Architektur-Dokumentation](Architecture/Overview.md) | Gepflegte Beschreibung der aktuell beabsichtigten Architektur |
-| [ADRs](ADR/) | Dauerhafte Entscheidungen zu wesentlichen Architekturfragen und deren Begründung |
+| [UI-Komponenten-Roadmap](UI/ComponentRoadmap.md) | Lebende fachliche Bearbeitungsreihenfolge und Seitenumfang pro Komponente |\n| [UI-/UX-Bausteinkatalog](UI/ComponentCatalog.md) | Bewährte wiederverwendbare Muster, Einsatzregeln und Reifegrade |\n| [ADRs](ADR/) | Dauerhafte Entscheidungen zu wesentlichen Architekturfragen und deren Begründung |
 | [GitHub Issues](https://github.com/karmat75/auditarium/issues) | Aktiver Backlog für geplante Arbeit und Änderungen |
 | GitHub Project | Workflow-Status und Priorisierung, nicht dauerhafte Architektur-Dokumentation |
 | [README.md](../README.md) | Einstieg und Navigation für das Repository, nicht der Architekturkanon |
