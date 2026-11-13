@@ -14,7 +14,7 @@ RUN dotnet restore Auditarium.sln --locked-mode
 RUN dotnet publish UI/Auditarium.Api/Auditarium.Api.csproj --no-restore -c Release -o /out/api
 RUN dotnet publish UI/Auditarium.Web/Auditarium.Web.csproj --no-restore -c Release -o /out/web
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS api
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
@@ -24,7 +24,7 @@ ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Auditarium.Api.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS web
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS web
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
