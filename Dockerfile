@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS development
 WORKDIR /workspace
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
